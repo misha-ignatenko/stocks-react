@@ -5,9 +5,13 @@
 # but you can also edit it by hand.
 
 meteor-platform
-autopublish
-insecure
 jquery
 bootstrap
 momentjs:moment
 react
+accounts-ui
+accounts-password
+underscore
+ajbarry:yahoo-finance
+jhuenges:highstock
+reactive-var
