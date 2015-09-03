@@ -64,6 +64,16 @@ Meteor.methods({
             addedByUsername: Meteor.user().username
         });
     },
+    addStockToPickList: function(pickListId, stockSymbol) {
+        //TODO check that the stock isn't a duplicate
+        PickListItems.insert({
+            pickListId: pickListId,
+            stockSymbol: stockSymbol
+        });
+    },
+    removePickList: function(pickListId) {
+        PickLists.remove(pickListId);
+    },
     getFullQuote: function (symbol) {
         var _fullQuote = YahooFinance.snapshot({symbols: [symbol]});
         return _fullQuote;

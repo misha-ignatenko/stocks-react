@@ -23,7 +23,7 @@ var StocksApp = React.createClass({
     renderPickLists() {
         return this.data.pickLists.map((pickList) => {
             const currentUserId = this.data.currentUser && this.data.currentUser._id;
-            const showPrivateButton = pickList.owner === currentUserId;
+            const showPrivateButton = pickList.addedBy === currentUserId;
 
             return <PickList
                 key={pickList._id}
@@ -80,9 +80,7 @@ var StocksApp = React.createClass({
                     }
                 </header>
 
-                <ul>
-                    {this.renderPickLists()}
-                </ul>
+                {this.renderPickLists()}
             </div>
         );
     }
