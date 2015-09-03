@@ -1,22 +1,3 @@
-//var StocksApp = React.createClass({
-//    getTasks() {
-//        return [
-//            { _id: 1, text: "This is task 1" },
-//            { _id: 2, text: "This is task 2" },
-//            { _id: 3, text: "This is task 3" }
-//        ];
-//    },
-//
-//    render() {
-//        return (
-//            <div className="container">
-//                <p>this paragraph comes from inside React</p>
-//            </div>
-//        );
-//    }
-//});
-
-
 var StocksApp = React.createClass({
 
     mixins: [ReactMeteorData],
@@ -106,12 +87,6 @@ var StocksApp = React.createClass({
         );
     }
 });
-
-
-
-
-
-
 
 if (Meteor.isClient) {
 

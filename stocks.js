@@ -19,9 +19,9 @@ if (Meteor.isClient) {
     Meteor.subscribe("gradingScales");
     Meteor.subscribe("pickListItems");
 
-    Meteor.startup(function () {
-        React.render(<App />, document.getElementById("render-target"));
-    });
+    //Meteor.startup(function () {
+    //    React.render(<App />, document.getElementById("render-target"));
+    //});
 }
 
 if (Meteor.isServer) {
