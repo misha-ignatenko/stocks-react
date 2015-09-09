@@ -64,12 +64,24 @@ Meteor.methods({
             addedByUsername: Meteor.user().username
         });
     },
-    addStockToPickList: function(pickListId, stockSymbol) {
-        //TODO check that the stock isn't a duplicate
-        PickListItems.insert({
+    addStockToPickList: function(pickListId, stockId, dateAdded) {
+        var _alreadyExistingPickListItem = PickListItems.findOne({
             pickListId: pickListId,
-            stockSymbol: stockSymbol
+            stockId: stockId,
+            dateAdded: dateAdded
         });
+        if (_alreadyExistingPickListItem) {
+            console.log("attempt to enter duplicate pick list item prevented. item id: ", _alreadyExistingPickListItem._id, ", stock symbol: ", _alreadyExistingPickListItem.stockId);
+        } else {
+            PickListItems.insert({
+                pickListId: pickListId,
+                stockId: stockId,
+                dateAdded: dateAdded
+            });
+        }
+    },
+    removeStockFromPickList: function(pickListId, stockId) {
+        //TODO check for duplicated dateRemoved
     },
     removePickList: function(pickListId) {
         PickLists.remove(pickListId);

@@ -15,7 +15,7 @@ PickList = React.createClass({
 
     getMeteorData() {
         let pickListsQuery = {
-
+            pickListId: this.props.pickList._id
         };
 
         return {

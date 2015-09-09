@@ -14,7 +14,7 @@ PickListItem = React.createClass({
                 { this.props.showPickListItem ? (
                     <li>
                         <span className="text">
-                            <strong>{this.props.pickListItem.stockSymbol}</strong>
+                            <strong>{this.props.pickListItem.stockId}</strong>
                         </span>
 
                         //TODO: ADD CHARTS HERE
