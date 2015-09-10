@@ -4,7 +4,8 @@ PickList = React.createClass({
 
     getInitialState: function() {
         return {
-            showStockEntryPage: false
+            showStockEntryPage: false,
+            hidePickListItems: true
         };
     },
 
@@ -14,12 +15,13 @@ PickList = React.createClass({
     },
 
     getMeteorData() {
-        let pickListsQuery = {
+        let _pickListsQuery = {
             pickListId: this.props.pickList._id
         };
 
         return {
-            pickListItems: PickListItems.find(pickListsQuery).fetch(),
+            pickListItems: PickListItems.find(_pickListsQuery).fetch(),
+            pickListItemsCount: PickListItems.find(_pickListsQuery).count()
         }
     },
 
@@ -33,6 +35,12 @@ PickList = React.createClass({
 
     togglePrivate() {
         Meteor.call("setPrivate", this.props.pickList._id, ! this.props.pickList.private);
+    },
+
+    toggleHidePickListItems() {
+        this.setState({
+            hidePickListItems: !this.state.hidePickListItems
+        });
     },
 
     showStockEntryPageAction() {
@@ -74,8 +82,15 @@ PickList = React.createClass({
                     </button>
                 ) : ''}
 
+                <button className="btn btn-default" onClick={this.toggleHidePickListItems}>
+                    { this.state.hidePickListItems ? "show items" : "hide items" }
+                </button>
+
                 <span className="text">
-                    <strong>{this.props.pickList.addedByUsername}</strong>: {this.props.pickList.listName}. Stocks: <ul>{this.renderPickListItems()}</ul>
+                    <strong>{this.props.pickList.addedByUsername}</strong>: {this.props.pickList.listName}. Stocks ({this.data.pickListItemsCount}):
+                    { !this.state.hidePickListItems ? (
+                        <ul>{this.renderPickListItems()}</ul>
+                    ) : ''}
                 </span>
 
                 <div className="row">
