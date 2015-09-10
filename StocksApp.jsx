@@ -81,6 +81,15 @@ var StocksApp = React.createClass({
                 </header>
 
                 {this.renderPickLists()}
+
+
+
+
+                <Example />
+
+                
+
+
             </div>
         );
     }
