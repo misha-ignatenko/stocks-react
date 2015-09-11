@@ -64,7 +64,6 @@ PickList = React.createClass({
     },
 
     stockToGraphAddition: function(stockToShowObj) {
-        console.log("need to add the following symbol to pick list state (stocksToGraph):", stockToShowObj);
         if (stockToShowObj.shouldBeGraphed) {
             let _allStocksToGraphSoFar = this.state.stocksToGraph;
             //now need to either add the stockId if it's not in the array already
@@ -84,24 +83,19 @@ PickList = React.createClass({
                 return stockId === stockToShowObj.stockId;
             });
             if (_findStock) {
-                console.log("need to remove this stock from stocks to graph list: ", stockToShowObj.stockId);
                 let _newList = _.reject(_allStocksToGraphSoFar, function(stockId) {
                     return stockId === stockToShowObj.stockId;
                 });
-                console.log("new list: ", _newList);
                 this.setState({
                     stocksToGraph: _newList
                 });
             }
         }
-
-        console.log("now the list of stocks to be graphes is: ", this.state.stocksToGraph);
     },
 
     render() {
         const pickListClassName = (this.props.pickList.checked ? "checked" : "") + " " +
             (this.props.pickList.private ? "private" : "");
-        let _stuffToGraph = [];
 
         return (
             <div className={pickListClassName}>
@@ -125,7 +119,7 @@ PickList = React.createClass({
 
                 { this.state.showGraph ? (
                     <StocksGraph
-                        stuffToGraph={_stuffToGraph} />
+                        stocksToGraph={this.state.stocksToGraph}/>
                 ) : null}
 
                 stocks to graph reactively: { this.state.stocksToGraph }
