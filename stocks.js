@@ -47,6 +47,20 @@ if (Meteor.isServer) {
     Meteor.publish("pickListItems", function () {
         return PickListItems.find();
     });
+
+    var _pickListItemsObjects = Meteor.call('getStartupPickListData');
+    _pickListItemsObjects.forEach(function(obj) {
+        var _pickListIdInProcess = obj.pickListId;
+        var _pickListItemsInProcess = obj.pickListItems;
+        console.log("pickListId: ", _pickListIdInProcess);
+        if (PickListItems.find({pickListId: _pickListIdInProcess}).count() === 0 ) {
+            console.log("there are zero items in the following pick list id: ", _pickListIdInProcess);
+            console.log("inserting ", _pickListItemsInProcess.length, " pick list items into pickListItems colleciton.");
+            _pickListItemsInProcess.forEach(function(obj) {
+                PickListItems.insert(obj);
+            });
+        }
+    });
 }
 
 Meteor.methods({
@@ -118,3 +132,4 @@ Meteor.methods({
         }
     }
 });
+

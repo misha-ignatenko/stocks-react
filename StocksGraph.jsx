@@ -18,42 +18,56 @@ StocksGraph = React.createClass({
         console.log("inside initialize chart. stocks object to graph: ", stocksObjectsArray);
         var chartModel = {
             chart: {
-                renderTo: 'container',
-                type: 'bar'
+                renderTo: 'myChart',
+                type: 'scatter'
+            },
+            credits: {
+                enabled: false
             },
             title: {
                 text: 'Historic World Population by Region'
             },
-            subtitle: {
-                text: 'Source: Wikipedia.org'
-            },
-            xAxis: {
-                categories: ['Africa', 'America', 'Asia', 'Europe', 'Oceania'],
-                title: {
-                    text: null
-                }
-            },
-            yAxis: {
-                min: 0,
-                title: {
-                    text: 'Population (millions)',
-                    align: 'high'
-                },
-                labels: {
-                    overflow: 'justify'
-                }
-            },
             tooltip: {
+                snap: 5,
                 formatter: function() {
                     return ''+
                         this.series.name +': '+ this.y +' millions';
                 }
             },
             plotOptions: {
-                bar: {
+                scatter: {
                     dataLabels: {
                         enabled: true
+                    },
+                    lineWidth: 2
+                },
+                series: {
+                    enableMouseTracking: true,
+                    stickyTracking: false,
+                    tooltip: {
+
                     }
+                },
+                line: {
+                    marker: {
+                        enabled: true
+                    }
+                }
+            },
+            xAxis: {
+                min: 0,
+                max: 10,
+                title: {
+                    text: 'dates'
+                }
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: 'Stock price, $'
+                },
+                labels: {
+                    overflow: 'justify'
                 }
             },
             legend: {
@@ -66,9 +80,6 @@ StocksGraph = React.createClass({
                 borderWidth: 1,
                 backgroundColor: '#FFFFFF',
                 shadow: true
-            },
-            credits: {
-                enabled: false
             }
         };
 
@@ -76,7 +87,13 @@ StocksGraph = React.createClass({
         stocksObjectsArray.forEach(function(obj) {
             seriesModel.push({
                 name: obj.stockId,
-                data: [107, 31, 635, 203, 2]
+                data: [
+                    [1, 107],
+                    [2, 31],
+                    [3, 635],
+                    [4, 203],
+                    [5, 2]
+                ]
             });
         });
         var width = this.props.width || null;
