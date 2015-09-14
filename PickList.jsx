@@ -7,7 +7,6 @@ PickList = React.createClass({
             showStockEntryPage: false,
             hidePickListItems: true,
             showGraph: true,
-            stocksToGraph: [],
             stocksToGraphObjects: []
         };
     },
@@ -66,36 +65,28 @@ PickList = React.createClass({
 
     stockToGraphAddition: function(stockToShowObj) {
         if (stockToShowObj.shouldBeGraphed) {
-            let _allStocksToGraphSoFar = this.state.stocksToGraph;
             let _allStocksToGraphObjects = this.state.stocksToGraphObjects;
             //now need to either add the stockId if it's not in the array already
-            let _findStock = _.find(_allStocksToGraphSoFar, function(stockId) {
-                return stockId === stockToShowObj.stockId;
+            let _findStock = _.find(_allStocksToGraphObjects, function(obj) {
+                return obj.stockId === stockToShowObj.stockId;
             });
             if (!_findStock) {
-                _allStocksToGraphSoFar.push(stockToShowObj.stockId);
                 _allStocksToGraphObjects.push(stockToShowObj);
                 this.setState({
-                    stocksToGraph: _allStocksToGraphSoFar,
                     stocksToGraphObjects: _allStocksToGraphObjects
                 });
             }
         } else {
             //make sure to remove the stock
-            let _allStocksToGraphSoFar = this.state.stocksToGraph;
             let _allStocksToGraphObjects = this.state.stocksToGraphObjects;
-            let _findStock = _.find(_allStocksToGraphSoFar, function(stockId) {
-                return stockId === stockToShowObj.stockId;
+            let _findStock = _.find(_allStocksToGraphObjects, function(obj) {
+                return obj.stockId === stockToShowObj.stockId;
             });
             if (_findStock) {
-                let _newList = _.reject(_allStocksToGraphSoFar, function(stockId) {
-                    return stockId === stockToShowObj.stockId;
-                });
                 let _newListOfObjects = _.reject(_allStocksToGraphObjects, function(obj) {
                     return obj.stockId === stockToShowObj.stockId;
                 });
                 this.setState({
-                    stocksToGraph: _newList,
                     stocksToGraphObjects: _newListOfObjects
                 });
             }
@@ -128,11 +119,8 @@ PickList = React.createClass({
 
                 { this.state.showGraph ? (
                     <StocksGraph
-                        stocksToGraph={this.state.stocksToGraph}
                         stocksToGraphObjects={this.state.stocksToGraphObjects}/>
                 ) : null}
-
-                stocks to graph reactively: { this.state.stocksToGraph }
 
                 <br/>
                 <br/>
