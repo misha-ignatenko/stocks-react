@@ -3,22 +3,26 @@ StocksGraph = React.createClass({
     getInitialState: function() {
         return {
             //chartInstance: null
-            stocksToGrph: []
+            stocksToGrph: [],
+            stocksToGrphObjects: []
         }
     },
 
     propTypes: {
-        stocksToGraph: React.PropTypes.array.isRequired
+        stocksToGraph: React.PropTypes.array.isRequired,
+        stocksToGraphObjects: React.PropTypes.array.isRequired
     },
 
     componentWillReceiveProps: function(nextProps) {
         this.setState({
-            stocksToGrph: nextProps.stocksToGraph
+            stocksToGrph: nextProps.stocksToGraph,
+            stocksToGrphObjects: nextProps.stocksToGraphObjects
         });
-        this.initializeChart(nextProps.stocksToGraph);
+        this.initializeChart(nextProps.stocksToGraphObjects);
     },
 
-    initializeChart: function(stocksArg) {
+    initializeChart: function(stocksObjectsArray) {
+        console.log("inside initialize chart. stocks object to graph: ", stocksObjectsArray);
         var chartModel = {
             chart: {
                 renderTo: 'container',
@@ -76,9 +80,9 @@ StocksGraph = React.createClass({
         };
 
         var seriesModel = [];
-        stocksArg.forEach(function(symbol) {
+        stocksObjectsArray.forEach(function(obj) {
             seriesModel.push({
-                name: symbol,
+                name: obj.stockId,
                 data: [107, 31, 635, 203, 2]
             });
         });

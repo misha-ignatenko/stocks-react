@@ -20,17 +20,11 @@ PickListItem = React.createClass({
 
         this.props.stockToGraphAddition({
             stockId: this.props.pickListItem.stockId,
-            shouldBeGraphed: !this.state.includeInGraph
+            shouldBeGraphed: !this.state.includeInGraph,
+            dateAdded: this.props.pickListItem.dateAdded,
+            dateRemoved: this.props.pickListItem.dateRemoved,
+            ratingWhenAdded: this.props.pickListItem.ratingWhenAdded
         });
-
-
-        //if ( !this.state.includeInGraph ) {
-        //    this.props.stockToGraphAddition(this.props.pickListItem.stockId);
-        //} else {
-        //    this.props.stockToGraphAddition(null);
-        //}
-
-
 
         //first need to set the state of button as active
         this.setState({

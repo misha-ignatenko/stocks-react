@@ -97,5 +97,24 @@ Meteor.methods({
     getCompanyName: function (symbol) {
         var _quote = YahooFinance.snapshot({symbols: [symbol], fields: ['n']});
         return _quote[symbol].name;
+    },
+    getHistoricalData: function(symbol, startDate, endDate) {
+        //TODO first need to check if historical stock data exists in stockPrices collection.
+        //TODO if data is not there, then select which data is missing: startDateInCollection minus startDate and endDate minus endDateInCollection
+        //get data from yahoo finance for those two time intervals
+        //if data is already in
+        //update the existingStartDate and existingEndDate after pulling new data
+        var _stockPricesObj = StockPrices.findOne({symbol: symbol});
+        if (_stockPricesObj && _stockPricesObj.historicalData && _stockPricesObj.existingStartDate && _stockPricesObj.existingEndDate) {
+            //this means there IS previously recorded data in the StockPrices object for the selected stock symbol.
+        } else {
+            //this means that there is no data at all in the StockPrices array so we need to just pull it from Yahoo Finance
+            //AND update existingStartDate and existingEndDate to startDate and endDate correspondingly.
+            console.log("initializing historical data because previous data doesn't exist.");
+            console.log("sample date: ", new Date());
+            console.log("stock symbol: ", symbol);
+            console.log("start date: ", startDate);
+            console.log("end date: ", endDate);
+        }
     }
 });
