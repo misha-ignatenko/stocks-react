@@ -19,7 +19,7 @@ StocksGraph = React.createClass({
         var chartModel = {
             chart: {
                 renderTo: 'myChart',
-                type: 'scatter'
+                type: 'line'
             },
             credits: {
                 enabled: false
@@ -28,38 +28,26 @@ StocksGraph = React.createClass({
                 text: 'Historic World Population by Region'
             },
             tooltip: {
-                snap: 5,
                 formatter: function() {
                     return ''+
-                        this.series.name +': '+ this.y +' millions';
+                        this.series.name +': '+ this.y +' $';
                 }
             },
             plotOptions: {
-                scatter: {
-                    dataLabels: {
-                        enabled: true
-                    },
-                    lineWidth: 2
-                },
                 series: {
                     enableMouseTracking: true,
                     stickyTracking: false,
                     tooltip: {
 
                     }
-                },
-                line: {
-                    marker: {
-                        enabled: true
-                    }
                 }
             },
             xAxis: {
-                min: 0,
-                max: 10,
                 title: {
                     text: 'dates'
-                }
+                },
+                //TODO FIX THIS -- dates are glitchy
+                type: 'datetime'
             },
             yAxis: {
                 min: 0,
@@ -85,16 +73,19 @@ StocksGraph = React.createClass({
 
         var seriesModel = [];
         stocksObjectsArray.forEach(function(obj) {
-            seriesModel.push({
-                name: obj.stockId,
-                data: [
-                    [1, 107],
-                    [2, 31],
-                    [3, 635],
-                    [4, 203],
-                    [5, 2]
-                ]
-            });
+            //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
+            var _histData = obj.historicalData;
+            if (_histData) {
+                let _seriesDataArray = [];
+                _histData.forEach(function (histData) {
+                    _seriesDataArray.push([histData.date, histData.adjClose]);
+                });
+
+                seriesModel.push({
+                    name: obj.stockId,
+                    data: _seriesDataArray
+                });
+            }
         });
         var width = this.props.width || null;
         var height = this.props.height || null;

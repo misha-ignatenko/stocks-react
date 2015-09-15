@@ -21,10 +21,25 @@ PickList = React.createClass({
             pickListId: this.props.pickList._id
         };
 
+        //let _selectedStocksList = [];
+        //this.state.stocksToGraphObjects.map((stockObj) => {
+        //    _selectedStocksList.push(stockObj.stockId);
+        //});
+        //let _stockPricesQuery = { symbol: {$in: _selectedStocksList} };
+
         return {
             pickListItems: PickListItems.find(_pickListsQuery).fetch(),
-            pickListItemsCount: PickListItems.find(_pickListsQuery).count()
+            pickListItemsCount: PickListItems.find(_pickListsQuery).count(),
+            //stockPrices: StockPrices.find(_stockPricesQuery).fetch()
         }
+    },
+
+    shouldComponentUpdate(nextProps, nextState) {
+        //console.log("inside should component update of pickList.jsx");
+        //console.log("next props: ", nextProps);
+        //console.log("next state: ", nextState);
+        //console.log("this.data.stockPrices: ", this.data.stockPrices);
+        return nextProps.pickList._id === this.props.pickList._id;
     },
 
     toggleChecked() {
@@ -65,17 +80,23 @@ PickList = React.createClass({
 
     stockToGraphAddition: function(stockToShowObj) {
         if (stockToShowObj.shouldBeGraphed) {
-            let _allStocksToGraphObjects = this.state.stocksToGraphObjects;
-            //now need to either add the stockId if it's not in the array already
-            let _findStock = _.find(_allStocksToGraphObjects, function(obj) {
-                return obj.stockId === stockToShowObj.stockId;
+            var _that = this;
+            Meteor.call('checkHistoricalData', stockToShowObj.stockId, stockToShowObj.dateAdded, stockToShowObj.dateRemoved ? stockToShowObj.dateRemoved : "2015-09-11", function(err, result) {
+                if (result && result.historicalData) {
+                    let _allStocksToGraphObjects = _that.state.stocksToGraphObjects;
+                    //now need to either add the stockId if it's not in the array already
+                    let _findStock = _.find(_allStocksToGraphObjects, function(obj) {
+                        return obj.stockId === stockToShowObj.stockId;
+                    });
+                    if (!_findStock) {
+                        stockToShowObj.historicalData = result.historicalData;
+                        _allStocksToGraphObjects.push(stockToShowObj);
+                        _that.setState({
+                            stocksToGraphObjects: _allStocksToGraphObjects
+                        });
+                    }
+                }
             });
-            if (!_findStock) {
-                _allStocksToGraphObjects.push(stockToShowObj);
-                this.setState({
-                    stocksToGraphObjects: _allStocksToGraphObjects
-                });
-            }
         } else {
             //make sure to remove the stock
             let _allStocksToGraphObjects = this.state.stocksToGraphObjects;

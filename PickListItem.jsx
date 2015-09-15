@@ -47,7 +47,7 @@ PickListItem = React.createClass({
                 { this.props.showPickListItem ? (
                     <div className="row btn-group">
                         <button className={_buttonClassName} onClick={this.addToGraph}>
-                            <strong>{this.props.pickListItem.stockId}</strong>add charts
+                            <strong>{this.props.pickListItem.stockId} {this.props.pickListItem.dateAdded}</strong>add charts
                         </button>
                     </div>
                 ) : ''}
