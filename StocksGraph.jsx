@@ -28,18 +28,15 @@ StocksGraph = React.createClass({
                 text: 'Historic World Population by Region'
             },
             tooltip: {
-                formatter: function() {
-                    return ''+
-                        this.series.name +': '+ this.y +' $';
+                formatter: function () {
+                    return this.x + '\n' + this.series.name + ': ' + this.y + ' $';
                 }
             },
             plotOptions: {
                 series: {
                     enableMouseTracking: true,
                     stickyTracking: false,
-                    tooltip: {
-
-                    }
+                    tooltip: {}
                 }
             },
             xAxis: {
@@ -72,13 +69,13 @@ StocksGraph = React.createClass({
         };
 
         var seriesModel = [];
-        stocksObjectsArray.forEach(function(obj) {
+        stocksObjectsArray.forEach(function (obj) {
             //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
             var _histData = obj.historicalData;
             if (_histData) {
                 let _seriesDataArray = [];
                 _histData.forEach(function (histData) {
-                    _seriesDataArray.push([histData.date, histData.adjClose]);
+                    _seriesDataArray.push([new Date(histData.date).valueOf(), histData.adjClose]);
                 });
 
                 seriesModel.push({
@@ -89,7 +86,7 @@ StocksGraph = React.createClass({
         });
         var width = this.props.width || null;
         var height = this.props.height || null;
-        var selector = this.refs.myChart.getDOMNode();;
+        var selector = this.refs.myChart.getDOMNode();
 
         var chartOptions = React.addons.update(chartModel, {
             chart: {
@@ -104,6 +101,36 @@ StocksGraph = React.createClass({
         this.setState({
             chartInstance: chartInstance
         });
+
+
+
+
+        $(this.refs.myChartTwo.getDOMNode()).highcharts('StockChart', {
+
+            xAxis: {
+                type: 'datetime',
+                dateTimeLabelFormats: {
+                    second: '%Y-%m-%d<br/>%H:%M:%S',
+                    minute: '%Y-%m-%d<br/>%H:%M',
+                    hour: '%Y-%m-%d<br/>%H:%M',
+                    day: '%Y<br/>%m-%d',
+                    week: '%Y<br/>%m-%d',
+                    month: '%Y-%m',
+                    year: '%Y'
+                }
+            },
+
+            rangeSelector: {
+                selected: 1
+            },
+
+            series: seriesModel
+        });
+
+
+
+
+
     },
 
     componentDidMount: function() {
@@ -114,6 +141,7 @@ StocksGraph = React.createClass({
         return (
             <div>
                 <div ref="myChart"></div>
+                <div ref="myChartTwo"></div>
             </div>
         );
     }
