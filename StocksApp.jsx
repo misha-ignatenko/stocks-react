@@ -4,7 +4,9 @@ var StocksApp = React.createClass({
 
     getInitialState() {
         return {
-            hideCompleted: false
+            hideCompleted: false,
+            showMainTab: true,
+            individualStockTab: false
         }
     },
 
@@ -53,6 +55,15 @@ var StocksApp = React.createClass({
         });
     },
 
+    selectTab(e) {
+        let _showMainTab = e.target.getAttribute("data-tag") === "mainTab" ? true : false;
+        let _showIndividualStockTab = e.target.getAttribute("data-tag") === "individualStockTab" ? true : false;
+        this.setState({
+            showMainTab: _showMainTab,
+            individualStockTab: _showIndividualStockTab
+        });
+    },
+
     render() {
         return (
             <div className="container">
@@ -80,7 +91,20 @@ var StocksApp = React.createClass({
                     }
                 </header>
 
-                {this.renderPickLists()}
+                <ul className="nav nav-tabs">
+                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">tab 1</a></li>
+                    <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">tab 2</a></li>
+                </ul>
+                { this.state.showMainTab ? (
+                    <div>
+                        {this.renderPickLists()}
+                    </div>
+                ) : null}
+                { this.state.individualStockTab ? (
+                    <div>
+                        individual stock tab here.
+                    </div>
+                ) : null}
 
 
 
