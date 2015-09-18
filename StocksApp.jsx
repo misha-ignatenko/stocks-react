@@ -1,3 +1,6 @@
+//TODO React is not defined
+//var React = require('react-bootstrap');
+
 var StocksApp = React.createClass({
 
     mixins: [ReactMeteorData],
@@ -80,40 +83,32 @@ var StocksApp = React.createClass({
                     </label>
 
                     <AccountsUIWrapper />
-
-                    { this.data.currentUser ?
-                        <form className="new-pickList" onSubmit={this.handleSubmitPickList} >
-                            <input
-                                type="text"
-                                ref="textInput"
-                                placeholder="Type to add new pick lists" />
-                        </form> : ''
-                    }
                 </header>
 
                 <ul className="nav nav-tabs">
-                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">tab 1</a></li>
-                    <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">tab 2</a></li>
+                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">Stock Lists</a></li>
+                    <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">Individual Stocks</a></li>
                 </ul>
                 { this.state.showMainTab ? (
                     <div>
+                        { this.data.currentUser ?
+                            <form className="new-pickList" onSubmit={this.handleSubmitPickList} >
+                                <input
+                                    type="text"
+                                    ref="textInput"
+                                    placeholder="Type to add new pick lists" />
+                            </form> : ''
+                        }
                         {this.renderPickLists()}
+                        <br/>
+                        <Example />
                     </div>
                 ) : null}
                 { this.state.individualStockTab ? (
                     <div>
-                        individual stock tab here.
+                        <IndividualStock />
                     </div>
                 ) : null}
-
-
-
-
-                <Example />
-
-                
-
-
             </div>
         );
     }

@@ -120,48 +120,46 @@ PickList = React.createClass({
 
         return (
             <div className={pickListClassName}>
-                <button className="delete" onClick={this.deleteThisPickList}>
-                    &times;
-                </button>
-
-                <input
-                    type="checkbox"
-                    readOnly={true}
-                    checked={this.props.pickList.checked}
-                    onClick={this.toggleChecked}/>
-
-                { this.props.showPrivateButton ? (
-                    <button className="toggle-private" onClick={this.togglePrivate}>
-                        { this.props.pickList.private ? "Private" : "Public" }
+                <div className="row btn-group">
+                    <button className="delete" onClick={this.deleteThisPickList}>
+                        &times;
                     </button>
-                ) : ''}
-                <br/>
-                <br/>
 
-                { this.state.showGraph ? (
-                    <StocksGraph
-                        stocksToGraphObjects={this.state.stocksToGraphObjects}/>
-                ) : null}
+                    <input
+                        type="checkbox"
+                        readOnly={true}
+                        checked={this.props.pickList.checked}
+                        onClick={this.toggleChecked}/>
 
-                <br/>
-                <br/>
-                <button className="btn btn-default" onClick={this.toggleHidePickListItems}>
-                    { this.state.hidePickListItems ? "show items" : "hide items" }
-                </button>
 
-                <span className="text">
-                    <strong>{this.props.pickList.addedByUsername}</strong>: {this.props.pickList.listName}. Stocks ({this.data.pickListItemsCount}):
-                    { !this.state.hidePickListItems ? (
-                        <div className="pickListItems">{this.renderPickListItems()}</div>
+                    { this.props.showPrivateButton ? (
+                        <button className="toggle-private" onClick={this.togglePrivate}>
+                            { this.props.pickList.private ? "Private" : "Public" }
+                        </button>
                     ) : ''}
-                </span>
+                    <br/>
+                    <br/>
+                    <button className="btn btn-default" onClick={this.toggleHidePickListItems}>
+                        { this.state.hidePickListItems ? "show items" : "hide items" }
+                    </button>
 
-                <div className="row">
+                    <span className="text">
+                        <strong>{this.props.pickList.addedByUsername}</strong>: {this.props.pickList.listName}. Stocks ({this.data.pickListItemsCount}):
+                        { !this.state.hidePickListItems ? (
+                            <div className="pickListItems">{this.renderPickListItems()}</div>
+                        ) : ''}
+                    </span>
+
                     <button className="btn btn-default" onClick={this.showStockEntryPageAction}>enter stocks</button>
                     { this.state.showStockEntryPage ? <PickListStockEntryPage pickListId={this.props.pickList._id} /> : null }
                 </div>
-                <br/>
-                <br/>
+
+                <div className="row btn-group">
+                    { this.state.showGraph ? (
+                        <StocksGraph
+                            stocksToGraphObjects={this.state.stocksToGraphObjects}/>
+                    ) : null}
+                </div>
             </div>
         );
     }
