@@ -1,29 +1,3 @@
-EarningsReleases = new Meteor.Collection("earningsReleases");
-RatingChanges = new Meteor.Collection("ratingChanges");
-ResearchCompanies = new Meteor.Collection("researchCompanies");
-StockPrices = new Meteor.Collection("stockPrices");
-PickLists = new Meteor.Collection("pickLists");
-GradingScales = new Meteor.Collection("gradingScales");
-PickListItems = new Meteor.Collection("pickListItems");
-
-if (Meteor.isClient) {
-    Accounts.ui.config({
-        passwordSignupFields: "USERNAME_ONLY"
-    });
-
-    Meteor.subscribe("earningsReleases");
-    Meteor.subscribe("ratingChanges");
-    Meteor.subscribe("researchCompanies");
-    Meteor.subscribe("stockPrices");
-    Meteor.subscribe("pickLists");
-    Meteor.subscribe("gradingScales");
-    Meteor.subscribe("pickListItems");
-
-    //Meteor.startup(function () {
-    //    React.render(<App />, document.getElementById("render-target"));
-    //});
-}
-
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function () {
         return EarningsReleases.find();
