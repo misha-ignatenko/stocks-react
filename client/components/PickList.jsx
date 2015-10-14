@@ -115,12 +115,12 @@ PickList = React.createClass({
     },
 
     render() {
-        const pickListClassName = (this.props.pickList.checked ? "checked" : "") + " " +
+        const pickListClassName = "row " + (this.props.pickList.checked ? "checked" : "") + " " +
             (this.props.pickList.private ? "private" : "");
 
         return (
             <div className={pickListClassName}>
-                <div className="row btn-group">
+                <div className="col-md-6">
                     <button className="delete" onClick={this.deleteThisPickList}>
                         &times;
                     </button>
@@ -154,7 +154,7 @@ PickList = React.createClass({
                     { this.state.showStockEntryPage ? <PickListStockEntryPage pickListId={this.props.pickList._id} /> : null }
                 </div>
 
-                <div className="row btn-group">
+                <div className="col-md-6">
                     { this.state.showGraph ? (
                         <StocksGraph
                             stocksToGraphObjects={this.state.stocksToGraphObjects}/>
