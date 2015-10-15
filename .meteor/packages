@@ -28,3 +28,5 @@ random
 ejson
 spacebars
 check
+fortawesome:fontawesome
+reactrouter:react-router

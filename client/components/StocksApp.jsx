@@ -1,7 +1,7 @@
 //TODO React is not defined
 //var React = require('react-bootstrap');
 
-var StocksApp = React.createClass({
+StocksApp = React.createClass({
 
     mixins: [ReactMeteorData],
 
@@ -113,13 +113,3 @@ var StocksApp = React.createClass({
         );
     }
 });
-
-if (Meteor.isClient) {
-
-
-    Template.stocksApp.helpers({
-        StocksApp() {
-            return StocksApp;
-        }
-    });
-}
