@@ -12,6 +12,7 @@ Meteor.startup(function() {
             <Route component={App}>
                 <Router component={StocksApp} path="/" />
                 <Router component={IndividualStock} path="stock" />
+                <Router component={UpDownGradesJSONDataImport} path="dataimport/updowngrades"/>
             </Route>
         </Router>
     )
