@@ -19,7 +19,9 @@ if (Meteor.isServer) {
                         researchFirmId: importItem.researchFirmString,
                         symbol: importItem.symbolString,
                         newRatingId: importItem.newRatingString,
-                        oldRatingId: importItem.oldRatingString
+                        oldRatingId: importItem.oldRatingString,
+                        private: true,
+                        addedBy: Meteor.userId()
                     };
                     console.log("adding this stock: ", importItem.symbolString);
                     RatingChanges.insert(_ratingChange);

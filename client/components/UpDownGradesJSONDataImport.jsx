@@ -1,4 +1,12 @@
 UpDownGradesJSONDataImport = React.createClass({
+    mixins: [ReactMeteorData],
+
+    getMeteorData() {
+        return {
+            currentUser: Meteor.user()
+        }
+    },
+
     getInitialState() {
         return {
             textAreaValue: ''
@@ -24,12 +32,14 @@ UpDownGradesJSONDataImport = React.createClass({
     render() {
         var textAreaValue = this.state.textAreaValue;
         return (
-            <div className="upDowngradesJSONDataImport">
-                <textarea rows="20" cols="100"
-                          value={textAreaValue}
-                          onChange={this.handleChange}></textarea>
-                <button
-                    onClick={this.verifyAndImportUpDownGradesJSONData}>import</button>
+            <div className="container">
+                { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
+                    <textarea rows="20" cols="100"
+                              value={textAreaValue}
+                              onChange={this.handleChange}></textarea>
+                    <button
+                        onClick={this.verifyAndImportUpDownGradesJSONData}>import</button>
+                </div>) : <p>plz log in</p> }
             </div>
         );
     }
