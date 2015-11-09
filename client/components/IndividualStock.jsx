@@ -6,20 +6,39 @@ IndividualStock = React.createClass({
             individualStockEndDate: moment().format("YYYY-MM-DD")
         });
     },
-    handleDatepickerChange: function(e) {
-        let _set = {};
-        _set[e.target.getAttribute("data-tag")] = e.target.value;
-        this.setState(_set);
+    componentDidMount: function() {
+        let _datepickerOptions = {
+            autoclose: true,
+            todayHighlight: true
+        };
+        $('#individualStockStartDate').datepicker(_datepickerOptions);
+        $('#individualStockEndDate').datepicker(_datepickerOptions);
+        var _that = this;
+
+        $('.datepickerInput').on('change', function() {
+            let _newVal = $(this).val();
+            let _momentDate = moment(new Date(_newVal).toISOString()).format("YYYY-MM-DD");
+            let _id = $(this).attr('id');
+            let _set = {};
+            _set[_id] = _momentDate;
+            _that.setState(_set);
+        });
     },
 
     render: function() {
-
         return (
-            <div>
+            <div className="container">
                 start date:
-                <input type="date" value={this.state.individualStockStartDate} data-tag="individualStockStartDate" onChange={this.handleDatepickerChange}/>
+                <input className="datepickerInput" id="individualStockStartDate" />
                 end date:
-                <input type="date" value={this.state.individualStockEndDate} data-tag="individualStockEndDate" onChange={this.handleDatepickerChange}/>
+                <input className="datepickerInput" id="individualStockEndDate" />
+                <br/>
+                <br/>
+                stats for this stock based on these dates will be here:
+                <br/>
+                {this.state.individualStockStartDate}
+                <br/>
+                {this.state.individualStockEndDate}
             </div>
         )
     }
