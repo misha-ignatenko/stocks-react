@@ -10,6 +10,7 @@ if (Meteor.isClient) {
     Meteor.subscribe("pickLists");
     Meteor.subscribe("gradingScales");
     Meteor.subscribe("pickListItems");
+    Meteor.subscribe("stocks");
 
     //Meteor.startup(function () {
     //    React.render(<App />, document.getElementById("render-target"));

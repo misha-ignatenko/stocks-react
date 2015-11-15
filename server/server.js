@@ -22,6 +22,11 @@ if (Meteor.isServer) {
         return PickListItems.find();
     });
 
+    Meteor.publish("stocks", function() {
+        var _stocksForUserId = this.userId ? Stocks.find({usersWithAccess: this.userId}, {fields: {usersWithAccess: 0}}) : null;
+        return _stocksForUserId;
+    });
+
     Meteor.methods({
         addPickList: function(pickListName, pickListDate, stocksList) {
             // Make sure the user is logged in before inserting a task
