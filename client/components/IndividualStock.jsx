@@ -14,7 +14,9 @@ IndividualStock = React.createClass({
             individualStockEndDate: null,
             individualStockSearchResults: [],
             selectedStock: null,
-            stocksToGraphObjects: []
+            stocksToGraphObjects: [],
+            showRegisterNewAccountFields: false,
+            showRegisterAccountBtn: true
         });
     },
 
@@ -45,7 +47,8 @@ IndividualStock = React.createClass({
             var _password = Random.id();
             Accounts.createUser({
                 username: _username,
-                password: _password
+                password: _password,
+                registered: false
             });
         }
     },
@@ -127,12 +130,46 @@ IndividualStock = React.createClass({
             });
         }
     },
+    showRegisterAccountFields: function() {
+        this.setState({
+            showRegisterNewAccountFields: true,
+            showRegisterAccountBtn: false
+        });
+    },
+    hideRegisterAccountFields: function() {
+        this.setState({
+            showRegisterNewAccountFields: false,
+            showRegisterAccountBtn: true
+        });
+    },
+    registerDummyUser: function() {
+        var _newUsername = React.findDOMNode(this.refs.fromDummyToReal_username).value.trim();
+        var _newPassword = React.findDOMNode(this.refs.fromDummyToReal_password).value.trim().toString();
+        if (_newUsername && _newPassword) {
+            var _that = this;
+            Meteor.call("registerRealAccountFromDummy", this.data.currentUser._id, _newUsername, _newPassword, function(error, result) {
+                //make sure that dummy account was deleted and that you are logged in with the new real account credentials
+                //empty out fields and hide that menu
+                if (!error && result) {
+                    Meteor.loginWithPassword(result.username, result.password);
+                    //_that.hideRegisterAccountFields();
+                }
+            });
+        }
+    },
 
     render: function() {
         return (
             <div className="container">
                 { this.data.currentUser ? <div>
-                    {this.data.currentUser.username}
+                    {this.data.currentUser.registered ? <div>registered</div> :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
+                    { !this.data.currentUser.registered && this.state.showRegisterNewAccountFields ? <div>
+                        username: <input ref="fromDummyToReal_username"/>
+                        password: <input ref="fromDummyToReal_password"/>
+                        <br/>
+                        <button onClick={this.registerDummyUser}>register</button>
+                        <button onClick={this.hideRegisterAccountFields}>cancel</button>
+                    </div> : null }
                     <br/>
                     <br/>
                     search for:

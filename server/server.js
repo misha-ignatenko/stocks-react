@@ -25,21 +25,30 @@ if (Meteor.isServer) {
     });
 
     Meteor.publish(null, function() {
-        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1}}) : null;
+        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1}}) : null;
         return _user;
     });
 
+    Accounts.onCreateUser(function(options, user) {
+        return _.extend(user, {registered: options.registered});
+    })
+
     Meteor.methods({
+        registerRealAccountFromDummy: function(dummyUserId, newUsername, newPassword) {
+            Accounts.setUsername(dummyUserId, newUsername);
+            Accounts.setPassword(dummyUserId, newPassword);
+            Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
+            return {username: newUsername, password: newPassword};
+        },
         addIndividualStockToUser: function(userId, symbol) {
             var _user = Meteor.users.findOne(userId);
             if (_user.individualStocksAccess &&
-                _user.individualStocksAccess.length < _maxStocksAllowedPerUnregisteredUser &&
+                (_user.individualStocksAccess.length < _maxStocksAllowedPerUnregisteredUser || _user.registered) &&
                 _.indexOf(_user.individualStocksAccess, symbol) === -1
             ) {
-                //add to set
                 Meteor.users.update({_id: userId}, {$push: { individualStocksAccess: symbol }});
             } else if (!_user.individualStocksAccess) {
-                Meteor.users.update({_id: userId}, {$set: { individualStocksAccess: [symbol], registered: false}});
+                Meteor.users.update({_id: userId}, {$set: { individualStocksAccess: [symbol]}});
             }
         },
         addPickList: function(pickListName, pickListDate, stocksList) {
