@@ -4,8 +4,7 @@ IndividualStock = React.createClass({
     getMeteorData() {
         let _user = Meteor.user();
         return {
-            currentUser: _user,
-            stocksWithAccess: Stocks.find().fetch()
+            currentUser: _user
         }
     },
     getInitialState: function()
@@ -18,7 +17,8 @@ IndividualStock = React.createClass({
             stocksToGraphObjects: []
         });
     },
-    componentDidMount: function() {
+
+    setDatepickerOptions: function() {
         let _datepickerOptions = {
             autoclose: true,
             todayHighlight: true,
@@ -37,12 +37,21 @@ IndividualStock = React.createClass({
             _that.setState(_set);
             _that.getLatestGraph();
         });
+    },
 
-        $("#individualStockSearch").on('keydown', this.selectFirstSearchResult);
+    componentDidMount: function() {
+        if (_.isNull(Meteor.user())) {
+            var _username = Random.id() + "@ign-stocks.com";
+            var _password = Random.id();
+            Accounts.createUser({
+                username: _username,
+                password: _password
+            });
+        }
     },
     searchingStock: function() {
         $("#individualStockSearch").val($("#individualStockSearch").val().toUpperCase());
-        let _arrayOfStockSymbolsAvailable = _.pluck(this.data.stocksWithAccess, "_id");
+        let _arrayOfStockSymbolsAvailable = this.data.currentUser.individualStocksAccess ? this.data.currentUser.individualStocksAccess : [];
         let _searchCandidates = _arrayOfStockSymbolsAvailable.filter(function(symbol) {
             if ($("#individualStockSearch").val() && symbol.search($("#individualStockSearch").val()) > -1) {
                 return true;
@@ -82,11 +91,25 @@ IndividualStock = React.createClass({
             individualStockEndDate: null
         });
     },
+
+    //TODO: add alert to prevent user from adding too many stocks
+
     selectFirstSearchResult: function(event) {
-        if (event.keyCode === 13 && this.state.individualStockSearchResults.length > 0) {
-            this.setSelectedStock(this.state.individualStockSearchResults[0]);
-        } else if (event.keyCode === 13) {
-            this.clearSelectedStock();
+        if (event.keyCode === 13) {
+            //this.setSelectedStock(this.state.individualStockSearchResults[0]);
+            var _that = this;
+            if ($("#individualStockSearch").val()) {
+                //call yahoo to verify symbol
+                Meteor.call("getLatestAskPrice", $("#individualStockSearch").val(), function (error, result) {
+                    if (!error && result && result[0] && result[0].name) {
+                        Meteor.call("addIndividualStockToUser", Meteor.userId(), result[0].symbol)
+                        _that.setSelectedStock(result[0].symbol);
+                    } else {
+                        console.log("ask user to re-enter symbol");
+                        _that.clearSelectedStock();
+                    }
+                });
+            }
         }
     },
     getLatestGraph: function() {
@@ -114,13 +137,15 @@ IndividualStock = React.createClass({
                     <br/>
                     search for:
                     <input className="individualStockSearch"
-                           id="individualStockSearch" onChange={this.searchingStock}/>
+                           id="individualStockSearch" onChange={this.searchingStock} onKeyDown={this.selectFirstSearchResult}/>
                     <div id="individualStockSearchResults">{this.renderSearchResults()}</div>
                     <br/>
-                    start date:
-                    <input className="datepickerInput" id="individualStockStartDate" />
-                    end date:
-                    <input className="datepickerInput" id="individualStockEndDate" />
+                    <div className="datepickers" ref={this.setDatepickerOptions}>
+                        start date:
+                        <input className="datepickerInput" id="individualStockStartDate"/>
+                        end date:
+                        <input className="datepickerInput" id="individualStockEndDate" />
+                    </div>
                     <br/>
                     { this.state.individualStockStartDate || this.state.individualStockEndDate ? <div>
                         <button onClick={this.resetDateRange}>reset date range</button>

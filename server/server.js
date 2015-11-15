@@ -1,3 +1,5 @@
+var _maxStocksAllowedPerUnregisteredUser = 5;
+
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function () {
         return EarningsReleases.find();
@@ -22,12 +24,24 @@ if (Meteor.isServer) {
         return PickListItems.find();
     });
 
-    Meteor.publish("stocks", function() {
-        var _stocksForUserId = this.userId ? Stocks.find({usersWithAccess: this.userId}, {fields: {usersWithAccess: 0}}) : null;
-        return _stocksForUserId;
+    Meteor.publish(null, function() {
+        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1}}) : null;
+        return _user;
     });
 
     Meteor.methods({
+        addIndividualStockToUser: function(userId, symbol) {
+            var _user = Meteor.users.findOne(userId);
+            if (_user.individualStocksAccess &&
+                _user.individualStocksAccess.length < _maxStocksAllowedPerUnregisteredUser &&
+                _.indexOf(_user.individualStocksAccess, symbol) === -1
+            ) {
+                //add to set
+                Meteor.users.update({_id: userId}, {$push: { individualStocksAccess: symbol }});
+            } else if (!_user.individualStocksAccess) {
+                Meteor.users.update({_id: userId}, {$set: { individualStocksAccess: [symbol], registered: false}});
+            }
+        },
         addPickList: function(pickListName, pickListDate, stocksList) {
             // Make sure the user is logged in before inserting a task
             if (! Meteor.userId()) {

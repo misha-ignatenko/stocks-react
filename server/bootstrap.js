@@ -22,32 +22,6 @@ Meteor.startup(function() {
         var _mignatenko1UserId = Meteor.users.findOne({username: "mignatenko1"})._id;
         console.log('mignatenko1 user id: ', _mignatenko1UserId);
 
-        Stocks.remove({});
-        Stocks.insert({
-            _id: "AAPL",
-            usersWithAccess: [
-                _mignatenkoUserId
-            ]
-        });
-        Stocks.insert({
-            _id: "SBUX",
-            usersWithAccess: [
-                _mignatenkoUserId,
-                _mignatenko1UserId
-            ]
-        });
-        Stocks.insert({
-            _id: "MSFT",
-            usersWithAccess: [
-                _mignatenkoUserId
-            ]
-        });
-        Stocks.insert({
-            _id: "KR",
-            usersWithAccess: [
-                _mignatenko1UserId
-            ]
-        });
     }
 
 
