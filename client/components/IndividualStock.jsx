@@ -11,10 +11,11 @@ IndividualStock = React.createClass({
     getInitialState: function()
     {
         return ({
-            individualStockStartDate: moment().format("YYYY-MM-DD"),
-            individualStockEndDate: moment().format("YYYY-MM-DD"),
+            individualStockStartDate: null,
+            individualStockEndDate: null,
             individualStockSearchResults: [],
-            selectedStock: null
+            selectedStock: null,
+            stocksToGraphObjects: []
         });
     },
     componentDidMount: function() {
@@ -34,10 +35,13 @@ IndividualStock = React.createClass({
             let _set = {};
             _set[_id] = _momentDate;
             _that.setState(_set);
+            _that.getLatestGraph();
         });
+
+        $("#individualStockSearch").on('keydown', this.selectFirstSearchResult);
     },
     searchingStock: function() {
-        console.log('searchin 4 individual stock.');
+        $("#individualStockSearch").val($("#individualStockSearch").val().toUpperCase());
         let _arrayOfStockSymbolsAvailable = _.pluck(this.data.stocksWithAccess, "_id");
         let _searchCandidates = _arrayOfStockSymbolsAvailable.filter(function(symbol) {
             if ($("#individualStockSearch").val() && symbol.search($("#individualStockSearch").val()) > -1) {
@@ -46,7 +50,6 @@ IndividualStock = React.createClass({
             return false;
         })
         //TODO get rid of non-letter charachers (except for . -- allowed)
-        console.log(_searchCandidates);
         this.setState({
             individualStockSearchResults: _searchCandidates
         });
@@ -62,6 +65,7 @@ IndividualStock = React.createClass({
             selectedStock: key,
             individualStockSearchResults: []
         });
+        this.getLatestGraph();
     },
     clearSelectedStock: function() {
         this.setState({
@@ -69,6 +73,36 @@ IndividualStock = React.createClass({
             individualStockSearchResults: []
         });
         $("#individualStockSearch").val("");
+    },
+    resetDateRange: function() {
+        $("#individualStockStartDate").val("");
+        $("#individualStockEndDate").val("");
+        this.setState({
+            individualStockStartDate: null,
+            individualStockEndDate: null
+        });
+    },
+    selectFirstSearchResult: function(event) {
+        if (event.keyCode === 13 && this.state.individualStockSearchResults.length > 0) {
+            this.setSelectedStock(this.state.individualStockSearchResults[0]);
+        } else if (event.keyCode === 13) {
+            this.clearSelectedStock();
+        }
+    },
+    getLatestGraph: function() {
+        //make sure that end date is after start date
+        //or disable dates based on previously selected dates
+        if (this.state.selectedStock && this.state.individualStockStartDate && this.state.individualStockEndDate) {
+            console.log('getting the latest graph.');
+            var _that = this;
+            Meteor.call('checkHistoricalData', this.state.selectedStock, this.state.individualStockStartDate, this.state.individualStockEndDate, function(err, result) {
+                if (result && result.historicalData) {
+                    _that.setState({
+                        stocksToGraphObjects: [result]
+                    });
+                }
+            });
+        }
     },
 
     render: function() {
@@ -88,6 +122,9 @@ IndividualStock = React.createClass({
                     end date:
                     <input className="datepickerInput" id="individualStockEndDate" />
                     <br/>
+                    { this.state.individualStockStartDate || this.state.individualStockEndDate ? <div>
+                        <button onClick={this.resetDateRange}>reset date range</button>
+                    </div> : null }
                     <br/>
                     stats for this stock based on these dates will be here:
                     <br/>
@@ -104,6 +141,10 @@ IndividualStock = React.createClass({
                         <br/>
                         <br/>
                         <h1>Details for {this.state.selectedStock}</h1>
+                        <div className="col-md-12 individualStockGraph">
+                            <StocksGraph
+                                stocksToGraphObjects={this.state.stocksToGraphObjects}/>
+                        </div>
                     </div> : null}
                 </div> : "u havta be logged in."}
             </div>

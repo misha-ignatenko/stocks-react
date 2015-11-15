@@ -92,8 +92,8 @@ if (Meteor.isServer) {
 
                 //two cases
                 //one is when the requested startDate is earlier than what already have
-                var _requestedStartDateInUTC = new Date(startDate).toUTCString();
-                var _requestedEndDateInUTC = new Date(endDate).toUTCString();
+                var _requestedStartDateInUTC = moment(startDate).utc().format();
+                var _requestedEndDateInUTC = moment(endDate).utc().format();
                 if (_requestedStartDateInUTC < _stockPricesObj.existingStartDate) {
                     //need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
                     var _newHistoricalDataToAddToTheLeft = Meteor.call('getHistoricalData', symbol, _requestedStartDateInUTC, _stockPricesObj.existingStartDate);
@@ -130,8 +130,8 @@ if (Meteor.isServer) {
                 var _historicalData = Meteor.call('getHistoricalData', symbol, startDate, endDate);
                 StockPrices.insert({
                     historicalData: _historicalData,
-                    existingStartDate: new Date(startDate).toUTCString(),
-                    existingEndDate: new Date(endDate).toUTCString(),
+                    existingStartDate: moment(startDate).utc().format(),
+                    existingEndDate: moment(endDate).utc().format(),
                     symbol: symbol
                 });
             }
@@ -140,8 +140,8 @@ if (Meteor.isServer) {
             //TODO return historical data based on start date and end date, DO NOT just return the whole historical data that is available from previous yahoo finance requests.
         },
         getHistoricalData: function(symbol, start, end) {
-            var _startDate = new Date(start).toUTCString();
-            var _endDate = new Date(end).toUTCString();
+            var _startDate = moment(start).utc().format();
+            var _endDate = moment(end).utc().format();
             console.log("requesting from yahoo finance: ", _startDate, _endDate);
             return YahooFinance.historical({
                 symbol: symbol,

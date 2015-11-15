@@ -79,7 +79,7 @@ StocksGraph = React.createClass({
                 });
 
                 seriesModel.push({
-                    name: obj.stockId,
+                    name: obj.stockId ? obj.stockId : obj.symbol ? obj.symbol : "stock name unknown" ,
                     data: _seriesDataArray
                 });
             }
