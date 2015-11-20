@@ -9,7 +9,8 @@ StocksApp = React.createClass({
         return {
             hideCompleted: false,
             showMainTab: true,
-            individualStockTab: false
+            individualStockTab: false,
+            showUpcomingEarningsReleasesTab: false
         }
     },
 
@@ -59,11 +60,13 @@ StocksApp = React.createClass({
     },
 
     selectTab(e) {
-        let _showMainTab = e.target.getAttribute("data-tag") === "mainTab" ? true : false;
-        let _showIndividualStockTab = e.target.getAttribute("data-tag") === "individualStockTab" ? true : false;
+        let _showMainTab = e.target.getAttribute("data-tag") === "mainTab";
+        let _showIndividualStockTab = e.target.getAttribute("data-tag") === "individualStockTab";
+        let _showUpcomingEarningsReleasesTab = e.target.getAttribute("data-tag") === "upcomingEarningsReleases";
         this.setState({
             showMainTab: _showMainTab,
-            individualStockTab: _showIndividualStockTab
+            individualStockTab: _showIndividualStockTab,
+            showUpcomingEarningsReleasesTab: _showUpcomingEarningsReleasesTab
         });
     },
 
@@ -88,6 +91,7 @@ StocksApp = React.createClass({
                 <ul className="nav nav-tabs">
                     <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">Stock Lists</a></li>
                     <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">Individual Stocks</a></li>
+                    <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="upcomingEarningsReleases">Upcoming Earnings Releases</a></li>
                 </ul>
                 { this.state.showMainTab ? (
                     <div>
@@ -107,6 +111,11 @@ StocksApp = React.createClass({
                 { this.state.individualStockTab ? (
                     <div>
                         <IndividualStock />
+                    </div>
+                ) : null}
+                { this.state.showUpcomingEarningsReleasesTab ? (
+                    <div>
+                        <UpcomingEarningsReleases />
                     </div>
                 ) : null}
             </div>
