@@ -13,6 +13,7 @@ Meteor.startup(function() {
                 <Router component={StocksApp} path="/" />
                 <Router component={IndividualStock} path="stock" />
                 <Router component={UpDownGradesJSONDataImport} path="dataimport/updowngrades"/>
+                <Router component={EarningsReleasesJSONDataImport} path="dataimport/earningsreleases"/>
             </Route>
         </Router>
     )

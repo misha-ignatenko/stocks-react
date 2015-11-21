@@ -8,7 +8,7 @@ if (Meteor.isClient) {
     Meteor.subscribe("researchCompanies");
     Meteor.subscribe("stockPrices");
     Meteor.subscribe("pickLists");
-    Meteor.subscribe("gradingScales");
+    Meteor.subscribe("ratingScales");
     Meteor.subscribe("pickListItems");
 
     //Meteor.startup(function () {

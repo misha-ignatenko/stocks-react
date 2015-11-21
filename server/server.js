@@ -13,8 +13,8 @@ if (Meteor.isServer) {
     Meteor.publish("stockPrices", function () {
         return StockPrices.find();
     });
-    Meteor.publish("gradingScales", function () {
-        return GradingScales.find();
+    Meteor.publish("ratingScales", function () {
+        return RatingScales.find();
     });
     Meteor.publish("pickLists", function () {
         return PickLists.find();

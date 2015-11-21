@@ -26,6 +26,23 @@ if (Meteor.isServer) {
                     console.log("adding this stock: ", importItem.symbolString);
                     RatingChanges.insert(_ratingChange);
                 });
+            } else if (importType === "earnings_releases") {
+                importData.forEach(function(importItem) {
+                    //TODO check if this earnings release already exists -- check for plus minus 5 days around it
+                    var _earningRelease = {
+                        symbol: importItem.symbol,
+                        date: new Date(importItem.dateString).toUTCString(),
+                        releaseTime: importItem.releaseTime,
+                        datetime: importItem.datetime ? importItem.datetime: "",
+                        source: importItem.source,
+                        consensusEps: importItem.consensusEps,
+                        numOfEstimates: importItem.numOfEstimates,
+                        lastYearsReportDate: new Date(importItem.lastYearsReportDateString).toUTCString(),
+                        lastYearsEps: importItem.lastYearsEps
+                    };
+                    console.log("adding earnings release for ", importItem.symbol, ", date: ", importItem.dateString);
+                    EarningsReleases.insert(_earningRelease);
+                });
             }
         }
     })
