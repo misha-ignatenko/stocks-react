@@ -17,7 +17,6 @@ EarningsReleasesJSONDataImport = React.createClass({
         this.setState({
             textAreaValue: event.target.value
         })
-        console.log("the state of textarea is now: ", this.state.textAreaValue);
     },
     verifyAndImportUpDownGradesJSONData() {
         var _importObjects = '[' + this.state.textAreaValue.substring(0,this.state.textAreaValue.length-1) + ']';
@@ -25,7 +24,6 @@ EarningsReleasesJSONDataImport = React.createClass({
         this.setState({
             textAreaValue: ""
         });
-        console.log(_parsed.length);
         Meteor.call('importData', _parsed, 'earnings_releases');
     },
 

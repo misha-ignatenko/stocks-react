@@ -68,11 +68,13 @@ UpcomingEarningsReleases = React.createClass({
             earningsReleaseIndex: _newState
         });
     },
-    renderOneEarningRelease() {
-        return <button key={this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol}>{this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol}</button>
-    },
 
     render() {
+        let _symbol = this.data.upcomingEarningsReleases &&
+            this.data.upcomingEarningsReleases.length > 0 &&
+            this.state.earningsReleaseIndex.toString() &&
+            this.state.earningsReleaseIndex + 1 <= this.data.upcomingEarningsReleases.length ?
+            this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol : "undefined";
 
         return (
             <div className="container">
@@ -89,7 +91,7 @@ UpcomingEarningsReleases = React.createClass({
                             { this.renderUpcomingEarningsReleases() }
                             <br/>
                             <br/>
-                            {this.renderOneEarningRelease()}
+                            <UpcomingEarningsRelease symbol={_symbol} />
                             <br/>
                             upcoming earnings releases
                         </div>
