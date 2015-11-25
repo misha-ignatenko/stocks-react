@@ -5,16 +5,10 @@ if (Meteor.isServer) {
         return EarningsReleases.find();
     });
     Meteor.publish("ratingChanges", function () {
-        return RatingChanges.find();
-    });
-    Meteor.publish("researchCompanies", function () {
-        return ResearchCompanies.find();
+        return RatingChanges.find({}, {fields: {_id: 1, symbol: 1, date: 1}});
     });
     Meteor.publish("stockPrices", function () {
         return StockPrices.find();
-    });
-    Meteor.publish("ratingScales", function () {
-        return RatingScales.find();
     });
     Meteor.publish("pickLists", function () {
         return PickLists.find();

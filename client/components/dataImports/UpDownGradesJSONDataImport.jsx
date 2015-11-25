@@ -17,7 +17,6 @@ UpDownGradesJSONDataImport = React.createClass({
         this.setState({
             textAreaValue: event.target.value
         })
-        console.log("the state of textarea is now: ", this.state.textAreaValue);
     },
     verifyAndImportUpDownGradesJSONData() {
         var _importObjects = '[' + this.state.textAreaValue.substring(0,this.state.textAreaValue.length-1) + ']';
@@ -25,8 +24,16 @@ UpDownGradesJSONDataImport = React.createClass({
         this.setState({
             textAreaValue: ""
         });
-        console.log(_parsed.length);
-        Meteor.call('importData', _parsed, 'upgrades_downgrades');
+        Meteor.call('importData', _parsed, 'upgrades_downgrades', function(error, result) {
+            if (!error && result) {
+                $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
+                    type: 'danger',
+                    align: 'center',
+                    width: 250,
+                    delay: 100000
+                });
+            }
+        });
     },
 
     render() {
@@ -34,6 +41,7 @@ UpDownGradesJSONDataImport = React.createClass({
         return (
             <div className="container">
                 { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
+                    <h1>Up/downgrades entry page:</h1>
                     <textarea rows="20" cols="100"
                               value={textAreaValue}
                               onChange={this.handleChange}></textarea>

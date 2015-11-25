@@ -1,30 +1,67 @@
 if (Meteor.isServer) {
+    var _totalMaxGradingValue = 120;
+
     Meteor.methods({
         importData: function(importData, importType) {
             //run all the checks here
-            //make sure date format sis fine
-            //check if this data already was imported.
 
             if (! Meteor.userId()) {
                 throw new Meteor.Error("not-authorized");
             }
 
+            var _result = {};
+
             if (importType === "upgrades_downgrades") {
+                _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 importData.forEach(function(importItem) {
-                    //check here if already exists.
-                    //match research firm string to research firm id -- can have different variations
-                    //before calling this function ask the user to drag and match the format of pasted data to format of ratingChanges collections
-                    var _ratingChange = {
-                        date: new Date(importItem.dateString).toUTCString(),
-                        researchFirmId: importItem.researchFirmString,
-                        symbol: importItem.symbolString,
-                        newRatingId: importItem.newRatingString,
-                        oldRatingId: importItem.oldRatingString,
-                        private: true,
-                        addedBy: Meteor.userId()
-                    };
-                    console.log("adding this stock: ", importItem.symbolString);
-                    RatingChanges.insert(_ratingChange);
+                    var _existingRatingChange = RatingChanges.findOne({
+                        researchFirmString: importItem.researchFirmString,
+                        symbol: importItem.symbol,
+                        newRatingString: importItem.newRatingString,
+                        oldRatingString: importItem.oldRatingString
+                    });
+                    if (!_existingRatingChange) {
+                        var _ratingChange = {
+                            date: new Date(importItem.dateString).toUTCString(),
+                            researchFirmString: importItem.researchFirmString,
+                            symbol: importItem.symbol,
+                            newRatingString: importItem.newRatingString,
+                            oldRatingString: importItem.oldRatingString,
+                            private: true,
+                            addedBy: Meteor.userId()
+                        };
+                        var _ratingScaleObjectForNewRatingString = RatingScales.findOne({researchFirmString: importItem.researchFirmString, firmRatingFullString: importItem.newRatingString});
+                        var _ratingScaleObjectForOldRatingString = RatingScales.findOne({researchFirmString: importItem.researchFirmString, firmRatingFullString: importItem.oldRatingString});
+
+                        //append numerical rating value if corresponding rating scale exists for new rating
+                        if (_ratingScaleObjectForNewRatingString) {
+                            _.extend(_ratingChange, {
+                                newRatingValue: _ratingScaleObjectForNewRatingString.universalScaleValue
+                            });
+                        } else {
+                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
+                                researchFirmString: importItem.researchFirmString,
+                                ratingString: importItem.newRatingString
+                            });
+                        }
+
+                        //append numerical rating value if corresponding rating scale exists for old rating
+                        if (_ratingScaleObjectForOldRatingString) {
+                            _.extend(_ratingChange, {
+                                oldRatingValue: _ratingScaleObjectForOldRatingString.universalScaleValue
+                            });
+                        } else {
+                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
+                                researchFirmString: importItem.researchFirmString,
+                                ratingString: importItem.oldRatingString
+                            });
+                        }
+
+                        if (_ratingChange.oldRatingValue && _ratingChange.newRatingValue) {
+                            console.log("adding this stock: ", importItem.symbol);
+                            RatingChanges.insert(_ratingChange);
+                        }
+                    }
                 });
             } else if (importType === "earnings_releases") {
                 importData.forEach(function(importItem) {
@@ -85,7 +122,31 @@ if (Meteor.isServer) {
                         }
                     });
                 });
+            } else if (importType === "grading_scales") {
+                var _allRatings = importData.thresholdStringsArray;
+                var _researchFirmString = importData.researchFirmString;
+
+                var _noneOfGradingScalesForThisFirmAlreadyExist = true;
+                _allRatings.forEach(function(ratingString) {
+                    if (RatingScales.findOne({researchFirmString: _researchFirmString, firmRatingFullString: ratingString})) {
+                        _noneOfGradingScalesForThisFirmAlreadyExist = false;
+                    }
+                });
+
+                if (_noneOfGradingScalesForThisFirmAlreadyExist) {
+                    //now eval approx how many points each and insert into collection.
+                    var _valuePerThreshold = Math.round(_totalMaxGradingValue / _allRatings.length)
+                    _allRatings.forEach(function(value, index) {
+                        RatingScales.insert({
+                            researchFirmString: _researchFirmString,
+                            firmRatingFullString: value,
+                            universalScaleValue: index * _valuePerThreshold + Math.round(_valuePerThreshold / 2)
+                        });
+                    })
+                }
             }
+
+            return _result;
         }
     })
 }
