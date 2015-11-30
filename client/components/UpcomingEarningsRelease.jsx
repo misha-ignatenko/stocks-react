@@ -3,7 +3,8 @@ UpcomingEarningsRelease = React.createClass({
     mixins: [ReactMeteorData],
 
     propTypes: {
-        symbol: React.PropTypes.string.isRequired
+        symbol: React.PropTypes.string.isRequired,
+        currentUser: React.PropTypes.object.isRequired
     },
 
     getInitialState() {
@@ -11,7 +12,8 @@ UpcomingEarningsRelease = React.createClass({
         return {
             individualStockStartDate: null,
             individualStockEndDate: null,
-            stocksToGraphObjects: []
+            stocksToGraphObjects: [],
+            allRatingChangesForStock: []
         }
     },
 
@@ -21,6 +23,20 @@ UpcomingEarningsRelease = React.createClass({
         return {
             individualEarningReleases: EarningsReleases.find({symbol: _symbol}).fetch()
         }
+    },
+    shouldComponentUpdate: function(nextProps, nextState) {
+        if (this.props.currentUser.lastModified !== nextProps.currentUser.lastModified) {
+            console.log("resubscribe to rating changes because last modified changed because premium status changed");
+            var _that = this;
+            Meteor.call("getRatingChangesFor", nextProps.symbol, function (error, result) {
+                if (!error && result) {
+                    _that.setState({
+                        allRatingChangesForStock: result
+                    })
+                }
+            });
+        }
+        return true;
     },
     renderEpsMeanEstimates() {
         return this.data.individualEarningReleases.map((release) => {
@@ -77,6 +93,18 @@ UpcomingEarningsRelease = React.createClass({
     componentWillReceiveProps: function(nextProps) {
         this.getLatestGraph(nextProps.symbol);
     },
+    renderAllExistingUpDowngradesForStock: function() {
+        return this.state.allRatingChangesForStock.map((ratingChange, index) => {
+            return(<li key={index}>
+                <div>
+                    Old rating: {ratingChange.oldRatingValue ? ratingChange.oldRatingValue : "unknown"}<br/>
+                    New rating: {ratingChange.newRatingValue ? ratingChange.newRatingValue : "unknown"}<br/>
+                    As of: {ratingChange.date}<br/>
+                    Firm name: {ratingChange.researchFirmString ? ratingChange.researchFirmString : "no premium access"}
+                </div>
+            </li>);
+        });
+    },
 
     render() {
         return (<div>
@@ -95,6 +123,11 @@ UpcomingEarningsRelease = React.createClass({
                 <StocksGraph
                     stocksToGraphObjects={this.state.stocksToGraphObjects}/>
             </div>
+            <br/>
+            rendering all existing up/downgrades:
+            <ul>
+                {this.renderAllExistingUpDowngradesForStock()}
+            </ul>
         </div>);
     }
 });

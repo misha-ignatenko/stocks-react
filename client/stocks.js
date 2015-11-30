@@ -4,7 +4,6 @@ if (Meteor.isClient) {
     });
 
     Meteor.subscribe("earningsReleases");
-    Meteor.subscribe("ratingChanges");
     Meteor.subscribe("researchCompanies");
     Meteor.subscribe("stockPrices");
     Meteor.subscribe("pickLists");

@@ -4,9 +4,6 @@ if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function () {
         return EarningsReleases.find();
     });
-    Meteor.publish("ratingChanges", function () {
-        return RatingChanges.find({}, {fields: {_id: 1, symbol: 1, date: 1}});
-    });
     Meteor.publish("stockPrices", function () {
         return StockPrices.find();
     });
@@ -19,15 +16,42 @@ if (Meteor.isServer) {
     });
 
     Meteor.publish(null, function() {
-        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1}}) : null;
+        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1}}) : null;
         return _user;
     });
 
+    Meteor.users.find().observe({
+        changed: function(newDocument, oldDocument) {
+            if (oldDocument.premium !== newDocument.premium) {
+                console.log("premium status changed.");
+            }
+        }
+    })
+
     Accounts.onCreateUser(function(options, user) {
-        return _.extend(user, {registered: options.registered});
+        var _createdUser;
+        if (options.registered === undefined) {
+            _createdUser = _.extend(user, {registered: false});
+        } else {
+            _createdUser = _.extend(user, {registered: options.registered});
+        }
+
+        //set premium to false no matter what
+        _createdUser.premium = false;
+
+        return _createdUser;
     })
 
     Meteor.methods({
+        getRatingChangesFor: function(symbol) {
+            var _userId = this.userId;
+            var _user = Meteor.users.findOne({_id: _userId});
+            //show researchFirmString ONLY if user is premium
+
+            return _user.premium ?
+                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingValue: 1, newRatingValue: 1, researchFirmString: 1}}).fetch() :
+                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingValue: 1, newRatingValue: 1}}).fetch();
+        },
         registerRealAccountFromDummy: function(dummyUserId, newUsername, newPassword) {
             Accounts.setUsername(dummyUserId, newUsername);
             Accounts.setPassword(dummyUserId, newPassword);

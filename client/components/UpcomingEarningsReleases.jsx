@@ -91,7 +91,7 @@ UpcomingEarningsReleases = React.createClass({
                             { this.renderUpcomingEarningsReleases() }
                             <br/>
                             <br/>
-                            <UpcomingEarningsRelease symbol={_symbol} />
+                            <UpcomingEarningsRelease symbol={_symbol} currentUser={this.data.currentUser}/>
                             <br/>
                             upcoming earnings releases
                         </div>
