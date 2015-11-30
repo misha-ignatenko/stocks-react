@@ -20,14 +20,6 @@ if (Meteor.isServer) {
         return _user;
     });
 
-    Meteor.users.find().observe({
-        changed: function(newDocument, oldDocument) {
-            if (oldDocument.premium !== newDocument.premium) {
-                console.log("premium status changed.");
-            }
-        }
-    })
-
     Accounts.onCreateUser(function(options, user) {
         var _createdUser;
         if (options.registered === undefined) {
