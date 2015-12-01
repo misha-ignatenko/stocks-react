@@ -75,13 +75,14 @@ StocksApp = React.createClass({
                 </header>
 
                 <ul className="nav nav-tabs">
-                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">Stock Lists</a></li>
+                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">Portfolios</a></li>
                     <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">Individual Stocks</a></li>
                     <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="upcomingEarningsReleases">Upcoming Earnings Releases</a></li>
                     <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="dataImportsTab">Data Imports</a></li>
                 </ul>
                 { this.state.showMainTab ? (
                     <div>
+                        <br/>
                         { this.data.currentUser ?
                             <form className="new-pickList" onSubmit={this.handleSubmitPickList} >
                                 <input
@@ -90,6 +91,8 @@ StocksApp = React.createClass({
                                     placeholder="Type to add new pick lists" />
                             </form> : ''
                         }
+                        <br/>
+                        <br/>
                         {this.renderPickLists()}
                         <br/>
                     </div>

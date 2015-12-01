@@ -2,7 +2,10 @@ PickListItem = React.createClass({
 
     getInitialState: function() {
         return {
-            includeInGraph: false
+            includeInGraph: false,
+            showRemoveDateField: false,
+            showRemoveFromPortfolioBtn: true,
+            dateRemoved: null
         };
     },
 
@@ -36,6 +39,48 @@ PickListItem = React.createClass({
         //add that line to graph
         //use example from web -- graph looks amaze.
     },
+    deleteThisPickListItem: function() {
+        console.log("deleting portfolio item", this.props.pickListItem._id);
+        Meteor.call("removePickListItem", this.props.pickListItem._id, function(error, result) {
+            if (!error) {
+                console.log("successfully deleter pick list item.");
+            }
+        });
+    },
+    showRemoveDateField: function() {
+        this.setState({
+            showRemoveFromPortfolioBtn: false,
+            showRemoveDateField: true
+        });
+    },
+    doRemove: function() {
+        var _that = this;
+        Meteor.call("removeStockFromPickList", this.props.pickListItem._id, this.state.dateRemoved, function(error, result) {
+            if (!error) {
+                _that.setState({
+                    showRemoveDateField: false,
+                    dateRemoved: null
+                });
+            }
+        })
+    },
+    setDatepickerOptions: function() {
+        let _datepickerOptions = {
+            autoclose: true,
+            todayHighlight: true,
+            orientation: "top auto"
+        };
+        $('#datePickListItemRemoved').datepicker(_datepickerOptions);
+        var _that = this;
+
+        $('.datepickerInput').on('change', function() {
+            let _newVal = $(this).val();
+            let _momentDate = moment(new Date(_newVal).toISOString()).format("YYYY-MM-DD");
+            _that.setState({
+                dateRemoved: _momentDate
+            });
+        });
+    },
 
     render() {
         const pickListClassName = "pickListItem";
@@ -45,9 +90,19 @@ PickListItem = React.createClass({
             <div className={pickListClassName}>
 
                 { this.props.showPickListItem ? (
-                    <button className={_buttonClassName} onClick={this.addToGraph}>
-                        <strong>{this.props.pickListItem.stockId} {this.props.pickListItem.dateAdded}</strong>add charts
-                    </button>
+                    <div>
+                        <button className="delete" onClick={this.deleteThisPickListItem}>&times;</button>
+                        <button className={_buttonClassName} onClick={this.addToGraph}>
+                            <strong>{this.props.pickListItem.stockId} {this.props.pickListItem.dateAdded} {this.props.pickListItem.dateRemoved ? this.props.pickListItem.dateRemoved : null}</strong>
+                        </button>
+                        {this.state.showRemoveFromPortfolioBtn && !this.props.pickListItem.dateRemoved ? <button onClick={this.showRemoveDateField}>remove from portfolio</button> : null}
+                        {this.state.showRemoveDateField ?
+
+                        <div className="datepickers" ref={this.setDatepickerOptions}>
+                            <input className="datepickerInput" id="datePickListItemRemoved"/>
+                        </div> : null}
+                        {this.state.dateRemoved ? <button onClick={this.doRemove}>do remove</button> : null}
+                    </div>
                 ) : ''}
 
             </div>

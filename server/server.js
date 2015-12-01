@@ -91,11 +91,17 @@ if (Meteor.isServer) {
                 });
             }
         },
-        removeStockFromPickList: function(pickListId, stockId) {
-            //TODO check for duplicated dateRemoved
+        removeStockFromPickList: function(pickListItemId, dateRemoved) {
+            var _pickListItem = PickListItems.findOne(pickListItemId);
+            if (_pickListItem && !_pickListItem.dateRemoved) {
+                PickListItems.update({_id: pickListItemId}, {$set: {dateRemoved: dateRemoved}})
+            }
         },
         removePickList: function(pickListId) {
             PickLists.remove(pickListId);
+        },
+        removePickListItem: function(pickListItemId) {
+            PickListItems.remove(pickListItemId);
         },
         getFullQuote: function (symbol) {
             var _fullQuote = YahooFinance.snapshot({symbols: [symbol]});

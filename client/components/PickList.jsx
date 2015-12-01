@@ -120,41 +120,32 @@ PickList = React.createClass({
 
         return (
             <div className={pickListClassName}>
-                <div className="col-md-6">
-                    <button className="delete" onClick={this.deleteThisPickList}>
-                        &times;
-                    </button>
-
-                    <input
-                        type="checkbox"
-                        readOnly={true}
-                        checked={this.props.pickList.checked}
-                        onClick={this.toggleChecked}/>
-
-
+                <div className="col-md-4">
+                    <h3>Portfolio name: {this.props.pickList.listName}</h3>
+                    <p>Added by: {this.props.pickList.addedByUsername}</p>
+                    <p>Number of stocks: {this.data.pickListItemsCount}</p>
                     { this.props.showPrivateButton ? (
                         <button className="toggle-private" onClick={this.togglePrivate}>
                             { this.props.pickList.private ? "Private" : "Public" }
                         </button>
                     ) : ''}
-                    <br/>
-                    <br/>
                     <button className="btn btn-default" onClick={this.toggleHidePickListItems}>
                         { this.state.hidePickListItems ? "show items" : "hide items" }
                     </button>
 
                     <span className="text">
-                        <strong>{this.props.pickList.addedByUsername}</strong>: {this.props.pickList.listName}. Stocks ({this.data.pickListItemsCount}):
                         { !this.state.hidePickListItems ? (
-                            <div className="pickListItems">{this.renderPickListItems()}</div>
+                            <div className="pickListItems"><br/>{this.renderPickListItems()}</div>
                         ) : ''}
                     </span>
-
-                    <button className="btn btn-default" onClick={this.showStockEntryPageAction}>enter stocks</button>
+                    <br/><br/>
+                    <button className="btn btn-default" onClick={this.showStockEntryPageAction}>add stocks to portfolio</button>
                     { this.state.showStockEntryPage ? <PickListStockEntryPage pickListId={this.props.pickList._id} /> : null }
+                    <br/><br/>
+                    Delete {this.props.pickList.listName} portfolio: <button className="delete" onClick={this.deleteThisPickList}>&times;</button>
                 </div>
 
-                <div className="col-md-6">
+                <div className="col-md-8">
                     { this.state.showGraph ? (
                         <StocksGraph
                             stocksToGraphObjects={this.state.stocksToGraphObjects}/>

@@ -93,7 +93,6 @@ UpcomingEarningsReleases = React.createClass({
                             <br/>
                             <UpcomingEarningsRelease symbol={_symbol} currentUser={this.data.currentUser}/>
                             <br/>
-                            upcoming earnings releases
                         </div>
                     ) : null
                 ) : null}
