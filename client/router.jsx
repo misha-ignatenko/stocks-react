@@ -18,5 +18,5 @@ Meteor.startup(function() {
             </Route>
         </Router>
     )
-    React.render(AppRoutes, document.body)
+    React.render(AppRoutes, document.getElementById("render-target"))
 })

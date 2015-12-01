@@ -162,7 +162,7 @@ IndividualStock = React.createClass({
         return (
             <div className="container">
                 { this.data.currentUser ? <div>
-                    {this.data.currentUser.registered ? <div>registered</div> :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
+                    {this.data.currentUser.registered ? null :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
                     { !this.data.currentUser.registered && this.state.showRegisterNewAccountFields ? <div>
                         username: <input ref="fromDummyToReal_username"/>
                         password: <input ref="fromDummyToReal_password"/>
