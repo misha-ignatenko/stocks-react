@@ -10,6 +10,11 @@ StocksGraph = React.createClass({
 
     initializeChart: function(stocksObjectsArray) {
         console.log("inside initialize chart. stocks object to graph: ", stocksObjectsArray);
+        if (stocksObjectsArray.length === 0) {
+            $(this.refs.myChartTwo).hide();
+        } else {
+            $(this.refs.myChartTwo).show();
+        }
 
         var seriesModel = [];
         stocksObjectsArray.forEach(function (obj) {
@@ -28,7 +33,7 @@ StocksGraph = React.createClass({
             }
         });
 
-        $(this.refs.myChartTwo.getDOMNode()).highcharts('StockChart', {
+        $(this.refs.myChartTwo).highcharts('StockChart', {
 
             xAxis: {
                 type: 'datetime',
