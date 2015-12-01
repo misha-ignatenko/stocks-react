@@ -7,10 +7,10 @@ StocksApp = React.createClass({
 
     getInitialState() {
         return {
-            hideCompleted: false,
             showMainTab: true,
             individualStockTab: false,
-            showUpcomingEarningsReleasesTab: false
+            showUpcomingEarningsReleasesTab: false,
+            showDataImportsTab: false
         }
     },
 
@@ -21,7 +21,6 @@ StocksApp = React.createClass({
 
         return {
             pickLists: PickLists.find(pickListsQuery, {sort: {pickListDate: -1}}).fetch(),
-            pickListCount: PickLists.find().count(),
             currentUser: Meteor.user()
         }
     },
@@ -53,38 +52,25 @@ StocksApp = React.createClass({
         React.findDOMNode(this.refs.textInput).value = "";
     },
 
-    toggleHideCompleted() {
-        this.setState({
-            hideCompleted: ! this.state.hideCompleted
-        });
-    },
-
     selectTab(e) {
         let _showMainTab = e.target.getAttribute("data-tag") === "mainTab";
         let _showIndividualStockTab = e.target.getAttribute("data-tag") === "individualStockTab";
         let _showUpcomingEarningsReleasesTab = e.target.getAttribute("data-tag") === "upcomingEarningsReleases";
+        let _showDataImportsTab = e.target.getAttribute("data-tag") === "dataImportsTab";
         this.setState({
             showMainTab: _showMainTab,
             individualStockTab: _showIndividualStockTab,
-            showUpcomingEarningsReleasesTab: _showUpcomingEarningsReleasesTab
+            showUpcomingEarningsReleasesTab: _showUpcomingEarningsReleasesTab,
+            showDataImportsTab: _showDataImportsTab
         });
     },
 
     render() {
+        //add this to tabs to make router work
+        //<li className="tab3"><a href="/dataimport/updowngrades">TEST TO UP DOWN GRADES</a></li>
         return (
             <div className="container">
                 <header>
-                    <h1>Pick Lists: ({this.data.pickListCount})</h1>
-
-                    <label className="hide-completed">
-                        <input
-                            type="checkbox"
-                            readOnly={true}
-                            checked={this.state.hideCompleted}
-                            onClick={this.toggleHideCompleted} />
-                        Hide Completed Tasks
-                    </label>
-
                     <AccountsUIWrapper />
                 </header>
 
@@ -92,6 +78,7 @@ StocksApp = React.createClass({
                     <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">Stock Lists</a></li>
                     <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">Individual Stocks</a></li>
                     <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="upcomingEarningsReleases">Upcoming Earnings Releases</a></li>
+                    <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="dataImportsTab">Data Imports</a></li>
                 </ul>
                 { this.state.showMainTab ? (
                     <div>
@@ -105,7 +92,6 @@ StocksApp = React.createClass({
                         }
                         {this.renderPickLists()}
                         <br/>
-                        <Example />
                     </div>
                 ) : null}
                 { this.state.individualStockTab ? (
@@ -116,6 +102,11 @@ StocksApp = React.createClass({
                 { this.state.showUpcomingEarningsReleasesTab ? (
                     <div>
                         <UpcomingEarningsReleases />
+                    </div>
+                ) : null}
+                { this.state.showDataImportsTab ? (
+                    <div>
+                        <DataImportsMain />
                     </div>
                 ) : null}
             </div>
