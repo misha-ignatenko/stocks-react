@@ -93,7 +93,7 @@ PickListItem = React.createClass({
                     <div>
                         <button className="delete" onClick={this.deleteThisPickListItem}>&times;</button>
                         <button className={_buttonClassName} onClick={this.addToGraph}>
-                            <strong>{this.props.pickListItem.stockId} {this.props.pickListItem.dateAdded} {this.props.pickListItem.dateRemoved ? this.props.pickListItem.dateRemoved : null}</strong>
+                            <strong>{this.props.pickListItem.stockId}: from {this.props.pickListItem.dateAdded} {this.props.pickListItem.dateRemoved ? <span>to {this.props.pickListItem.dateRemoved}</span> : null}</strong>
                         </button>
                         {this.state.showRemoveFromPortfolioBtn && !this.props.pickListItem.dateRemoved ? <button onClick={this.showRemoveDateField}>remove from portfolio</button> : null}
                         {this.state.showRemoveDateField ?
@@ -102,6 +102,7 @@ PickListItem = React.createClass({
                             <input className="datepickerInput" id="datePickListItemRemoved"/>
                         </div> : null}
                         {this.state.dateRemoved ? <button onClick={this.doRemove}>do remove</button> : null}
+                        <br/><br/>
                     </div>
                 ) : ''}
 
