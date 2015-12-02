@@ -81,7 +81,7 @@ PickList = React.createClass({
     stockToGraphAddition: function(stockToShowObj) {
         if (stockToShowObj.shouldBeGraphed) {
             var _that = this;
-            Meteor.call('checkHistoricalData', stockToShowObj.stockId, stockToShowObj.dateAdded, stockToShowObj.dateRemoved ? stockToShowObj.dateRemoved : "2015-09-11", function(err, result) {
+            Meteor.call('checkHistoricalData', stockToShowObj.stockId, stockToShowObj.dateAdded, stockToShowObj.dateRemoved ? stockToShowObj.dateRemoved : moment(new Date().toISOString()).format("YYYY-MM-DD"), function(err, result) {
                 if (result && result.historicalData) {
                     let _allStocksToGraphObjects = _that.state.stocksToGraphObjects;
                     //now need to either add the stockId if it's not in the array already
