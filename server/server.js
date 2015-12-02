@@ -180,8 +180,24 @@ if (Meteor.isServer) {
                 });
             }
 
-            return StockPrices.findOne({symbol: symbol});
-            //TODO return historical data based on start date and end date, DO NOT just return the whole historical data that is available from previous yahoo finance requests.
+            var _historicalDataBetweenTwoRequestedDates = [];
+            var _stockPricesRecord = StockPrices.findOne({symbol: symbol});
+            if (_stockPricesRecord && _stockPricesRecord.historicalData) {
+                var _allHistoricalData = _stockPricesRecord.historicalData;
+                //push items from _allHistoricalData to _historicalDataBetweenTwoRequestedDates
+                //only where dates are within the requested date range
+                _allHistoricalData.forEach(function(priceObjForDay) {
+                    var _extractedDateStringNoTimezone = moment(new Date(priceObjForDay.date)).format("YYYY-MM-DD");
+                    if ((moment(_extractedDateStringNoTimezone).isSame(startDate) || moment(_extractedDateStringNoTimezone).isAfter(startDate)) &&
+                        (moment(_extractedDateStringNoTimezone).isSame(endDate) || moment(_extractedDateStringNoTimezone).isBefore(endDate))
+                    ) {
+                        _historicalDataBetweenTwoRequestedDates.push(priceObjForDay);
+                    }
+                });
+            }
+            //this will limit the historicalData attribute that we are making available to the user
+            _stockPricesRecord.historicalData = _historicalDataBetweenTwoRequestedDates;
+            return _stockPricesRecord;
         },
         getHistoricalData: function(symbol, start, end) {
             var _startDate = moment(start).utc().format();
