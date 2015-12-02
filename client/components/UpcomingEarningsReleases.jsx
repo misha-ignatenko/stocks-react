@@ -68,6 +68,25 @@ UpcomingEarningsReleases = React.createClass({
             earningsReleaseIndex: _newState
         });
     },
+    setDatepickerOptions: function() {
+        let _datepickerOptions = {
+            autoclose: true,
+            todayHighlight: true,
+            orientation: "top auto"
+        };
+        $('#startEarningsReleaseDateInteger').datepicker(_datepickerOptions);
+        $('#endEarningsReleaseDateInteger').datepicker(_datepickerOptions);
+        var _that = this;
+
+        $('.datepickerInput2').on('change', function() {
+            let _newVal = $(this).val();
+            let _momentDate = parseInt(moment(new Date(_newVal).toISOString()).format("YYYYMMDD"));
+            let _id = $(this).attr('id');
+            let _set = {};
+            _set[_id] = _momentDate;
+            _that.setState(_set);
+        });
+    },
 
     render() {
         let _symbol = this.data.upcomingEarningsReleases &&
@@ -81,9 +100,14 @@ UpcomingEarningsReleases = React.createClass({
                 { this.data.currentUser ? (
                     this.data.currentUser.registered ? (
                         <div>
-                            {this.state.startEarningsReleaseDateInteger}
                             <br/>
-                            {this.state.endEarningsReleaseDateInteger}
+                            <div className="datepickers" ref={this.setDatepickerOptions}>
+                                start date:
+                                <input className="datepickerInput2" id="startEarningsReleaseDateInteger"/>
+                                <br/>
+                                end date:
+                                <input className="datepickerInput2" id="endEarningsReleaseDateInteger" />
+                            </div>
                             <br/>
                             <button onClick={this.previousEarningsRelease}>previous</button>
                             <button onClick={this.nextEarningsRelease}>next</button>
