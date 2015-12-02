@@ -75,19 +75,23 @@ if (Meteor.isServer) {
                 addedByUsername: Meteor.user().username
             });
         },
-        addStockToPickList: function(pickListId, stockId, dateAdded) {
+        addStockToPickList: function(pickListId, symbol, dateAdded) {
             var _alreadyExistingPickListItem = PickListItems.findOne({
                 pickListId: pickListId,
-                stockId: stockId,
+                stockId: symbol,
                 dateAdded: dateAdded
             });
             if (_alreadyExistingPickListItem) {
                 console.log("attempt to enter duplicate pick list item prevented. item id: ", _alreadyExistingPickListItem._id, ", stock symbol: ", _alreadyExistingPickListItem.stockId);
             } else {
-                PickListItems.insert({
-                    pickListId: pickListId,
-                    stockId: stockId,
-                    dateAdded: dateAdded
+                Meteor.call("getCompanyName", symbol, function(error, result) {
+                    if (!error && result) {
+                        PickListItems.insert({
+                            pickListId: pickListId,
+                            stockId: symbol,
+                            dateAdded: dateAdded
+                        });
+                    }
                 });
             }
         },
@@ -112,8 +116,9 @@ if (Meteor.isServer) {
             return _latestPriceQuote;
         },
         getCompanyName: function (symbol) {
-            var _quote = YahooFinance.snapshot({symbols: [symbol], fields: ['n']});
-            return _quote[symbol].name;
+            var _quotes = YahooFinance.snapshot({symbols: [symbol], fields: ['n']});
+            var _filteredQuote = _.findWhere(_quotes, {symbol: symbol});
+            return _filteredQuote.name;
         },
         checkHistoricalData: function(symbol, startDate, endDate) {
             console.log("get HistoricalData method being called for: ", symbol, ", start date: ", startDate, ", end date: ", endDate, ".");

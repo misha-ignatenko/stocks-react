@@ -2,29 +2,60 @@ PickListStockEntryPage = React.createClass({
     propTypes: {
         pickListId: React.PropTypes.string.isRequired
     },
+    getInitialState: function() {
+        return {
+            datePortfolioItemAdded: null
+        };
+    },
 
     addStockToPickList(event) {
         event.preventDefault();
-        var stockId = React.findDOMNode(this.refs.addStockToPickListTextInput).value.trim();
-        var _dateAdded = React.findDOMNode(this.refs.addStockToPickListDateInput).value;
-        var pickListId = this.props.pickListId;
-        Meteor.call("addStockToPickList", pickListId, stockId, _dateAdded);
-        React.findDOMNode(this.refs.addStockToPickListTextInput).value = "";
-        React.findDOMNode(this.refs.addStockToPickListDateInput).value = "";
+        var _symbol = this.refs.addStockToPickListTextInput.value.trim();
+        var _newDateAdded = this.state.datePortfolioItemAdded;
+        var _portfolioId = this.props.pickListId;
+        var _that = this;
+        if (_symbol && _newDateAdded) {
+            Meteor.call("addStockToPickList", _portfolioId, _symbol, _newDateAdded, function(error, result) {
+                if (!error) {
+                    _that.refs.addStockToPickListTextInput.value = "";
+                    _that.setState({
+                        datePortfolioItemAdded: null
+                    })
+                    _that.refs.datePortfolioItemAdded.value = "";
+                }
+            });
+        }
+    },
+    setDatepickerOptions: function() {
+        let _datepickerOptions = {
+            autoclose: true,
+            todayHighlight: true,
+            orientation: "top auto"
+        };
+        $('#datePortfolioItemAdded').datepicker(_datepickerOptions);
+        var _that = this;
+
+        $('.datepickerInput').on('change', function() {
+            let _newVal = $(this).val();
+            let _momentDate = moment(new Date(_newVal).toISOString()).format("YYYY-MM-DD");
+            _that.setState({
+                datePortfolioItemAdded: _momentDate
+            });
+        });
     },
 
     render: function() {
         return (
             <div className="pickListEntryPage">
-                <form className="pickListEntryForm" onSubmit={this.addStockToPickList} >
-                    <input
-                        type="text"
-                        ref="addStockToPickListTextInput"
-                        placeholder="Type to add new stock to selected pick list" />
-                    <input
-                        type="date"
-                        ref="addStockToPickListDateInput" />
-                </form>
+                <input
+                    type="text"
+                    ref="addStockToPickListTextInput"
+                    placeholder="Type to add new stock to selected portfolio" />
+
+                <span className="datepickers" ref={this.setDatepickerOptions}>
+                    <input className="datepickerInput" id="datePortfolioItemAdded" ref="datePortfolioItemAdded"/>
+                </span><button onClick={this.addStockToPickList}>add to portfolio</button>
+                {this.state.datePortfolioItemAdded}
             </div>
         );
     }

@@ -119,7 +119,6 @@ IndividualStock = React.createClass({
         //make sure that end date is after start date
         //or disable dates based on previously selected dates
         if (this.state.selectedStock && this.state.individualStockStartDate && this.state.individualStockEndDate) {
-            console.log('getting the latest graph.');
             var _that = this;
             Meteor.call('checkHistoricalData', this.state.selectedStock, this.state.individualStockStartDate, this.state.individualStockEndDate, function(err, result) {
                 if (result && result.historicalData) {
