@@ -17,6 +17,8 @@ UpcomingEarningsReleases = React.createClass({
         //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
 
         //generate 2 numbers based on todays
+        var _startDate = this.state.startEarningsReleaseDateInteger;
+        var _endDate = this.state.endEarningsReleaseDateInteger;
         var _allEarningsReleases = EarningsReleases.find({$or: [
             {fieldNames: "EXP_RPT_DATE_QR1"},
             {fieldNames: "EXP_RPT_DATE_QR4"},
@@ -31,8 +33,8 @@ UpcomingEarningsReleases = React.createClass({
             for (var i=1; i<=4; i++) {
                 var _fieldName = "EXP_RPT_DATE_QR" + i;
                 if (_.indexOf(release.fieldNames, _fieldName) > -1 &&
-                    release.earningsData[_.indexOf(release.fieldNames, _fieldName)] >= parseInt(moment(new Date().toISOString()).format("YYYYMMDD")) &&
-                    release.earningsData[_.indexOf(release.fieldNames, _fieldName)] <= parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD"))
+                    release.earningsData[_.indexOf(release.fieldNames, _fieldName)] >= _startDate &&
+                    release.earningsData[_.indexOf(release.fieldNames, _fieldName)] <= _endDate
                 ) {
                     _addToUpcomingList = true;
                     break;
