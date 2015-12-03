@@ -42,17 +42,25 @@ UpcomingEarningsRelease = React.createClass({
         return this.data.individualEarningReleases.map((release) => {
             let _fieldNamesArray = release.fieldNames;
             let _earningsData = release.earningsData;
-            let _indicesForEpsEstimates = [];
-            _fieldNamesArray.forEach(function(item, index) {
-                if (item === "EPS_MEAN_EST_QR1" || item === "EPS_MEAN_EST_QR2" || item === "EPS_MEAN_EST_QR3" || item === "EPS_MEAN_EST_QR4") {
-                    _indicesForEpsEstimates.push(index)
+            let _indexForEpsEstimate;
+            for (var i = 0; i < _fieldNamesArray.length; i++) {
+                if (_fieldNamesArray[i] === "EPS_MEAN_EST_QR1" ||
+                    _fieldNamesArray[i] === "EPS_MEAN_EST_QR2" ||
+                    _fieldNamesArray[i] === "EPS_MEAN_EST_QR3" ||
+                    _fieldNamesArray[i] === "EPS_MEAN_EST_QR4"
+                ) {
+                    _indexForEpsEstimate = i;
+                    break;
                 }
-            });
-            return _indicesForEpsEstimates.map((index) => {
-                return (
-                    <p>{_fieldNamesArray[index]}: {_earningsData[index]}</p>
-                )
-            });
+            }
+            return (
+                <div key={release.symbol}>
+                    <p>{_fieldNamesArray[_indexForEpsEstimate]}: {_earningsData[_indexForEpsEstimate]}</p>
+
+                    <p>{_fieldNamesArray[_indexForEpsEstimate + 1]}: {_earningsData[_indexForEpsEstimate + 1]}</p>
+                </div>
+            )
+
         })
     },
     setDatepickerOptions: function() {
