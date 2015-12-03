@@ -53,11 +53,20 @@ UpcomingEarningsRelease = React.createClass({
                     break;
                 }
             }
+            let _sourceFlag = _earningsData[_indexForEpsEstimate + 5];
+            let _timeOfDayCodeForEarningsRelease = _earningsData[_indexForEpsEstimate + 6];
             return (
                 <div key={release.symbol}>
-                    <p>{_fieldNamesArray[_indexForEpsEstimate]}: {_earningsData[_indexForEpsEstimate]}</p>
-
-                    <p>{_fieldNamesArray[_indexForEpsEstimate + 1]}: {_earningsData[_indexForEpsEstimate + 1]}</p>
+                    <h1>This quarter</h1>
+                    <h1>Next earning release date: {_earningsData[_indexForEpsEstimate + 1]} ({_sourceFlag === 1 ? "Company confirmed" : _sourceFlag === 2 ? "Estimated based on algorithm" : _sourceFlag === 3 ? "Unknown" : null},&nbsp;
+                        {_timeOfDayCodeForEarningsRelease === 1 ? "After market close" : _timeOfDayCodeForEarningsRelease === 2 ? "Before the open" : _timeOfDayCodeForEarningsRelease === 3 ? "During market trading" : _timeOfDayCodeForEarningsRelease === 4 ? "Unknown" : null})</h1>
+                    <h1>Expected EPS: {_earningsData[_indexForEpsEstimate]}</h1>
+                    <br/>
+                    <h3>Previous quarter EPS: {_earningsData[_indexForEpsEstimate + 7]}</h3>
+                    <h3>EPS a year ago: {_earningsData[_indexForEpsEstimate + 9]}</h3>
+                    <br/>
+                    <h5>Next quarter</h5>
+                    <h5>Report date: {_earningsData[_indexForEpsEstimate + 2]}</h5>
                 </div>
             )
 
