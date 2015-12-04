@@ -53,7 +53,8 @@ UpcomingEarningsReleases = React.createClass({
     renderUpcomingEarningsReleases() {
         return this.data.upcomingEarningsReleases.map((release, index) => {
             let _btnClass = "btn" + (release.symbol === this.getSelectedSymbol() ? " btn-primary" : "");
-            return <button key={release.symbol} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, release.symbol, index)}>{release.symbol}</button>
+            let _key = release.symbol + "_" + index;
+            return <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, release.symbol, index)}>{release.symbol}</button>
         })
     },
     setNewSelectedSymbol: function(symbol, indexInThisDataUpcomingEarningsReleases) {
