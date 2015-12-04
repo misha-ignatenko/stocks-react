@@ -109,7 +109,7 @@ UpcomingEarningsReleases = React.createClass({
         this.data.upcomingEarningsReleases.length > 0 &&
         this.state.earningsReleaseIndex.toString() &&
         this.state.earningsReleaseIndex + 1 <= this.data.upcomingEarningsReleases.length ?
-            this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol : "undefined";
+            this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol : "undefinedd";
         return _symbol;
     },
     handleKeyDown: function(e) {

@@ -19,9 +19,26 @@ UpcomingEarningsRelease = React.createClass({
 
     getMeteorData() {
         let _symbol = this.props.symbol;
+        let _allEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol}).fetch();
+        //if the max of all future approx dates of earnings release is less or equal than today then pull new data
+        let _maxDate = parseInt(moment(new Date().toISOString()).subtract(365, 'days').format("YYYYMMDD"));
+        let _todaysDate = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
+        _allEarningsReleasesForSymbol.forEach(function(release) {
+            var _fieldName = "EXP_RPT_DATE_QR1";
+            if (_.indexOf(release.fieldNames, _fieldName) > -1 &&
+                release.earningsData[_.indexOf(release.fieldNames, _fieldName)] > _maxDate
+            ) {
+                _maxDate = release.earningsData[_.indexOf(release.fieldNames, _fieldName)];
+            }
+        });
+        //this logic locks in the next update date until whatever the latest version of Quandl says.
+        //if there is a glitch and the next release date is too far ahead in the future, then won't be able to pull until that date.
+        if (_maxDate <= _todaysDate && _symbol !== "undefinedd") {
+            this.checkForNewestDataFromQuandl(_symbol);
+        }
 
         return {
-            individualEarningReleases: EarningsReleases.find({symbol: _symbol}).fetch()
+            individualEarningReleases: _allEarningsReleasesForSymbol
         }
     },
     shouldComponentUpdate: function(nextProps, nextState) {
@@ -38,6 +55,11 @@ UpcomingEarningsRelease = React.createClass({
         }
         return true;
     },
+
+    checkForNewestDataFromQuandl: function (symbol) {
+        Meteor.call('importData', [{symbol: symbol}], 'earnings_releases');
+    },
+
     renderEpsMeanEstimates() {
         return this.data.individualEarningReleases.map((release, index) => {
             let _fieldNamesArray = release.fieldNames;
