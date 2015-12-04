@@ -1,3 +1,5 @@
+let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
+
 UpcomingEarningsRelease = React.createClass({
 
     mixins: [ReactMeteorData],
@@ -20,20 +22,25 @@ UpcomingEarningsRelease = React.createClass({
     getMeteorData() {
         let _symbol = this.props.symbol;
         let _allEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol}).fetch();
-        //if the max of all future approx dates of earnings release is less or equal than today then pull new data
-        let _maxDate = parseInt(moment(new Date().toISOString()).subtract(365, 'days').format("YYYYMMDD"));
         let _todaysDate = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
+        let _maxLastModifiedDateNum = parseInt(moment(new Date().toISOString()).subtract(1000, 'days').format("YYYYMMDD"));
+        let _maxLastModifiedDateString = moment(new Date().toISOString()).subtract(1000, 'days');
         _allEarningsReleasesForSymbol.forEach(function(release) {
-            var _fieldName = "EXP_RPT_DATE_QR1";
-            if (_.indexOf(release.fieldNames, _fieldName) > -1 &&
-                release.earningsData[_.indexOf(release.fieldNames, _fieldName)] > _maxDate
-            ) {
-                _maxDate = release.earningsData[_.indexOf(release.fieldNames, _fieldName)];
+            var _dateOnly = (new Date(release.lastModified)).toISOString().substring(0,10);
+            var _dateNum = parseInt(moment(_dateOnly).format("YYYYMMDD"));
+
+            if (_dateNum > _maxLastModifiedDateNum) {
+                _maxLastModifiedDateNum = _dateNum;
+                _maxLastModifiedDateString = new Date(_dateOnly).toISOString();
             }
         });
+        let _nextUpdateAllowedOn_NUM = parseInt(moment(new Date(_maxLastModifiedDateString)).add(_allowQuandlPullEveryNdaysFromPreviousForThatStock + 1, 'days').format("YYYYMMDD"));
+        if (_symbol !== "undefinedd") {
+            //console.log("next update for " + _symbol + " is on: ", _nextUpdateAllowedOn_NUM);
+        }
         //this logic locks in the next update date until whatever the latest version of Quandl says.
         //if there is a glitch and the next release date is too far ahead in the future, then won't be able to pull until that date.
-        if (_maxDate <= _todaysDate && _symbol !== "undefinedd") {
+        if (_nextUpdateAllowedOn_NUM <= _todaysDate && _symbol !== "undefinedd") {
             this.checkForNewestDataFromQuandl(_symbol);
         }
 
