@@ -116,9 +116,11 @@ UpcomingEarningsReleases = React.createClass({
         let _symbolIndex = this.state.earningsReleaseIndex;
         let _new = e.which === 37 ? _symbolIndex-1 : e.which === 39 ? _symbolIndex+1 : _symbolIndex;
         if (_symbolIndex !== _new && this.data.upcomingEarningsReleases && this.data.upcomingEarningsReleases.length > 0) {
-            this.setState({
-                earningsReleaseIndex: _new > this.data.upcomingEarningsReleases.length - 1 ? 0 : _new < 0 ? this.data.upcomingEarningsReleases.length - 1 : _new
-            })
+            if (e.which === 37) {
+                this.previousEarningsRelease();
+            } else if (e.which === 39) {
+                this.nextEarningsRelease();
+            }
         }
     },
 
