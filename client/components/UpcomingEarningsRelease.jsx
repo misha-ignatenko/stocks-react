@@ -42,6 +42,9 @@ UpcomingEarningsRelease = React.createClass({
         }
     },
     shouldComponentUpdate: function(nextProps, nextState) {
+        if (this.props.symbol !== nextProps.symbol) {
+            //console.log("props updated. new symbol: ", nextProps.symbol);
+        }
         if (this.props.currentUser.lastModified !== nextProps.currentUser.lastModified) {
             console.log("resubscribe to rating changes because last modified changed because premium status changed");
             var _that = this;
