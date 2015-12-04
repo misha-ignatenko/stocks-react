@@ -39,7 +39,7 @@ UpcomingEarningsRelease = React.createClass({
         return true;
     },
     renderEpsMeanEstimates() {
-        return this.data.individualEarningReleases.map((release) => {
+        return this.data.individualEarningReleases.map((release, index) => {
             let _fieldNamesArray = release.fieldNames;
             let _earningsData = release.earningsData;
             let _indexForEpsEstimate;
@@ -55,8 +55,9 @@ UpcomingEarningsRelease = React.createClass({
             }
             let _sourceFlag = _earningsData[_indexForEpsEstimate + 5];
             let _timeOfDayCodeForEarningsRelease = _earningsData[_indexForEpsEstimate + 6];
+            let _key = release.symbol + "_" + index;
             return (
-                <div key={release.symbol}>
+                <div key={_key}>
                     <h1>This quarter</h1>
                     <h1>Next earning release date: {_earningsData[_indexForEpsEstimate + 1]} ({_sourceFlag === 1 ? "Company confirmed" : _sourceFlag === 2 ? "Estimated based on algorithm" : _sourceFlag === 3 ? "Unknown" : null},&nbsp;
                         {_timeOfDayCodeForEarningsRelease === 1 ? "After market close" : _timeOfDayCodeForEarningsRelease === 2 ? "Before the open" : _timeOfDayCodeForEarningsRelease === 3 ? "During market trading" : _timeOfDayCodeForEarningsRelease === 4 ? "Unknown" : null})</h1>
@@ -133,7 +134,6 @@ UpcomingEarningsRelease = React.createClass({
                 <input className="datepickerInput" id="individualStockEndDate" />
             </div>
 
-            symbol: {this.props.symbol}
             <br/>
             {this.renderEpsMeanEstimates()}
             <div className="col-md-12 individualStockGraph">

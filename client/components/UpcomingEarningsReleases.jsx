@@ -30,15 +30,14 @@ UpcomingEarningsReleases = React.createClass({
         var _upcomingEarningsReleases = [];
         _allEarningsReleases.forEach(function(release) {
             var _addToUpcomingList = false;
-            for (var i=1; i<=4; i++) {
-                var _fieldName = "EXP_RPT_DATE_QR" + i;
-                if (_.indexOf(release.fieldNames, _fieldName) > -1 &&
-                    release.earningsData[_.indexOf(release.fieldNames, _fieldName)] >= _startDate &&
-                    release.earningsData[_.indexOf(release.fieldNames, _fieldName)] <= _endDate
-                ) {
-                    _addToUpcomingList = true;
-                    break;
-                }
+            //index on the end will always be '1' because it just refers to the upcoming quarter, not actual quarter index
+            //var _fieldName = "EXP_RPT_DATE_QR" + i;
+            var _fieldName = "EXP_RPT_DATE_QR1";
+            if (_.indexOf(release.fieldNames, _fieldName) > -1 &&
+                release.earningsData[_.indexOf(release.fieldNames, _fieldName)] >= _startDate &&
+                release.earningsData[_.indexOf(release.fieldNames, _fieldName)] <= _endDate
+            ) {
+                _addToUpcomingList = true;
             }
 
             if (_addToUpcomingList) {
@@ -52,9 +51,15 @@ UpcomingEarningsReleases = React.createClass({
         }
     },
     renderUpcomingEarningsReleases() {
-        return this.data.upcomingEarningsReleases.map((release) => {
-            return <button key={release.symbol}>{release.symbol}</button>
+        return this.data.upcomingEarningsReleases.map((release, index) => {
+            let _btnClass = "btn" + (release.symbol === this.getSelectedSymbol() ? " btn-primary" : "");
+            return <button key={release.symbol} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, release.symbol, index)}>{release.symbol}</button>
         })
+    },
+    setNewSelectedSymbol: function(symbol, indexInThisDataUpcomingEarningsReleases) {
+        this.setState({
+            earningsReleaseIndex: indexInThisDataUpcomingEarningsReleases
+        });
     },
     previousEarningsRelease() {
         let _previousState = this.state.earningsReleaseIndex;
@@ -78,6 +83,8 @@ UpcomingEarningsReleases = React.createClass({
         };
         $('#startEarningsReleaseDateInteger').datepicker(_datepickerOptions);
         $('#endEarningsReleaseDateInteger').datepicker(_datepickerOptions);
+        $('#startEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(this.state.startEarningsReleaseDateInteger));
+        $('#endEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(this.state.endEarningsReleaseDateInteger));
         var _that = this;
 
         $('.datepickerInput2').on('change', function() {
@@ -89,13 +96,41 @@ UpcomingEarningsReleases = React.createClass({
             _that.setState(_set);
         });
     },
+    convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
+        _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
+        var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
+        var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
+        var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
+        return _month + "/" + _day + "/" + _year;
+    },
+    getSelectedSymbol: function() {
+        let _symbol = this.data.upcomingEarningsReleases &&
+        this.data.upcomingEarningsReleases.length > 0 &&
+        this.state.earningsReleaseIndex.toString() &&
+        this.state.earningsReleaseIndex + 1 <= this.data.upcomingEarningsReleases.length ?
+            this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol : "undefined";
+        return _symbol;
+    },
+    handleKeyDown: function(e) {
+        let _symbolIndex = this.state.earningsReleaseIndex;
+        let _new = e.which === 37 ? _symbolIndex-1 : e.which === 39 ? _symbolIndex+1 : _symbolIndex;
+        if (_symbolIndex !== _new && this.data.upcomingEarningsReleases && this.data.upcomingEarningsReleases.length > 0) {
+            this.setState({
+                earningsReleaseIndex: _new > this.data.upcomingEarningsReleases.length - 1 ? 0 : _new < 0 ? this.data.upcomingEarningsReleases.length - 1 : _new
+            })
+        }
+    },
+
+    componentDidMount: function() {
+        window.addEventListener('keydown', this.handleKeyDown);
+    },
+
+    componentWillUnmount: function() {
+        window.removeEventListener('keydown', this.handleKeyDown);
+    },
 
     render() {
-        let _symbol = this.data.upcomingEarningsReleases &&
-            this.data.upcomingEarningsReleases.length > 0 &&
-            this.state.earningsReleaseIndex.toString() &&
-            this.state.earningsReleaseIndex + 1 <= this.data.upcomingEarningsReleases.length ?
-            this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol : "undefined";
+        let _symbol = this.getSelectedSymbol();
 
         return (
             <div className="container">
