@@ -19,23 +19,14 @@ UpcomingEarningsReleases = React.createClass({
         //generate 2 numbers based on todays
         var _startDate = this.state.startEarningsReleaseDateInteger;
         var _endDate = this.state.endEarningsReleaseDateInteger;
-        var _allEarningsReleases = EarningsReleases.find({$or: [
-            {fieldNames: "EXP_RPT_DATE_QR1"},
-            {fieldNames: "EXP_RPT_DATE_QR4"},
-            {fieldNames: "EXP_RPT_DATE_QR3"},
-            {fieldNames: "EXP_RPT_DATE_QR4"}
-        ]}).fetch();
+        var _allEarningsReleases = EarningsReleases.find({reportDateNextFiscalQuarter: {$exists: true}}).fetch();
 
         //now get indices of those corresponding qr1, 2 or whatever and see if item at that index inside earningsData array is between the requested start and end date
         var _upcomingEarningsReleases = [];
         _allEarningsReleases.forEach(function(release) {
             var _addToUpcomingList = false;
-            //index on the end will always be '1' because it just refers to the upcoming quarter, not actual quarter index
-            //var _fieldName = "EXP_RPT_DATE_QR" + i;
-            var _fieldName = "EXP_RPT_DATE_QR1";
-            if (_.indexOf(release.fieldNames, _fieldName) > -1 &&
-                release.earningsData[_.indexOf(release.fieldNames, _fieldName)] >= _startDate &&
-                release.earningsData[_.indexOf(release.fieldNames, _fieldName)] <= _endDate
+            if (release.reportDateNextFiscalQuarter >= _startDate &&
+                release.reportDateNextFiscalQuarter <= _endDate
             ) {
                 _addToUpcomingList = true;
             }
