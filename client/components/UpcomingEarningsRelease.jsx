@@ -43,10 +43,54 @@ UpcomingEarningsRelease = React.createClass({
         if (_nextUpdateAllowedOn_NUM <= _todaysDate && _symbol !== "undefinedd") {
             this.checkForNewestDataFromQuandl(_symbol);
         }
+        var _allPairs = this.getExpectedVsActualEarningsReportsPairsArray(_allEarningsReleasesForSymbol);
 
         return {
-            individualEarningReleases: _allEarningsReleasesForSymbol
+            individualEarningReleases: _allEarningsReleasesForSymbol,
+            expectedVsActualEpsPairs: _allPairs
         }
+    },
+    getExpectedVsActualEarningsReportsPairsArray: function(arrayOfEaringsReportsForSymbol) {
+        var _indexPairs = [];
+        for (var i = 0; i < arrayOfEaringsReportsForSymbol.length; i++) {
+            for (var j = 0; j < arrayOfEaringsReportsForSymbol.length; j++) {
+                if (i !== j &&
+                    (arrayOfEaringsReportsForSymbol[i].endDateNextFiscalQuarter === arrayOfEaringsReportsForSymbol[j].endDatePreviousFiscalQuarter ||
+                    arrayOfEaringsReportsForSymbol[j].endDateNextFiscalQuarter === arrayOfEaringsReportsForSymbol[i].endDatePreviousFiscalQuarter)
+                ) {
+                    var _first = i > j ? j : i;
+                    var _second = _first === i ? j : i;
+                    var _pair = {
+                        first: _first,
+                        second: _second
+                    };
+                    //do not push if already exists
+                    if (!_.findWhere(_indexPairs, _pair)) {
+                        _indexPairs.push(_pair);
+                    }
+                }
+            }
+        }
+        var _objectPairs = [];
+        _indexPairs.forEach(function(pair) {
+            var _obj1 = arrayOfEaringsReportsForSymbol[pair.first];
+            var _obj2 = arrayOfEaringsReportsForSymbol[pair.second];
+            var _estimate;
+            var _actual;
+            if (_obj1.endDateNextFiscalQuarter === _obj2.endDatePreviousFiscalQuarter) {
+                _estimate = _obj1;
+                _actual = _obj2;
+            } else if (_obj2.endDateNextFiscalQuarter === _obj1.endDatePreviousFiscalQuarter) {
+                _estimate = _obj2;
+                _actual = _obj1;
+            }
+            _objectPairs.push({
+                epsEstimate: _estimate.epsMeanEstimateNextFiscalQuarter,
+                epsActual: _actual.epsActualPreviousFiscalQuarter,
+                reportDate: _estimate.reportDateNextFiscalQuarter
+            });
+        });
+        return _objectPairs;
     },
     shouldComponentUpdate: function(nextProps, nextState) {
         if (this.props.symbol !== nextProps.symbol) {
@@ -142,6 +186,17 @@ UpcomingEarningsRelease = React.createClass({
             </li>);
         });
     },
+    renderEstimatedVsActualEps: function() {
+        return this.data.expectedVsActualEpsPairs.map((estimateVsActual, index) => {
+            return(<li key={index}>
+                <div>
+                    Date: {estimateVsActual.reportDate}<br/>
+                    Expected EPS: {estimateVsActual.epsEstimate}<br/>
+                    Actual EPS: {estimateVsActual.epsActual}<br/>
+                </div>
+            </li>);
+        });
+    },
 
     render() {
         return (<div>
@@ -155,6 +210,10 @@ UpcomingEarningsRelease = React.createClass({
 
             <br/>
             {this.renderEpsMeanEstimates()}
+            <br/>
+            <ul>
+                {this.renderEstimatedVsActualEps()}
+            </ul>
             <div className="col-md-12 individualStockGraph">
                 <StocksGraph
                     stocksToGraphObjects={this.state.stocksToGraphObjects}/>
