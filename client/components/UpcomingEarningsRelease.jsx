@@ -188,18 +188,25 @@ UpcomingEarningsRelease = React.createClass({
     },
     renderEstimatedVsActualEps: function() {
         return this.data.expectedVsActualEpsPairs.map((estimateVsActual, index) => {
-            return(<li key={index}>
-                <div>
-                    Date: {estimateVsActual.reportDate}<br/>
-                    Expected EPS: {estimateVsActual.epsEstimate}<br/>
-                    Actual EPS: {estimateVsActual.epsActual}<br/>
-                </div>
-            </li>);
+            return(<div key={index}>
+                <EpsEstimateVsActualItem
+                    estimateVsActual={estimateVsActual}
+                    symbol={this.props.symbol}/>
+            </div>);
         });
     },
 
     render() {
         return (<div>
+            {this.renderEstimatedVsActualEps()}
+            <br/>
+            rendering all existing up/downgrades:
+            <ul>
+                {this.renderAllExistingUpDowngradesForStock()}
+            </ul>
+            <br/>
+            {this.renderEpsMeanEstimates()}
+            <br/>
 
             <div className="datepickers" ref={this.setDatepickerOptions}>
                 start date:
@@ -207,22 +214,10 @@ UpcomingEarningsRelease = React.createClass({
                 end date:
                 <input className="datepickerInput" id="individualStockEndDate" />
             </div>
-
-            <br/>
-            {this.renderEpsMeanEstimates()}
-            <br/>
-            <ul>
-                {this.renderEstimatedVsActualEps()}
-            </ul>
             <div className="col-md-12 individualStockGraph">
                 <StocksGraph
                     stocksToGraphObjects={this.state.stocksToGraphObjects}/>
             </div>
-            <br/>
-            rendering all existing up/downgrades:
-            <ul>
-                {this.renderAllExistingUpDowngradesForStock()}
-            </ul>
         </div>);
     }
 });

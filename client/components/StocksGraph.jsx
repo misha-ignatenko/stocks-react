@@ -54,6 +54,11 @@ StocksGraph = React.createClass({
 
             series: seriesModel
         });
+        $('.highcharts-range-selector').on('change', function() {
+            console.log("change in highcharts-range-selector!!");
+            console.log("if user expanded the date range then trigger an update function and show a loading message while new stock prices data is being pulled");
+            console.log("also need to take care of updating the according date range values based on where the request to render the graph came from.");
+        });
     },
 
     componentDidMount: function() {
