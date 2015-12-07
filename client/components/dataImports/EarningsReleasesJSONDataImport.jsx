@@ -7,39 +7,30 @@ EarningsReleasesJSONDataImport = React.createClass({
         }
     },
 
-    getInitialState() {
-        return {
-            textAreaValue: ''
-        }
-    },
-
-    handleChange(event) {
-        this.setState({
-            textAreaValue: event.target.value
-        })
-    },
     verifyAndImportUpDownGradesJSONData() {
-        var _importObjects = '[' + this.state.textAreaValue.substring(0,this.state.textAreaValue.length-1) + ']';
-        var _parsed = JSON.parse(_importObjects);
-        this.setState({
-            textAreaValue: ""
+        var _textAreaValue = this.refs.earningsReleasesTextArea.value;
+        var _allStocks = [];
+        var _lines = _textAreaValue.split(/\n/g);
+        _lines.forEach(function(line) {
+            var _symbolsInLine = line.split(",");
+            _symbolsInLine.forEach(function(symbol) {
+                if (symbol.length > 0) {
+                    _allStocks.push(symbol.toUpperCase());
+                }
+            });
         });
-        Meteor.call('importData', _parsed, 'earnings_releases');
+        _allStocks = _.uniq(_allStocks);
+        this.refs.earningsReleasesTextArea.value = "";
+        Meteor.call('importData', _allStocks, 'earnings_releases');
     },
 
     render() {
-        var textAreaValue = this.state.textAreaValue;
         return (
             <div className="container">
                 { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Earnings Releases Data Import</h1>
-                    <p>Please be sure to specify the following:</p>
-                    <ul>
-                        <li>symbol: string</li>
-                    </ul>
-                    <textarea rows="20" cols="100"
-                              value={textAreaValue}
-                              onChange={this.handleChange}></textarea>
+                    <p>Please enter stock symbols separated by commas or new lines:</p>
+                    <textarea ref="earningsReleasesTextArea" rows="20" cols="100"></textarea>
                     <button
                         onClick={this.verifyAndImportUpDownGradesJSONData}>import</button>
                 </div>) : <p>plz log in</p> }

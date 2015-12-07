@@ -67,7 +67,7 @@ if (Meteor.isServer) {
                 importData.forEach(function(importItem) {
                     //TODO check if this earnings release already exists -- check for plus minus 5 days around it
                     var _earningRelease = {
-                        symbol: importItem.symbol
+                        symbol: importItem
                     };
 
 
