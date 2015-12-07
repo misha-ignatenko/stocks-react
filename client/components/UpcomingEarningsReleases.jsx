@@ -140,9 +140,6 @@ UpcomingEarningsReleases = React.createClass({
                                 <input className="datepickerInput2" id="endEarningsReleaseDateInteger" />
                             </div>
                             <br/>
-                            <button onClick={this.previousEarningsRelease}>previous</button>
-                            <button onClick={this.nextEarningsRelease}>next</button>
-                            <br/>
                             { this.renderUpcomingEarningsReleases() }
                             <br/>
                             <br/>
