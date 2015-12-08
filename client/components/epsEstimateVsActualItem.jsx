@@ -14,22 +14,142 @@ EpsEstimateVsActualItem = React.createClass({
         }
     },
 
+    getMeteorData() {
+        let _symbol = this.props.symbol;
+        return {
+            ratingChanges: RatingChanges.find({symbol: _symbol}).fetch()
+        }
+    },
+
     getLatestGraph: function(symbol, estimateVsActual) {
         var _dateQuandlFormat = estimateVsActual.reportDate;
-        var _startDate = moment(new Date(this.convertQuandlFormatNumberDateToDateStringWithSlashes(_dateQuandlFormat)).toISOString()).subtract(7, 'days').format("YYYY-MM-DD");
-        var _endDate = moment(new Date(this.convertQuandlFormatNumberDateToDateStringWithSlashes(_dateQuandlFormat)).toISOString()).add(7, 'days').format("YYYY-MM-DD");
+        var _startDate = moment(new Date(this.convertQuandlFormatNumberDateToDateStringWithSlashes(_dateQuandlFormat)).toISOString()).subtract(90, 'days').format("YYYY-MM-DD");
+        var _endDate = moment(new Date(this.convertQuandlFormatNumberDateToDateStringWithSlashes(_dateQuandlFormat)).toISOString()).add(90, 'days').format("YYYY-MM-DD");
 
         if (symbol && _startDate && _endDate) {
             var _that = this;
+            var _averageAnalystRatingSeries = this.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
             Meteor.call('checkHistoricalData', symbol, _startDate, _endDate, function(err, result) {
                 if (result && result.historicalData) {
                     _that.setState({
-                        stocksToGraphObjects: [result]
+                        stocksToGraphObjects: [_.extend(result, {avgAnalystRatings: _averageAnalystRatingSeries})]
                     });
                 }
             });
         }
     },
+
+    generateAverageAnalystRatingTimeSeries: function(symbol, startDate, endDate) {
+        var _allRatingChangesForStock = RatingChanges.find({symbol: symbol}, {sort: {date: 1}}).fetch();
+        //filter those where date attribute is between startDate and endDate
+
+        var _ratingChangesOfInterest = [];
+        _allRatingChangesForStock.forEach(function(ratingChange) {
+            var _extractedDateStringNoTimezone = moment(new Date(ratingChange.date)).format("YYYY-MM-DD");
+            if ((moment(_extractedDateStringNoTimezone).isSame(startDate) || moment(_extractedDateStringNoTimezone).isAfter(startDate)) &&
+                (moment(_extractedDateStringNoTimezone).isSame(endDate) || moment(_extractedDateStringNoTimezone).isBefore(endDate))
+            ) {
+                _ratingChangesOfInterest.push(ratingChange);
+            }
+        });
+
+        //_ratingChangesOfInterest is already sorted with dates in increasing order
+
+        //determine the number of unique research firms
+        var _uniqueFirms = _.uniq(_.pluck(_ratingChangesOfInterest, "researchFirmId"));
+
+
+
+
+        var _result = [];
+
+        var _zeroSeries = [];
+        _ratingChangesOfInterest.forEach(function(ratingChange) {
+            _zeroSeries.push(ratingChange.oldRatingId);
+        });
+
+        _result.push({
+            date: new Date(startDate).toUTCString(),
+            ratingScalesIds: _zeroSeries
+        });
+
+        //for each rating change get the firm and find the nearest before rating of other firms
+        _ratingChangesOfInterest.forEach(function(ratingChange, index) {
+            var _curFirmId = ratingChange.researchFirmId;
+            var _arrayOfConnectedRatingChanges = [ratingChange.newRatingId];
+            _uniqueFirms.forEach(function(researchFirmId) {
+                //only interested at looking at research firms that are NOT equal to _curFirmId
+                if (researchFirmId !== _curFirmId) {
+                    var _i = index + 1;
+                    var _found;
+                    while (_i < _ratingChangesOfInterest.length) {
+                        if (_ratingChangesOfInterest[_i].researchFirmId === researchFirmId) {
+                            _found = _ratingChangesOfInterest[_i];
+                            _arrayOfConnectedRatingChanges.push(_found.oldRatingId);
+                            break;
+                        }
+                        _i++;
+                    }
+                    if (!_found) {
+                        //try to go backward
+                        _i = index - 1;
+                        while (_i >= 0) {
+                            if (_ratingChangesOfInterest[_i].researchFirmId === researchFirmId) {
+                                _found =_ratingChangesOfInterest[_i];
+                                _arrayOfConnectedRatingChanges.push(_found.newRatingId);
+                                break;
+                            }
+                            _i--;
+                        }
+                    }
+
+                    if (!_found) {
+                        console.log("ERROR!!");
+                    } else {
+
+                    }
+                }
+            })
+            _result.push({
+                date: ratingChange.date,
+                ratingScalesIds: _arrayOfConnectedRatingChanges
+            });
+        })
+
+        var _finalSeries = [];
+        _ratingChangesOfInterest.forEach(function(ratingChange) {
+            _finalSeries.push(ratingChange.newRatingId);
+        });
+
+        //figure out date for finalSeries
+        var _dateForFinalSeries;
+        var _today = moment(new Date()).format("YYYY-MM-DD");
+        if (moment(_today).isBefore(endDate)) {
+            _dateForFinalSeries = new Date().toUTCString()
+        } else {
+            _dateForFinalSeries = new Date(endDate).toUTCString()
+        }
+
+
+
+        _result.push({
+            date: _dateForFinalSeries,
+            ratingScalesIds: _finalSeries
+        });
+
+        var _final = [];
+        _result.forEach(function(res) {
+            var _sum = 0;
+            res.ratingScalesIds.forEach(function(ratingScaleId) {
+                _sum += RatingScales.findOne({_id: ratingScaleId}).universalScaleValue;
+            });
+            //TODO omit ratingScalesIds -- extra info
+            _final.push(_.extend(res, {avg: Math.round(_sum / res.ratingScalesIds.length)}))
+        })
+
+        return _final;
+    },
+
     convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
         _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
         var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);

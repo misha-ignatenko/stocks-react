@@ -21,7 +21,7 @@ if (Meteor.isServer) {
     });
 
     Meteor.publish("ratingChangesForSymbol", function(symbol) {
-        return RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1}});
+        return RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
     });
 
     Meteor.publish("ratingScales", function() {

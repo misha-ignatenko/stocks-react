@@ -28,7 +28,23 @@ StocksGraph = React.createClass({
 
                 seriesModel.push({
                     name: obj.stockId ? obj.stockId : obj.symbol ? obj.symbol : "stock name unknown" ,
-                    data: _seriesDataArray
+                    data: _seriesDataArray,
+                    tooltip : {
+                        valueDecimals : 2
+                    }
+                });
+            }
+
+            var _avgAnalystRatings = obj.avgAnalystRatings;
+            if (_avgAnalystRatings && _avgAnalystRatings.length > 2) {
+                let _seriesDataArray2 = [];
+                _avgAnalystRatings.forEach(function (avgRating) {
+                    _seriesDataArray2.push([new Date(avgRating.date).valueOf(), avgRating.avg]);
+                });
+                seriesModel.push({
+                    name: "avg rating" ,
+                    data: _seriesDataArray2,
+                    type : 'areaspline'
                 });
             }
         });
@@ -48,9 +64,9 @@ StocksGraph = React.createClass({
                 }
             },
 
-            rangeSelector: {
-                selected: 1
-            },
+            //rangeSelector: {
+            //    selected: 1
+            //},
 
             series: seriesModel
         });
