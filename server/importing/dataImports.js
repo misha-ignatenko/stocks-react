@@ -14,53 +14,54 @@ if (Meteor.isServer) {
             if (importType === "upgrades_downgrades") {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 importData.forEach(function(importItem) {
-                    var _existingRatingChange = RatingChanges.findOne({
-                        researchFirmString: importItem.researchFirmString,
-                        symbol: importItem.symbol,
-                        newRatingString: importItem.newRatingString,
-                        oldRatingString: importItem.oldRatingString
-                    });
-                    if (!_existingRatingChange) {
-                        var _ratingChange = {
-                            date: new Date(importItem.dateString).toUTCString(),
-                            researchFirmString: importItem.researchFirmString,
+
+                    //first, check if that research company exists
+                    var _researchCompany = ResearchCompanies.findOne({name: importItem.researchFirmString});
+                    var _researchCompanyId;
+                    if (_researchCompany) {
+                        _researchCompanyId = _researchCompany._id;
+                    } else {
+                        _researchCompanyId = ResearchCompanies.insert({name: importItem.researchFirmString});
+                    }
+
+                    //second, get rating scales id so that can check if item already exists in RatingChanges
+                    var _ratingScaleObjectForNew = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
+                    var _ratingScaleObjectForOld = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
+                    if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
+                        //can try to check if this RatingChanges item already exists. if not then insert it.
+                        var _existingRatingChange = RatingChanges.findOne({
+                            researchFirmId: _researchCompanyId,
                             symbol: importItem.symbol,
-                            newRatingString: importItem.newRatingString,
-                            oldRatingString: importItem.oldRatingString,
-                            private: true,
-                            addedBy: Meteor.userId()
-                        };
-                        var _ratingScaleObjectForNewRatingString = RatingScales.findOne({researchFirmString: importItem.researchFirmString, firmRatingFullString: importItem.newRatingString});
-                        var _ratingScaleObjectForOldRatingString = RatingScales.findOne({researchFirmString: importItem.researchFirmString, firmRatingFullString: importItem.oldRatingString});
-
-                        //append numerical rating value if corresponding rating scale exists for new rating
-                        if (_ratingScaleObjectForNewRatingString) {
-                            _.extend(_ratingChange, {
-                                newRatingValue: _ratingScaleObjectForNewRatingString.universalScaleValue
-                            });
-                        } else {
-                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
-                                researchFirmString: importItem.researchFirmString,
-                                ratingString: importItem.newRatingString
-                            });
-                        }
-
-                        //append numerical rating value if corresponding rating scale exists for old rating
-                        if (_ratingScaleObjectForOldRatingString) {
-                            _.extend(_ratingChange, {
-                                oldRatingValue: _ratingScaleObjectForOldRatingString.universalScaleValue
-                            });
-                        } else {
-                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
-                                researchFirmString: importItem.researchFirmString,
-                                ratingString: importItem.oldRatingString
-                            });
-                        }
-
-                        if (_ratingChange.oldRatingValue && _ratingChange.newRatingValue) {
+                            newRatingId: _ratingScaleObjectForNew._id,
+                            oldRatingId: _ratingScaleObjectForOld._id
+                        });
+                        if (!_existingRatingChange) {
+                            // can insert
+                            var _ratingChange = {
+                                date: new Date(importItem.dateString).toUTCString(),
+                                researchFirmId: _researchCompanyId,
+                                symbol: importItem.symbol,
+                                newRatingId: _ratingScaleObjectForNew._id,
+                                oldRatingId: _ratingScaleObjectForOld._id,
+                                private: true,
+                                addedBy: Meteor.userId(),
+                                addedOn: new Date().toUTCString()
+                            };
                             console.log("adding this stock: ", importItem.symbol);
                             RatingChanges.insert(_ratingChange);
                         }
+                    } else {
+                        //add to error object to let user know these rating scales need to be added
+                        //Note: both old and new have to exist.
+                        _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
+                            researchFirmString: importItem.researchFirmString,
+                            ratingString: importItem.newRatingString
+                        });
+
+                        _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
+                            researchFirmString: importItem.researchFirmString,
+                            ratingString: importItem.oldRatingString
+                        });
                     }
                 });
             } else if (importType === "earnings_releases") {
@@ -113,10 +114,18 @@ if (Meteor.isServer) {
             } else if (importType === "grading_scales") {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
+                //get an id of that research company
+                var _researchCompany = ResearchCompanies.findOne({name: _researchFirmString});
+                var _researchCompanyId;
+                if (_researchCompany) {
+                    _researchCompanyId = _researchCompany._id;
+                } else {
+                    _researchCompanyId = ResearchCompanies.insert({name: _researchFirmString});
+                }
 
                 var _noneOfGradingScalesForThisFirmAlreadyExist = true;
                 _allRatings.forEach(function(ratingString) {
-                    if (RatingScales.findOne({researchFirmString: _researchFirmString, firmRatingFullString: ratingString})) {
+                    if (RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: ratingString})) {
                         _noneOfGradingScalesForThisFirmAlreadyExist = false;
                     }
                 });
@@ -126,7 +135,7 @@ if (Meteor.isServer) {
                     var _valuePerThreshold = Math.round(_totalMaxGradingValue / _allRatings.length)
                     _allRatings.forEach(function(value, index) {
                         RatingScales.insert({
-                            researchFirmString: _researchFirmString,
+                            researchFirmId: _researchCompanyId,
                             firmRatingFullString: value,
                             universalScaleValue: index * _valuePerThreshold + Math.round(_valuePerThreshold / 2)
                         });

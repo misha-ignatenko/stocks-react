@@ -26,12 +26,16 @@ UpDownGradesJSONDataImport = React.createClass({
         });
         Meteor.call('importData', _parsed, 'upgrades_downgrades', function(error, result) {
             if (!error && result) {
-                $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
-                    type: 'danger',
-                    align: 'center',
-                    width: 250,
-                    delay: 100000
-                });
+                if (result.couldNotFindGradingScalesForTheseUpDowngrades.length > 0) {
+                    $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
+                        type: 'danger',
+                        align: 'center',
+                        width: 250,
+                        delay: 100000
+                    });
+                } else {
+                    //TODO show success bootstrapGrowl
+                }
             }
         });
     },
