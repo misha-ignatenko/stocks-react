@@ -47,7 +47,9 @@ UpcomingEarningsRelease = React.createClass({
 
         return {
             individualEarningReleases: _allEarningsReleasesForSymbol,
-            expectedVsActualEpsPairs: _allPairs
+            expectedVsActualEpsPairs: _allPairs,
+            ratingChanges: RatingChanges.find({symbol: _symbol}).fetch(),
+            ratingScales: RatingScales.find().fetch()
         }
     },
     getExpectedVsActualEarningsReportsPairsArray: function(arrayOfEaringsReportsForSymbol) {
@@ -107,11 +109,16 @@ UpcomingEarningsRelease = React.createClass({
                 }
             });
         }
+
+        if (this.props.symbol !== nextProps.symbol) {
+            Meteor.subscribe("ratingChangesForSymbol", nextProps.symbol);
+        }
+
         return true;
     },
 
     checkForNewestDataFromQuandl: function (symbol) {
-        Meteor.call('importData', [{symbol: symbol}], 'earnings_releases');
+        Meteor.call('importData', [symbol], 'earnings_releases');
     },
 
     renderEpsMeanEstimates() {
@@ -175,13 +182,16 @@ UpcomingEarningsRelease = React.createClass({
         this.getLatestGraph(nextProps.symbol);
     },
     renderAllExistingUpDowngradesForStock: function() {
-        return this.state.allRatingChangesForStock.map((ratingChange, index) => {
+        var _that = this;
+        return this.data.ratingChanges.map((ratingChange, index) => {
+            let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;
+            let _newRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.newRatingId}).universalScaleValue;
             return(<li key={index}>
                 <div>
-                    Old rating: {ratingChange.oldRatingValue ? ratingChange.oldRatingValue : "unknown"}<br/>
-                    New rating: {ratingChange.newRatingValue ? ratingChange.newRatingValue : "unknown"}<br/>
+                    Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>
+                    New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>
                     As of: {ratingChange.date}<br/>
-                    Firm name: {ratingChange.researchFirmString ? ratingChange.researchFirmString : "no premium access"}
+                    Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}
                 </div>
             </li>);
         });

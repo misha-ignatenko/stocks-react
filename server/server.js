@@ -20,6 +20,14 @@ if (Meteor.isServer) {
         return _user;
     });
 
+    Meteor.publish("ratingChangesForSymbol", function(symbol) {
+        return RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1}});
+    });
+
+    Meteor.publish("ratingScales", function() {
+        return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1}});
+    })
+
     Accounts.onCreateUser(function(options, user) {
         var _createdUser;
         if (options.registered === undefined) {
@@ -41,8 +49,8 @@ if (Meteor.isServer) {
             //show researchFirmString ONLY if user is premium
 
             return _user.premium ?
-                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingValue: 1, newRatingValue: 1, researchFirmString: 1}}).fetch() :
-                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingValue: 1, newRatingValue: 1}}).fetch();
+                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}}).fetch() :
+                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1}}).fetch();
         },
         registerRealAccountFromDummy: function(dummyUserId, newUsername, newPassword) {
             Accounts.setUsername(dummyUserId, newUsername);
