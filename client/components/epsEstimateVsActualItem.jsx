@@ -64,8 +64,15 @@ EpsEstimateVsActualItem = React.createClass({
         var _result = [];
 
         var _zeroSeries = [];
-        _ratingChangesOfInterest.forEach(function(ratingChange) {
-            _zeroSeries.push(ratingChange.oldRatingId);
+        _uniqueFirms.forEach(function(uniqueFirmId) {
+            var i = 0;
+            while (i < _ratingChangesOfInterest.length) {
+                if (_ratingChangesOfInterest[i].researchFirmId === uniqueFirmId) {
+                    _zeroSeries.push(_ratingChangesOfInterest[i].oldRatingId);
+                    break;
+                }
+                i++;
+            }
         });
 
         _result.push({
@@ -116,10 +123,8 @@ EpsEstimateVsActualItem = React.createClass({
             });
         })
 
-        var _finalSeries = [];
-        _ratingChangesOfInterest.forEach(function(ratingChange) {
-            _finalSeries.push(ratingChange.newRatingId);
-        });
+        //same as the very last one except date will be set below to either today or endDate
+        var _finalSeries = _result[_result.length - 1].ratingScalesIds;
 
         //figure out date for finalSeries
         var _dateForFinalSeries;
