@@ -148,30 +148,38 @@ if (Meteor.isServer) {
                 var _requestedEndDateInUTC = moment(endDate).utc().format();
                 if (_requestedStartDateInUTC < _stockPricesObj.existingStartDate) {
                     //need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
-                    var _newHistoricalDataToAddToTheLeft = Meteor.call('getHistoricalData', symbol, _requestedStartDateInUTC, _stockPricesObj.existingStartDate);
-                    var _previousHistoricalData = _stockPricesObj.historicalData;
-                    _previousHistoricalData.forEach(function(obj) {
-                        _newHistoricalDataToAddToTheLeft.push(obj);
+                    Meteor.call('getHistoricalData', symbol, _requestedStartDateInUTC, _stockPricesObj.existingStartDate, function(error, result) {
+                        if (!error && result && result.length > 0) {
+                            var _newHistoricalDataToAddToTheLeft = result;
+                            var _previousHistoricalData = _stockPricesObj.historicalData;
+                            _previousHistoricalData.forEach(function(obj) {
+                                _newHistoricalDataToAddToTheLeft.push(obj);
+                            });
+                            StockPrices.update({_id: _stockPricesObj._id}, {$set: {
+                                historicalData: _newHistoricalDataToAddToTheLeft,
+                                existingStartDate: _requestedStartDateInUTC
+                            }});
+                        }
                     });
-                    StockPrices.update({_id: _stockPricesObj._id}, {$set: {
-                        historicalData: _newHistoricalDataToAddToTheLeft,
-                        existingStartDate: _requestedStartDateInUTC
-                    }});
                 }
                 //two is when the requested endDate is later than what already have
                 if (_requestedEndDateInUTC > _stockPricesObj.existingEndDate) {
                     //need to pull new stock info from _stockPricesObj.existingEndDate to _requestedEndDateInUTC
                     //update stockprices entry accordingly
                     //be careful about dates
-                    var _newHistoricalDataToAddToTheRight = Meteor.call('getHistoricalData', symbol, _stockPricesObj.existingEndDate, _requestedEndDateInUTC);
-                    var _previousHistoricalData = _stockPricesObj.historicalData;
-                    _newHistoricalDataToAddToTheRight.forEach(function(obj) {
-                        _previousHistoricalData.push(obj);
+                    Meteor.call('getHistoricalData', symbol, _stockPricesObj.existingEndDate, _requestedEndDateInUTC, function(error, result) {
+                        if (!error && result && result.length > 0) {
+                            var _newHistoricalDataToAddToTheRight = result;
+                            var _previousHistoricalData = _stockPricesObj.historicalData;
+                            _newHistoricalDataToAddToTheRight.forEach(function(obj) {
+                                _previousHistoricalData.push(obj);
+                            });
+                            StockPrices.update({_id: _stockPricesObj._id}, {$set: {
+                                historicalData: _previousHistoricalData,
+                                existingEndDate: _requestedEndDateInUTC
+                            }});
+                        }
                     });
-                    StockPrices.update({_id: _stockPricesObj._id}, {$set: {
-                        historicalData: _previousHistoricalData,
-                        existingEndDate: _requestedEndDateInUTC
-                    }});
                 }
 
 
@@ -179,12 +187,16 @@ if (Meteor.isServer) {
                 //this means that there is no data at all in the StockPrices array so we need to just pull it from Yahoo Finance
                 //AND update existingStartDate and existingEndDate to startDate and endDate correspondingly.
                 console.log("initializing historical data because stockprices object doesn't exist.");
-                var _historicalData = Meteor.call('getHistoricalData', symbol, startDate, endDate);
-                StockPrices.insert({
-                    historicalData: _historicalData,
-                    existingStartDate: moment(startDate).utc().format(),
-                    existingEndDate: moment(endDate).utc().format(),
-                    symbol: symbol
+                Meteor.call('getHistoricalData', symbol, startDate, endDate, function(error, result) {
+                    if (!error && result && result.length > 0) {
+                        var _historicalData = result;
+                        StockPrices.insert({
+                            historicalData: _historicalData,
+                            existingStartDate: moment(startDate).utc().format(),
+                            existingEndDate: moment(endDate).utc().format(),
+                            symbol: symbol
+                        });
+                    }
                 });
             }
 
