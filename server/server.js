@@ -44,7 +44,7 @@ if (Meteor.isServer) {
 
     Meteor.methods({
         getHistoricalDataAfter: function (_stockPricesObj, symbol, endDate) {
-            var _done = false;
+            var _done = _stockPricesObj;
             //need to pull new stock info from _stockPricesObj.existingEndDate to _requestedEndDateInUTC
             //update stockprices entry accordingly
             //be careful about dates
@@ -56,21 +56,16 @@ if (Meteor.isServer) {
                     _newHistoricalDataToAddToTheRight.forEach(function (obj) {
                         _previousHistoricalData.push(obj);
                     });
-                    StockPrices.update({_id: _stockPricesObj._id}, {
-                        $set: {
-                            historicalData: _previousHistoricalData,
-                            existingEndDate: endDate
-                        }
-                    });
-                    _done = true;
+                    _done.historicalData = _previousHistoricalData;
+                    _done.existingEndDate = endDate;
                 }
             });
             return _done;
         },
 
         getHistoricalDataBefore: function (_stockPricesObj, symbol, startDate) {
-            var _done = false;
-//need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
+            var _done = _stockPricesObj;
+            //need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
             var _endDateForRequest = moment(_stockPricesObj.existingStartDate).subtract(1, "days").format("YYYY-MM-DD");
             Meteor.call('getHistoricalData', symbol, startDate, _endDateForRequest, function (error, result) {
                 if (!error && result && result.length > 0) {
@@ -79,13 +74,8 @@ if (Meteor.isServer) {
                     _previousHistoricalData.forEach(function (obj) {
                         _newHistoricalDataToAddToTheLeft.push(obj);
                     });
-                    StockPrices.update({_id: _stockPricesObj._id}, {
-                        $set: {
-                            historicalData: _newHistoricalDataToAddToTheLeft,
-                            existingStartDate: startDate
-                        }
-                    });
-                    _done = true;
+                    _done.historicalData = _newHistoricalDataToAddToTheLeft;
+                    _done.existingStartDate = startDate;
                 }
             });
             return _done;
@@ -189,20 +179,36 @@ if (Meteor.isServer) {
                 //this means there IS previously recorded data in the StockPrices object for the selected stock symbol.
 
 
-
+                if (moment(startDate).isBefore(_stockPricesObj.existingStartDate) &&
+                    moment(endDate).isAfter(_stockPricesObj.existingEndDate)
+                ) {
+                    Meteor.call("getHistoricalDataBefore", _stockPricesObj, symbol, startDate, function(error, result) {
+                        if (!error && result) {
+                            Meteor.call("getHistoricalDataAfter", result, symbol, endDate, function(error2, result2) {
+                                if (!error2 && result2) {
+                                    _stockPricesObj = result2;
+                                }
+                            });
+                        }
+                    });
+                }
                 //two cases
                 //one is when the requested startDate is earlier than what already have
-                if (moment(startDate).isBefore(_stockPricesObj.existingStartDate)) {
+                else if (moment(startDate).isBefore(_stockPricesObj.existingStartDate)) {
                     Meteor.call("getHistoricalDataBefore", _stockPricesObj, symbol, startDate, function(error, result) {
-                        console.log("result of getHistoricalDataBefore: ", result);
+                        _stockPricesObj = result;
                     });
                 }
                 //two is when the requested endDate is later than what already have
-                if (moment(endDate).isAfter(_stockPricesObj.existingEndDate)) {
+                else if (moment(endDate).isAfter(_stockPricesObj.existingEndDate)) {
                     Meteor.call("getHistoricalDataAfter", _stockPricesObj, symbol, endDate, function(error, result) {
-                        console.log("result of getHistoricalDataAfter is: ", result);
+                        _stockPricesObj = result;
                     });
                 }
+                var _id = _stockPricesObj._id;
+                delete _stockPricesObj._id;
+
+                StockPrices.update({_id: _id}, {$set: _stockPricesObj});
 
 
             } else {
