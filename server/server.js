@@ -43,6 +43,54 @@ if (Meteor.isServer) {
     })
 
     Meteor.methods({
+        getHistoricalDataAfter: function (_stockPricesObj, symbol, endDate) {
+            var _done = false;
+            //need to pull new stock info from _stockPricesObj.existingEndDate to _requestedEndDateInUTC
+            //update stockprices entry accordingly
+            //be careful about dates
+            var _startDateForRequest = moment(_stockPricesObj.existingEndDate).add(1, "days").format("YYYY-MM-DD");
+            Meteor.call('getHistoricalData', symbol, _startDateForRequest, endDate, function (error, result) {
+                if (!error && result && result.length > 0) {
+                    var _newHistoricalDataToAddToTheRight = result;
+                    var _previousHistoricalData = _stockPricesObj.historicalData;
+                    _newHistoricalDataToAddToTheRight.forEach(function (obj) {
+                        _previousHistoricalData.push(obj);
+                    });
+                    StockPrices.update({_id: _stockPricesObj._id}, {
+                        $set: {
+                            historicalData: _previousHistoricalData,
+                            existingEndDate: endDate
+                        }
+                    });
+                    _done = true;
+                }
+            });
+            return _done;
+        },
+
+        getHistoricalDataBefore: function (_stockPricesObj, symbol, startDate) {
+            var _done = false;
+//need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
+            var _endDateForRequest = moment(_stockPricesObj.existingStartDate).subtract(1, "days").format("YYYY-MM-DD");
+            Meteor.call('getHistoricalData', symbol, startDate, _endDateForRequest, function (error, result) {
+                if (!error && result && result.length > 0) {
+                    var _newHistoricalDataToAddToTheLeft = result;
+                    var _previousHistoricalData = _stockPricesObj.historicalData;
+                    _previousHistoricalData.forEach(function (obj) {
+                        _newHistoricalDataToAddToTheLeft.push(obj);
+                    });
+                    StockPrices.update({_id: _stockPricesObj._id}, {
+                        $set: {
+                            historicalData: _newHistoricalDataToAddToTheLeft,
+                            existingStartDate: startDate
+                        }
+                    });
+                    _done = true;
+                }
+            });
+            return _done;
+        },
+
         getRatingChangesFor: function(symbol) {
             var _userId = this.userId;
             var _user = Meteor.users.findOne({_id: _userId});
@@ -145,40 +193,14 @@ if (Meteor.isServer) {
                 //two cases
                 //one is when the requested startDate is earlier than what already have
                 if (moment(startDate).isBefore(_stockPricesObj.existingStartDate)) {
-                    //need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
-                    var _endDateForRequest = moment(_stockPricesObj.existingStartDate).subtract(1, "days").format("YYYY-MM-DD");
-                    Meteor.call('getHistoricalData', symbol, startDate, _endDateForRequest, function(error, result) {
-                        if (!error && result && result.length > 0) {
-                            var _newHistoricalDataToAddToTheLeft = result;
-                            var _previousHistoricalData = _stockPricesObj.historicalData;
-                            _previousHistoricalData.forEach(function(obj) {
-                                _newHistoricalDataToAddToTheLeft.push(obj);
-                            });
-                            StockPrices.update({_id: _stockPricesObj._id}, {$set: {
-                                historicalData: _newHistoricalDataToAddToTheLeft,
-                                existingStartDate: startDate
-                            }});
-                        }
+                    Meteor.call("getHistoricalDataBefore", _stockPricesObj, symbol, startDate, function(error, result) {
+                        console.log("result of getHistoricalDataBefore: ", result);
                     });
                 }
                 //two is when the requested endDate is later than what already have
                 if (moment(endDate).isAfter(_stockPricesObj.existingEndDate)) {
-                    //need to pull new stock info from _stockPricesObj.existingEndDate to _requestedEndDateInUTC
-                    //update stockprices entry accordingly
-                    //be careful about dates
-                    var _startDateForRequest = moment(_stockPricesObj.existingEndDate).add(1, "days").format("YYYY-MM-DD");
-                    Meteor.call('getHistoricalData', symbol, _startDateForRequest, endDate, function(error, result) {
-                        if (!error && result && result.length > 0) {
-                            var _newHistoricalDataToAddToTheRight = result;
-                            var _previousHistoricalData = _stockPricesObj.historicalData;
-                            _newHistoricalDataToAddToTheRight.forEach(function(obj) {
-                                _previousHistoricalData.push(obj);
-                            });
-                            StockPrices.update({_id: _stockPricesObj._id}, {$set: {
-                                historicalData: _previousHistoricalData,
-                                existingEndDate: endDate
-                            }});
-                        }
+                    Meteor.call("getHistoricalDataAfter", _stockPricesObj, symbol, endDate, function(error, result) {
+                        console.log("result of getHistoricalDataAfter is: ", result);
                     });
                 }
 
