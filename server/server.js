@@ -51,13 +51,14 @@ if (Meteor.isServer) {
             var _startDateForRequest = moment(_stockPricesObj.existingEndDate).add(1, "days").format("YYYY-MM-DD");
             Meteor.call('getHistoricalData', symbol, _startDateForRequest, endDate, function (error, result) {
                 if (!error && result && result.length > 0) {
+                    var _actualEndDateFromQuery = moment(result[result.length - 1].date).format("YYYY-MM-DD");
                     var _newHistoricalDataToAddToTheRight = result;
                     var _previousHistoricalData = _stockPricesObj.historicalData;
                     _newHistoricalDataToAddToTheRight.forEach(function (obj) {
                         _previousHistoricalData.push(obj);
                     });
                     _done.historicalData = _previousHistoricalData;
-                    _done.existingEndDate = endDate;
+                    _done.existingEndDate = _actualEndDateFromQuery;
                 }
             });
             return _done;
@@ -69,13 +70,14 @@ if (Meteor.isServer) {
             var _endDateForRequest = moment(_stockPricesObj.existingStartDate).subtract(1, "days").format("YYYY-MM-DD");
             Meteor.call('getHistoricalData', symbol, startDate, _endDateForRequest, function (error, result) {
                 if (!error && result && result.length > 0) {
+                    var _actualStartDateFromQuery = moment(result[0].date).format("YYYY-MM-DD");
                     var _newHistoricalDataToAddToTheLeft = result;
                     var _previousHistoricalData = _stockPricesObj.historicalData;
                     _previousHistoricalData.forEach(function (obj) {
                         _newHistoricalDataToAddToTheLeft.push(obj);
                     });
                     _done.historicalData = _newHistoricalDataToAddToTheLeft;
-                    _done.existingStartDate = startDate;
+                    _done.existingStartDate = _actualStartDateFromQuery;
                 }
             });
             return _done;
@@ -217,11 +219,13 @@ if (Meteor.isServer) {
                 console.log("initializing historical data because stockprices object doesn't exist.");
                 Meteor.call('getHistoricalData', symbol, startDate, endDate, function(error, result) {
                     if (!error && result && result.length > 0) {
+                        var _actualStartDateFromQuery = moment(result[0].date).format("YYYY-MM-DD");
+                        var _actualEndDateFromQuery = moment(result[result.length - 1].date).format("YYYY-MM-DD");
                         var _historicalData = result;
                         StockPrices.insert({
                             historicalData: _historicalData,
-                            existingStartDate: startDate,
-                            existingEndDate: endDate,
+                            existingStartDate: _actualStartDateFromQuery,
+                            existingEndDate: _actualEndDateFromQuery,
                             symbol: symbol
                         });
                     }
@@ -242,9 +246,9 @@ if (Meteor.isServer) {
                         _historicalDataBetweenTwoRequestedDates.push(priceObjForDay);
                     }
                 });
+                //this will limit the historicalData attribute that we are making available to the user
+                _stockPricesRecord.historicalData = _historicalDataBetweenTwoRequestedDates;
             }
-            //this will limit the historicalData attribute that we are making available to the user
-            _stockPricesRecord.historicalData = _historicalDataBetweenTwoRequestedDates;
             return _stockPricesRecord;
         },
         getHistoricalData: function(symbol, start, end) {

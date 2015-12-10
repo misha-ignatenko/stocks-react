@@ -44,7 +44,7 @@ StocksGraph = React.createClass({
                 seriesModel.push({
                     name: "avg rating" ,
                     data: _seriesDataArray2,
-                    type : 'areaspline'
+                    type : 'spline'
                 });
             }
         });
