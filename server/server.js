@@ -144,11 +144,10 @@ if (Meteor.isServer) {
 
                 //two cases
                 //one is when the requested startDate is earlier than what already have
-                var _requestedStartDateInUTC = moment(startDate).utc().format();
-                var _requestedEndDateInUTC = moment(endDate).utc().format();
-                if (_requestedStartDateInUTC < _stockPricesObj.existingStartDate) {
+                if (moment(startDate).isBefore(_stockPricesObj.existingStartDate)) {
                     //need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
-                    Meteor.call('getHistoricalData', symbol, _requestedStartDateInUTC, _stockPricesObj.existingStartDate, function(error, result) {
+                    var _endDateForRequest = moment(_stockPricesObj.existingStartDate).subtract(1, "days").format("YYYY-MM-DD");
+                    Meteor.call('getHistoricalData', symbol, startDate, _endDateForRequest, function(error, result) {
                         if (!error && result && result.length > 0) {
                             var _newHistoricalDataToAddToTheLeft = result;
                             var _previousHistoricalData = _stockPricesObj.historicalData;
@@ -157,17 +156,18 @@ if (Meteor.isServer) {
                             });
                             StockPrices.update({_id: _stockPricesObj._id}, {$set: {
                                 historicalData: _newHistoricalDataToAddToTheLeft,
-                                existingStartDate: _requestedStartDateInUTC
+                                existingStartDate: startDate
                             }});
                         }
                     });
                 }
                 //two is when the requested endDate is later than what already have
-                if (_requestedEndDateInUTC > _stockPricesObj.existingEndDate) {
+                if (moment(endDate).isAfter(_stockPricesObj.existingEndDate)) {
                     //need to pull new stock info from _stockPricesObj.existingEndDate to _requestedEndDateInUTC
                     //update stockprices entry accordingly
                     //be careful about dates
-                    Meteor.call('getHistoricalData', symbol, _stockPricesObj.existingEndDate, _requestedEndDateInUTC, function(error, result) {
+                    var _startDateForRequest = moment(_stockPricesObj.existingEndDate).add(1, "days").format("YYYY-MM-DD");
+                    Meteor.call('getHistoricalData', symbol, _startDateForRequest, endDate, function(error, result) {
                         if (!error && result && result.length > 0) {
                             var _newHistoricalDataToAddToTheRight = result;
                             var _previousHistoricalData = _stockPricesObj.historicalData;
@@ -176,7 +176,7 @@ if (Meteor.isServer) {
                             });
                             StockPrices.update({_id: _stockPricesObj._id}, {$set: {
                                 historicalData: _previousHistoricalData,
-                                existingEndDate: _requestedEndDateInUTC
+                                existingEndDate: endDate
                             }});
                         }
                     });
@@ -192,8 +192,8 @@ if (Meteor.isServer) {
                         var _historicalData = result;
                         StockPrices.insert({
                             historicalData: _historicalData,
-                            existingStartDate: moment(startDate).utc().format(),
-                            existingEndDate: moment(endDate).utc().format(),
+                            existingStartDate: startDate,
+                            existingEndDate: endDate,
                             symbol: symbol
                         });
                     }
@@ -220,13 +220,11 @@ if (Meteor.isServer) {
             return _stockPricesRecord;
         },
         getHistoricalData: function(symbol, start, end) {
-            var _startDate = moment(start).utc().format();
-            var _endDate = moment(end).utc().format();
-            console.log("requesting from yahoo finance: ", _startDate, _endDate);
+            console.log("requesting from yahoo finance: ", start, end);
             return YahooFinance.historical({
                 symbol: symbol,
-                from: _startDate,
-                to: _endDate
+                from: start,
+                to: end
             });
         },
         getBlah: function() {
