@@ -21,9 +21,17 @@ StocksGraph = React.createClass({
         stocksObjectsArray.forEach(function (obj) {
             //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
             var _histData = obj.historicalData;
+            var _maxPrice = 0.00;
+            var _minPrice = 10000000.00;
             if (_histData) {
                 let _seriesDataArray = [];
                 _histData.forEach(function (histData) {
+                    if (histData.adjClose > _maxPrice) {
+                        _maxPrice = histData.adjClose;
+                    }
+                    if (histData.adjClose < _minPrice) {
+                        _minPrice = histData.adjClose;
+                    }
                     _seriesDataArray.push([new Date(histData.date).valueOf(), histData.adjClose]);
                 });
 
@@ -36,17 +44,35 @@ StocksGraph = React.createClass({
                     id : 'dataseries'
                 });
             }
+            var _rangeOfPrices = _maxPrice - _minPrice;
 
             var _avgAnalystRatings = obj.avgAnalystRatings;
             if (_avgAnalystRatings && _avgAnalystRatings.length > 2) {
                 let _seriesDataArray2 = [];
+                //determing the range of all analyst ratings
+                var _maxRating = 0;
+                var _minRating = 120000;
+                _avgAnalystRatings.forEach(function(avgRating) {
+                    if (avgRating.avg > _maxRating) {
+                        _maxRating = avgRating.avg;
+                    }
+                    if (avgRating.avg < _minRating) {
+                        _minRating = avgRating.avg;
+                    }
+                });
+                var _rangeOfAvgRatings = _maxRating - _minRating;
+                var _multiplyAllRatingsByCoef = _rangeOfPrices / _rangeOfAvgRatings;
+
                 _avgAnalystRatings.forEach(function (avgRating) {
-                    _seriesDataArray2.push([new Date(avgRating.date).valueOf(), avgRating.avg]);
+                    _seriesDataArray2.push([new Date(avgRating.date).valueOf(), _minPrice + _multiplyAllRatingsByCoef * (avgRating.avg  - _minRating)]);
                 });
                 seriesModel.push({
                     name: "avg rating" ,
                     data: _seriesDataArray2,
-                    type : 'spline'
+                    type : 'spline',
+                    tooltip : {
+                        valueDecimals : 2
+                    }
                 });
             }
 
