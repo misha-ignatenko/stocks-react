@@ -112,9 +112,9 @@ StocksGraph = React.createClass({
                 }
             },
 
-            //rangeSelector: {
-            //    selected: 1
-            //},
+            rangeSelector: {
+                inputEnabled: false
+            },
 
             series: seriesModel
         });
@@ -122,6 +122,17 @@ StocksGraph = React.createClass({
             console.log("change in highcharts-range-selector!!");
             console.log("if user expanded the date range then trigger an update function and show a loading message while new stock prices data is being pulled");
             console.log("also need to take care of updating the according date range values based on where the request to render the graph came from.");
+            var _minOrMaxString = this.getAttribute("name");
+            if (_minOrMaxString === "min") {
+                //readjust start date for each stock
+                var _newStartDate = this.value;
+                //get existing max date so can call the function with
+                var _endDate = $('[name="max"]').val();
+            } else if (_minOrMaxString === "max") {
+                //readjust end date for all stocks in stocksToGraphsObjects
+                var _newEndDate = this.value;
+                var _startDate = $('[name="min"]').val();
+            }
         });
     },
 
