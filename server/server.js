@@ -4,9 +4,6 @@ if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function () {
         return EarningsReleases.find();
     });
-    Meteor.publish("stockPrices", function () {
-        return StockPrices.find();
-    });
     Meteor.publish("pickLists", function () {
         return PickLists.find();
     });

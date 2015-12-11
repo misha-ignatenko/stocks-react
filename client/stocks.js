@@ -5,7 +5,6 @@ if (Meteor.isClient) {
 
     Meteor.subscribe("earningsReleases");
     Meteor.subscribe("researchCompanies");
-    Meteor.subscribe("stockPrices");
     Meteor.subscribe("pickLists");
     Meteor.subscribe("ratingScales");
     Meteor.subscribe("pickListItems");
