@@ -17,6 +17,7 @@ StocksGraph = React.createClass({
         }
 
         var seriesModel = [];
+        var _that = this;
         stocksObjectsArray.forEach(function (obj) {
             //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
             var _histData = obj.historicalData;
@@ -31,7 +32,8 @@ StocksGraph = React.createClass({
                     data: _seriesDataArray,
                     tooltip : {
                         valueDecimals : 2
-                    }
+                    },
+                    id : 'dataseries'
                 });
             }
 
@@ -45,6 +47,26 @@ StocksGraph = React.createClass({
                     name: "avg rating" ,
                     data: _seriesDataArray2,
                     type : 'spline'
+                });
+            }
+
+            var _earningsReleases = obj.earningsReleases;
+            if (_earningsReleases && _earningsReleases.length > 0) {
+                let _seriesDataArray3 = [];
+                _earningsReleases.forEach(function(earningsRelease) {
+                    var _date = _that.convertQuandlFormatNumberDateToDateStringWithSlashes(earningsRelease.reportDateNextFiscalQuarter);
+                    _seriesDataArray3.push({
+                        x: new Date(_date).valueOf(),
+                        title: "E",
+                        text: "Earning Release"
+                    });
+                });
+                seriesModel.push({
+                    type: "flags",
+                    data: _seriesDataArray3,
+                    onSeries : 'dataseries',
+                    shape : 'circlepin',
+                    width : 16
                 });
             }
         });
@@ -75,6 +97,14 @@ StocksGraph = React.createClass({
             console.log("if user expanded the date range then trigger an update function and show a loading message while new stock prices data is being pulled");
             console.log("also need to take care of updating the according date range values based on where the request to render the graph came from.");
         });
+    },
+
+    convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
+        _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
+        var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
+        var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
+        var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
+        return _month + "/" + _day + "/" + _year;
     },
 
     componentDidMount: function() {

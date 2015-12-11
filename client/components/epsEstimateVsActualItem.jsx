@@ -16,8 +16,26 @@ EpsEstimateVsActualItem = React.createClass({
 
     getMeteorData() {
         let _symbol = this.props.symbol;
+
+        var _dateQuandlFormat = this.props.estimateVsActual.reportDate;
+        var _startDate = parseInt(moment(new Date(this.convertQuandlFormatNumberDateToDateStringWithSlashes(_dateQuandlFormat)).toISOString()).subtract(90, 'days').format("YYYYMMDD"));
+        var _endDate = parseInt(moment(new Date(this.convertQuandlFormatNumberDateToDateStringWithSlashes(_dateQuandlFormat)).toISOString()).add(90, 'days').format("YYYYMMDD"));
+        console.log(_startDate);
+        console.log(_endDate);
+        var _allEarningsReleases = EarningsReleases.find(
+            {
+                symbol: _symbol,
+                reportDateNextFiscalQuarter: {$exists: true},
+                $and: [
+                    {reportDateNextFiscalQuarter: {$gte: _startDate}},
+                    {reportDateNextFiscalQuarter: {$lte: _endDate}}
+                ]
+            }
+        ).fetch();
+
         return {
-            ratingChanges: RatingChanges.find({symbol: _symbol}).fetch()
+            ratingChanges: RatingChanges.find({symbol: _symbol}).fetch(),
+            earningsReleases: _allEarningsReleases
         }
     },
 
@@ -32,7 +50,7 @@ EpsEstimateVsActualItem = React.createClass({
             Meteor.call('checkHistoricalData', symbol, _startDate, _endDate, function(err, result) {
                 if (result && result.historicalData) {
                     _that.setState({
-                        stocksToGraphObjects: [_.extend(result, {avgAnalystRatings: _averageAnalystRatingSeries})]
+                        stocksToGraphObjects: [_.extend(result, {avgAnalystRatings: _averageAnalystRatingSeries, earningsReleases: _that.data.earningsReleases})]
                     });
                 }
             });
@@ -168,14 +186,6 @@ EpsEstimateVsActualItem = React.createClass({
     componentDidMount: function() {
         if (this.props.symbol && this.props.estimateVsActual) {
             this.getLatestGraph(this.props.symbol, this.props.estimateVsActual);
-        }
-    },
-
-    getMeteorData() {
-
-
-        return {
-
         }
     },
 
