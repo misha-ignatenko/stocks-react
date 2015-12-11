@@ -198,18 +198,24 @@ UpcomingEarningsRelease = React.createClass({
     },
     renderAllExistingUpDowngradesForStock: function() {
         var _that = this;
-        return this.data.ratingChanges.map((ratingChange, index) => {
-            let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;
-            let _newRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.newRatingId}).universalScaleValue;
-            return(<li key={index}>
-                <div>
-                    Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>
-                    New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>
-                    As of: {ratingChange.date.substring(0,16)}<br/>
-                    Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}
-                </div>
-            </li>);
-        });
+        return <div className="row allUpDowngrades">
+            <br/>
+            {this.data.ratingChanges.length > 0 ? <h1>all existing up/downgrades:</h1> : <p>no analyst upgrades/downgrades</p>}
+            <ul>
+                {this.data.ratingChanges.map((ratingChange, index) => {
+                    let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;
+                    let _newRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.newRatingId}).universalScaleValue;
+                    return(<li key={index}>
+                        <div>
+                            Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>
+                            New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>
+                            As of: {ratingChange.date.substring(0,16)}<br/>
+                            Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}
+                        </div>
+                    </li>);
+                })}
+            </ul>
+        </div>
     },
     renderEstimatedVsActualEps: function() {
         return this.data.expectedVsActualEpsPairs.map((estimateVsActual, index) => {
@@ -225,11 +231,7 @@ UpcomingEarningsRelease = React.createClass({
         return (<div>
             {this.renderEstimatedVsActualEps()}
             <br/>
-            <br/>
-            <h1>all existing up/downgrades:</h1>
-            <ul>
-                {this.renderAllExistingUpDowngradesForStock()}
-            </ul>
+            {this.renderAllExistingUpDowngradesForStock()}
             <br/>
             {this.renderEpsMeanEstimates()}
             <br/>
