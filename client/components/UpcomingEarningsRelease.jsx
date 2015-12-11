@@ -48,7 +48,7 @@ UpcomingEarningsRelease = React.createClass({
         return {
             individualEarningReleases: _allEarningsReleasesForSymbol,
             expectedVsActualEpsPairs: _allPairs,
-            ratingChanges: RatingChanges.find({symbol: _symbol}).fetch(),
+            ratingChanges: RatingChanges.find({symbol: _symbol}, {sort: {date: 1}}).fetch(),
             ratingScales: RatingScales.find().fetch()
         }
     },
@@ -87,12 +87,27 @@ UpcomingEarningsRelease = React.createClass({
                 _actual = _obj1;
             }
             _objectPairs.push({
+                fiscalQuarterEndDate: _estimate.endDateNextFiscalQuarter,
                 epsEstimate: _estimate.epsMeanEstimateNextFiscalQuarter,
                 epsActual: _actual.epsActualPreviousFiscalQuarter,
                 reportDate: _estimate.reportDateNextFiscalQuarter
             });
         });
-        return _objectPairs;
+        var _uniq = _.uniq(_objectPairs, function(pair) {return pair.fiscalQuarterEndDate;});
+        _uniq.forEach(function(uniquePair, index) {
+            var _allEpsEstimatesForUpcomingQuarter = [];
+            //find all revisions for next quarter estimates
+            arrayOfEaringsReportsForSymbol.forEach(function(earning) {
+                if (earning.endDatePreviousFiscalQuarter === uniquePair.fiscalQuarterEndDate) {
+                    _allEpsEstimatesForUpcomingQuarter.push({
+                        epsRevisionDate: earning.asOf,
+                        epsExpected: earning.epsMeanEstimateNextFiscalQuarter
+                    });
+                }
+            });
+            _uniq[index].epsRevisions = _allEpsEstimatesForUpcomingQuarter;
+        });
+        return _uniq;
     },
     shouldComponentUpdate: function(nextProps, nextState) {
         if (this.props.symbol !== nextProps.symbol) {
@@ -190,7 +205,7 @@ UpcomingEarningsRelease = React.createClass({
                 <div>
                     Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>
                     New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>
-                    As of: {ratingChange.date}<br/>
+                    As of: {ratingChange.date.substring(0,16)}<br/>
                     Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}
                 </div>
             </li>);
@@ -210,7 +225,8 @@ UpcomingEarningsRelease = React.createClass({
         return (<div>
             {this.renderEstimatedVsActualEps()}
             <br/>
-            rendering all existing up/downgrades:
+            <br/>
+            <h1>all existing up/downgrades:</h1>
             <ul>
                 {this.renderAllExistingUpDowngradesForStock()}
             </ul>

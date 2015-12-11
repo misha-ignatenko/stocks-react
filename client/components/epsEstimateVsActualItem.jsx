@@ -180,10 +180,27 @@ EpsEstimateVsActualItem = React.createClass({
     },
 
     render() {
+        let _color = this.props.estimateVsActual.epsActual > this.props.estimateVsActual.epsEstimate ?
+            "LimeGreen" :
+            this.props.estimateVsActual.epsActual < this.props.estimateVsActual.epsEstimate ?
+                "red" :
+                "white";
+        let _spanStyle = {
+            backgroundColor: _color
+        };
         return (<div className="container epsEstimateVsActualItem">
-            Date: {this.props.estimateVsActual.reportDate}<br/>
+            Earnings release date: {this.convertQuandlFormatNumberDateToDateStringWithSlashes(this.props.estimateVsActual.reportDate)}<br/>
             Expected EPS: {this.props.estimateVsActual.epsEstimate}<br/>
-            Actual EPS: {this.props.estimateVsActual.epsActual}<br/>
+            Actual EPS: <span style={_spanStyle}>{this.props.estimateVsActual.epsActual}</span><br/>
+            Projections for next quarter EPS: <ul>{this.props.estimateVsActual.epsRevisions.map((epsRevision, index) => {
+                return (<li key={index}>
+                    <div>
+                        revision date: {epsRevision.epsRevisionDate}
+                        <br/>
+                        new EPS expectation: {epsRevision.epsExpected}
+                    </div>
+                </li>)
+            })}</ul>
             <div className="col-md-12 individualStockGraph">
                 <StocksGraph
                     stocksToGraphObjects={this.state.stocksToGraphObjects}/>
