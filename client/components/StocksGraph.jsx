@@ -84,14 +84,20 @@ StocksGraph = React.createClass({
                     _seriesDataArray3.push({
                         x: new Date(_date).valueOf(),
                         title: "E",
-                        text: "Earning Release"
+                        text: (earningsRelease.reportTimeOfDayCode === 1) ?
+                            "After market close" :
+                            (earningsRelease.reportTimeOfDayCode === 2) ?
+                                "Before the open" :
+                                (earningsRelease.reportTimeOfDayCode === 3) ?
+                                    "During market trading" :
+                                    "Unknown" //1 (After market close), 2 (Before the open), 3 (During market trading) or 4 (Unknown).
                     });
                 });
                 seriesModel.push({
                     type: "flags",
                     data: _seriesDataArray3,
                     onSeries : 'dataseries',
-                    shape : 'circlepin',
+                    shape : 'squarepin',
                     width : 16
                 });
             }
