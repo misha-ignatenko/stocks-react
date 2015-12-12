@@ -33,12 +33,14 @@ if (Meteor.isServer) {
                             researchFirmId: _researchCompanyId,
                             symbol: importItem.symbol,
                             newRatingId: _ratingScaleObjectForNew._id,
-                            oldRatingId: _ratingScaleObjectForOld._id
+                            oldRatingId: _ratingScaleObjectForOld._id,
+                            dateString: importItem.dateString
                         });
                         if (!_existingRatingChange) {
                             // can insert
                             var _ratingChange = {
                                 date: new Date(importItem.dateString).toUTCString(),
+                                dateString: importItem.dateString,
                                 researchFirmId: _researchCompanyId,
                                 symbol: importItem.symbol,
                                 newRatingId: _ratingScaleObjectForNew._id,
