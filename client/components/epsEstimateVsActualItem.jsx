@@ -82,6 +82,7 @@ EpsEstimateVsActualItem = React.createClass({
             {
                 symbol: _symbol,
                 reportDateNextFiscalQuarter: {$exists: true},
+                reportSourceFlag: 1,
                 $and: [
                     {reportDateNextFiscalQuarter: {$gte: _startDate}},
                     {reportDateNextFiscalQuarter: {$lte: _endDate}}
