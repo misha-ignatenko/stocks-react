@@ -90,10 +90,28 @@ UpcomingEarningsRelease = React.createClass({
                 fiscalQuarterEndDate: _estimate.endDateNextFiscalQuarter,
                 epsEstimate: _estimate.epsMeanEstimateNextFiscalQuarter,
                 epsActual: _actual.epsActualPreviousFiscalQuarter,
-                reportDate: _estimate.reportDateNextFiscalQuarter
+                reportDate: _estimate.reportDateNextFiscalQuarter,
+                reportSourceFlag: _estimate.reportSourceFlag,
+                reportTimeOfDayCode: _estimate.reportTimeOfDayCode
             });
         });
         var _uniq = _.uniq(_objectPairs, function(pair) {return pair.fiscalQuarterEndDate;});
+
+        _uniq.forEach(function(uniqPair, index) {
+            //swap those from _objectPairs if there is a report source flag of 1 rather than 2 or 3
+            _objectPairs.forEach(function(nonUniqPair, index2) {
+                if (uniqPair.fiscalQuarterEndDate === nonUniqPair.fiscalQuarterEndDate && uniqPair.reportSourceFlag > nonUniqPair.reportSourceFlag ) {
+                    //if reportSourceFlag is higher for uniq pair that for non uniq, then get reportSourceFlag, reportTimeOfDayCode, reportDate, epsEstimate
+                    //and save them into the uniq one
+                    //because nonuniq is the one where report source flag is less which means more certainty
+                    _uniq[index].epsEstimate = nonUniqPair.epsEstimate;
+                    _uniq[index].reportDate = nonUniqPair.reportDate;
+                    _uniq[index].reportSourceFlag = nonUniqPair.reportSourceFlag;
+                    _uniq[index].reportTimeOfDayCode = nonUniqPair.reportTimeOfDayCode;
+                }
+            });
+        });
+
         _uniq.forEach(function(uniquePair, index) {
             var _allEpsEstimatesForUpcomingQuarter = [];
             //find all revisions for next quarter estimates
@@ -232,7 +250,11 @@ UpcomingEarningsRelease = React.createClass({
             {this.renderEstimatedVsActualEps()}
             <br/>
             {this.renderAllExistingUpDowngradesForStock()}
-            <br/>
+            <br/><br/><br/><br/><br/><br/><br/><br/>
+            <br/><br/><br/><br/><br/><br/><br/><br/>
+            <br/><br/><br/><br/><br/><br/><br/><br/>
+            <br/><br/><br/><br/><br/><br/><br/><br/>
+            <br/><br/><br/><br/><br/><br/><br/><br/>
             {this.renderEpsMeanEstimates()}
             <br/>
 
