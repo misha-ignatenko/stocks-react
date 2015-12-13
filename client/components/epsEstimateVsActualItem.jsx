@@ -219,11 +219,16 @@ EpsEstimateVsActualItem = React.createClass({
         var _final = [];
         _result.forEach(function(res) {
             var _sum = 0;
+            var _divisor = res.ratingScalesIds.length;
             res.ratingScalesIds.forEach(function(ratingScaleId) {
-                _sum += RatingScales.findOne({_id: ratingScaleId}).universalScaleValue;
+                if (RatingScales.findOne({_id: ratingScaleId}).universalScaleValue === "beforeCoverageInitiatedString" || RatingScales.findOne({_id: ratingScaleId}).universalScaleValue === "coverageDroppedString") {
+                    _divisor -= 1;
+                } else {
+                    _sum += RatingScales.findOne({_id: ratingScaleId}).universalScaleValue;
+                }
             });
             //TODO omit ratingScalesIds -- extra info
-            _final.push(_.extend(res, {avg: Math.round(_sum / res.ratingScalesIds.length)}))
+            _final.push(_.extend(res, {avg: Math.round(_sum / _divisor)}))
         })
 
         return _final;
