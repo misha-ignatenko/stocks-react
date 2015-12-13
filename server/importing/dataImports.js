@@ -143,6 +143,17 @@ if (Meteor.isServer) {
                         });
                     })
                 }
+
+                var _beforeCoverageInitiatedString = importData.beforeCoverageInitiatedString;
+                var _coverageDroppedString = importData.coverageDroppedString;
+                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
+                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
+                }
+
+                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
+                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
+                }
+
             }
 
             return _result;
