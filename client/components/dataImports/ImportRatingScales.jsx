@@ -23,8 +23,8 @@ ImportRatingScales = React.createClass({
             Meteor.call("importData", {
                 thresholdStringsArray: _allRatings,
                 researchFirmString: this.refs.researchFirmString.value.trim(),
-                beforeCoverageInitiatedString: this.refs.beforeCoverageInitiatedString.trim(),
-                coverageDroppedString: this.refs.coverageDroppedString.trim()
+                beforeCoverageInitiatedString: this.refs.beforeCoverageInitiatedString.value.trim(),
+                coverageDroppedString: this.refs.coverageDroppedString.value.trim()
             }, "grading_scales", function(error, result) {
                 if (!error) {
                     console.log("success. imported grading scales");
