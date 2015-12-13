@@ -46,6 +46,8 @@ ImportRatingScales = React.createClass({
                     <h3>Please specify the rating scale for <input ref="researchFirmString"/> company, from lowest to highest:</h3>
                     <ol>
                         {this.renderAllInputFields()}
+                        <li>Before coverage initiated string: <input ref="beforeCoverageInitiatedString"/></li>
+                        <li>Coverage dropped string: <input ref="coverageDroppedString"/></li>
                     </ol>
 
                     <button onClick={this.submitRatingScales}>submit</button>
