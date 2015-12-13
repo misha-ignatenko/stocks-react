@@ -10,12 +10,17 @@ UpcomingEarningsRelease = React.createClass({
     },
 
     getInitialState() {
+        let _format = "YYYY-MM-DD";
 
         return {
             individualStockStartDate: null,
             individualStockEndDate: null,
             stocksToGraphObjects: [],
-            allRatingChangesForStock: []
+            allRatingChangesForStock: [],
+            stocksToGraphObjs: [],
+            avgRatingStartDate: moment((new Date()).toISOString()).subtract(90, "days").format(_format),
+            avgRatingEndDate: moment((new Date()).toISOString()).format(_format)
+
         }
     },
 
@@ -212,7 +217,18 @@ UpcomingEarningsRelease = React.createClass({
         }
     },
     componentWillReceiveProps: function(nextProps) {
-        this.getLatestGraph(nextProps.symbol);
+        if (this.props.symbol !== nextProps.symbol) {
+            var _handle = Meteor.subscribe("ratingChangesForSymbol", nextProps.symbol);
+            var _that = this;
+            Tracker.autorun(function(handle){
+                if (_handle.ready()) {
+                    _that.getLatestGraph2(nextProps.symbol);
+                    if (handle) {
+                        handle.stop();
+                    }
+                }
+            })
+        }
     },
     renderAllExistingUpDowngradesForStock: function() {
         var _that = this;
@@ -244,12 +260,58 @@ UpcomingEarningsRelease = React.createClass({
             </div>);
         });
     },
+    changingStart: function() {},
+    changingEnd: function() {},
+
+    renderAvgAnalystRatingsGraph: function() {
+        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingStartDate);
+        let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingEndDate);
+        return (this.data.ratingChanges.length > 0 ? <div>
+            <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
+                <input type="text" className="form-control" id="avgRatingStartDate" value={_startDate} onChange={this.changingStart}/>
+                <span className="input-group-addon">to</span>
+                <input type="text" className="form-control" id="avgRatingEndDate" value={_endDate} onChange={this.changingEnd}/>
+            </div>
+
+            <div className="col-md-12 individualStockGraph">
+                <StocksGraph
+                    stocksToGraphObjects={this.state.stocksToGraphObjs}/>
+            </div>
+        </div> : null);
+    },
+
+    setDateRangeOptions: function() {
+        StocksReact.ui.setDateRangeOptions("input-daterange");
+
+        var _that = this;
+        $('.form-control').on('change', function(event) {
+            var _set = StocksReact.ui.getStateForDateRangeChangeEvent(event);
+            _that.setState(_set);
+            _that.getLatestGraph2(_that.props.symbol);
+        });
+    },
+    getLatestGraph2: function(symbol) {
+        if (symbol && this.state.avgRatingStartDate && this.state.avgRatingEndDate) {
+            var _startDate = this.state.avgRatingStartDate;
+            var _endDate = this.state.avgRatingEndDate;
+            var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
+            var _that = this;
+            Meteor.call('checkHistoricalData', symbol, _startDate, _endDate, function(err, result) {
+                if (result && result.historicalData) {
+                    _that.setState({
+                        stocksToGraphObjs: [_.extend(result, {avgAnalystRatings: _averageAnalystRatingSeries})]
+                    });
+                }
+            });
+        }
+    },
 
     render() {
         return (<div>
             {this.renderEstimatedVsActualEps()}
             <br/>
             {this.renderAllExistingUpDowngradesForStock()}
+            {this.data.expectedVsActualEpsPairs.length === 0 ? this.renderAvgAnalystRatingsGraph() : null}
             <br/><br/><br/><br/><br/><br/><br/><br/>
             <br/><br/><br/><br/><br/><br/><br/><br/>
             <br/><br/><br/><br/><br/><br/><br/><br/>

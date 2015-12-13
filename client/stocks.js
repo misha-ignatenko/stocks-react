@@ -144,4 +144,28 @@ if (Meteor.isClient) {
             return _final;
         }
     };
+
+    StocksReact.ui = {
+        setDateRangeOptions: function(dateRangeClassName) {
+            var _daterangeOptions = {
+                autoclose: true,
+                todayHighlight: true,
+                orientation: "top auto"
+            };
+            $("." + dateRangeClassName).datepicker(_daterangeOptions);
+        },
+        getStateForDateRangeChangeEvent: function(event) {
+            var _newVal = $(event.target).val();
+            var _format = "YYYY-MM-DD";
+            var _momentDate = moment(new Date(_newVal).toISOString()).format(_format);
+            if (moment(_momentDate).isAfter(moment())) {
+                _momentDate = moment(new Date().toISOString()).format(_format);
+            }
+            var _id = $(event.target).attr('id');
+            var _set = {};
+            _set[_id] = _momentDate;
+
+            return _set;
+        }
+    };
 }
