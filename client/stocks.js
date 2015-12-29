@@ -24,7 +24,10 @@ if (Meteor.isClient) {
     };
     StocksReact.functions = {
         generateAverageAnalystRatingTimeSeries: function(symbol, startDate, endDate) {
-            var _allRatingChangesForStock = RatingChanges.find({symbol: symbol}, {sort: {date: 1}}).fetch();
+            var _allRatingChgs = RatingChanges.find({symbol: symbol}).fetch();
+            var _allRatingChangesForStock = _.sortBy(_allRatingChgs, function(obj) {
+                return moment(new Date(obj.date));
+            });
             //filter those where date attribute is between startDate and endDate
 
             var _ratingChangesOfInterest = [];
