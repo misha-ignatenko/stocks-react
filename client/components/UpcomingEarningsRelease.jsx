@@ -295,11 +295,20 @@ UpcomingEarningsRelease = React.createClass({
             var _startDate = this.state.avgRatingStartDate;
             var _endDate = this.state.avgRatingEndDate;
             var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
+            //TODO: start date and end date for regression are coming from a different date picker
+            var _startDateForRegression = _startDate;
+            var _endDateForRegression = _endDate;
             var _that = this;
             Meteor.call('checkHistoricalData', symbol, _startDate, _endDate, function(err, result) {
                 if (result && result.historicalData) {
+                    var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
+                    var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData);
                     _that.setState({
-                        stocksToGraphObjs: [_.extend(result, {avgAnalystRatings: _averageAnalystRatingSeries})]
+                        stocksToGraphObjs: [_.extend(result, {
+                            avgAnalystRatings: _averageAnalystRatingSeries,
+                            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                        })]
                     });
                 }
             });

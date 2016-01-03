@@ -38,3 +38,5 @@ cosmos:browserify
 npm-container
 mrt:bootstrap-growl
 http
+
+ign-regression

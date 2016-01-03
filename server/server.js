@@ -22,7 +22,7 @@ if (Meteor.isServer) {
     });
 
     Meteor.publish("ratingScales", function() {
-        return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1}});
+        return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
     })
 
     Accounts.onCreateUser(function(options, user) {
