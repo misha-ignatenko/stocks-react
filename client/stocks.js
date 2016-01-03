@@ -47,7 +47,7 @@ if (Meteor.isClient) {
 
             return _result;
         },
-        generateWeightedAnalystRatingsTimeSeriesEveryDay: function(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, historicalData) {
+        generateWeightedAnalystRatingsTimeSeriesEveryDay: function(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, historicalData, priceReactionDelayDays, priceType) {
             var _result = [];
 
 
@@ -57,7 +57,9 @@ if (Meteor.isClient) {
                 _avgRatingsSeriesEveryDay,
                 historicalData,
                 _startDateForRegression,
-                _endDateForRegression
+                _endDateForRegression,
+                priceReactionDelayDays,
+                priceType
             );
             console.log("PREPARED DATA: ", _data);
 
@@ -222,7 +224,7 @@ if (Meteor.isClient) {
 
             return _final;
         },
-        prepareDataForMultipleRegressionGradientDescentByResearchFirm: function (avgRatingsDataRaw, pricesData, startDateForRegr, endDateForRegr) {
+        prepareDataForMultipleRegressionGradientDescentByResearchFirm: function (avgRatingsDataRaw, pricesDataRaw, startDateForRegr, endDateForRegr, priceReactionDelayDays, priceType) {
             var _result = {};
 
             //reject those avgRatings that do not fall within the specified training set date range
@@ -233,24 +235,26 @@ if (Meteor.isClient) {
                     _avgRatingsDataWithinDateRange.push(avgRawData);
                 }
             });
-            var avgRatingsData = _avgRatingsDataWithinDateRange;
+            var avgRatingsData = _avgRatingsDataWithinDateRange.slice(0, _avgRatingsDataWithinDateRange.length - priceReactionDelayDays);
+            console.log("avg ratings data within date range after offset: ", avgRatingsData);
+
+            var _pricesDataWithinDateRange = [];
+            pricesDataRaw.forEach(function(priceItem) {
+                var _thisDate = new Date(priceItem.date).toISOString().substring(0,10);
+                if (!moment(_thisDate).isAfter(endDateForRegr) && !moment(_thisDate).isBefore(startDateForRegr)) {
+                    _pricesDataWithinDateRange.push(priceItem);
+                }
+            });
+            var pricesData = _pricesDataWithinDateRange.slice(priceReactionDelayDays, _pricesDataWithinDateRange.length);
+            console.log("prices data within date range after offset: ", pricesData);
 
 
-
-
-
-            console.log("avg ratings data within date range: ", avgRatingsData);
-
-            //todo make sure that all items inside avgRatingsData have the same length of ratingScalesIds array -- might have some dropped or new ratings
             var _uniqueResearchFirmIds = [];
             avgRatingsData.forEach(function(obj) {
-                if (obj.ratingScalesIds) {
-                    obj.ratingScalesIds.forEach(function(ratingScaleId) {
-                        var _ratingScaleObj = RatingScales.findOne(ratingScaleId);
-                        if (_ratingScaleObj) {
-                            if (_ratingScaleObj.researchFirmId && _.indexOf(_uniqueResearchFirmIds, _ratingScaleObj.researchFirmId) === -1) {
-                                _uniqueResearchFirmIds.push(_ratingScaleObj.researchFirmId);
-                            }
+                if (obj.ratingScales) {
+                    obj.ratingScales.forEach(function(ratingScaleInfo) {
+                        if (ratingScaleInfo.researchFirmId && _.indexOf(_uniqueResearchFirmIds, ratingScaleInfo.researchFirmId) === -1) {
+                            _uniqueResearchFirmIds.push(ratingScaleInfo.researchFirmId);
                         }
                     });
                 }
@@ -258,26 +262,25 @@ if (Meteor.isClient) {
             console.log("all unique firm ids: ", _uniqueResearchFirmIds);
             _result.uniqueResearchFirmIds = _uniqueResearchFirmIds;
 
+
             //generate feature matrix
             var _featureMatrix = [];
             avgRatingsData.forEach(function(obj) {
                 var _features = new Array(_uniqueResearchFirmIds.length);
-                if (obj.ratingScalesIds) {
-                    obj.ratingScalesIds.forEach(function(ratingScaleId) {
-                        var _ratingScaleObj = RatingScales.findOne(ratingScaleId);
-                        if (_ratingScaleObj && _ratingScaleObj.universalScaleValue && _ratingScaleObj.researchFirmId) {
-                            _features[_.indexOf(_uniqueResearchFirmIds, _ratingScaleObj.researchFirmId)] = _ratingScaleObj.universalScaleValue;
+                if (obj.ratingScales) {
+                    obj.ratingScales.forEach(function(ratingScaleInfo) {
+                        if (ratingScaleInfo.universalScaleValue && ratingScaleInfo.researchFirmId) {
+                            _features[_.indexOf(_uniqueResearchFirmIds, ratingScaleInfo.researchFirmId)] = ratingScaleInfo.universalScaleValue;
                         }
                     });
                 }
 
                 //todo set those undefined inside feature to zeros
 
-                //TODO MAKE SURE THAT ORDER IS PRESERVED -- THE SAME INSIDE FEATURES AS IN UNIQUE FIRM IDS ARRAY.
-
                 _featureMatrix.push(_features);
             });
             _result.featureMatrix = _featureMatrix;
+
 
             var _initialWeights = [];
             _uniqueResearchFirmIds.forEach(function(firmId) {
@@ -287,28 +290,8 @@ if (Meteor.isClient) {
 
 
             var _actualOutput = [];
-            avgRatingsData.forEach(function(avgRating) {
-                var _findClosestToThisDate = new Date(avgRating.date).toISOString().substring(0,10);
-                var _distanceInDays = 10000;
-                var _closestPrice;
-                pricesData.forEach(function(priceArr) {
-                    //find the closest price to avgRating.date
-                    //do mod of the difference in dates
-                    var _date = moment(priceArr[0]);
-                    if (Math.abs(_date.diff(_findClosestToThisDate, "days")) < _distanceInDays) {
-                        _distanceInDays = Math.abs(_date.diff(_findClosestToThisDate, "days"));
-                        _closestPrice = priceArr[1];
-                    }
-                });
-                if (!_closestPrice) {
-                    console.log("ALERT! No closest price!");
-                } else {
-                    _actualOutput.push(_closestPrice);
-                }
-
-                if (_distanceInDays >= 5) {
-                    console.log("ALERT! Could not find price within 5 days from ", _findClosestToThisDate);
-                }
+            pricesData.forEach(function(pricePt) {
+                _actualOutput.push(pricePt[priceType]);
             });
             _result.actualOutput = _actualOutput;
 
