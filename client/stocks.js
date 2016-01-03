@@ -61,14 +61,13 @@ if (Meteor.isClient) {
                 priceReactionDelayDays,
                 priceType
             );
-            console.log("PREPARED DATA: ", _data);
 
             var _featureMatrix = _data.featureMatrix;
             var _actualOutput = _data.actualOutput;
             var _initialWeights = _data.initialWeights;
-            var _stepSize = 10^(-2);
-            var _tolerance = 10^(-2);
-            var _maxIter = 1000;
+            var _stepSize = Math.pow(10, -7);
+            var _tolerance = Math.pow(10, 4);
+            var _maxIter = 300;
             if (_featureMatrix && _actualOutput && _initialWeights && _stepSize && _tolerance && _maxIter) {
                 var _resultFromGradientDescent = IgnRegression.functions.multiple_regression_gradient_descent(
                     _featureMatrix,
@@ -78,18 +77,49 @@ if (Meteor.isClient) {
                     _tolerance,
                     _maxIter
                 );
-                console.log("_resultFromGradientDescent: ", _resultFromGradientDescent);
+                console.log("final weights: ", _resultFromGradientDescent.weights);
+                console.log("unique firm ids: ", _data.uniqueResearchFirmIds);
+                console.log("total iterations: ", _resultFromGradientDescent.iter);
+
+                var _preparedArrayOfWeightedRatings = StocksReact.functions.prepareArrayOfWeightedRatingsForGraph(_data.uniqueResearchFirmIds, _resultFromGradientDescent.weights, _avgRatingsSeriesEveryDay);
+                _result = _preparedArrayOfWeightedRatings;
             }
-
-
-
-
-
-
-
 
             return _result;
         },
+
+        prepareArrayOfWeightedRatingsForGraph: function(uniqueResearchFirmIds, ratingFirmsWeights, avgRatingsEveryDay) {
+            var _result = [];
+
+            avgRatingsEveryDay.forEach(function(obj) {
+                var _totaleightedRating = 0;
+                obj.ratingScales.forEach(function(ratingScale) {
+                    var _firmIndex = _.indexOf(uniqueResearchFirmIds, ratingScale.researchFirmId);
+                    var _firmWeight = ratingFirmsWeights[_firmIndex];
+                    _totaleightedRating += _firmWeight * ratingScale.universalScaleValue;
+                });
+                //also add the constant
+                var _constantIndex = _.indexOf(uniqueResearchFirmIds, "constant");
+                var _constantWeight = ratingFirmsWeights[_constantIndex];
+                _totaleightedRating += _constantWeight * 1;
+
+
+                var _toPush = _.omit(obj, "avg");
+                _toPush = _.extend(_toPush, {
+                    weightedRating: _totaleightedRating
+                });
+                _result.push(_toPush);
+
+                //_result.push(_.extend(obj, {
+                //    weightedRating: _totaleightedRating
+                //}));
+
+            });
+
+            return _result;
+        },
+
+
         generateAverageAnalystRatingTimeSeries: function(symbol, startDate, endDate) {
             var _allRatingChgs = RatingChanges.find({symbol: symbol}).fetch();
             var _allRatingChangesForStock = _.sortBy(_allRatingChgs, function(obj) {

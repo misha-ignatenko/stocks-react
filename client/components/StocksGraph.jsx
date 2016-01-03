@@ -94,6 +94,27 @@ StocksGraph = React.createClass({
                         }
                     });
                 }
+
+                if (obj.weightedAnalystRatingsEveryDay && obj.weightedAnalystRatingsEveryDay.length > 2) {
+                    var _weightedAnalystRatingsSeries = [];
+                    obj.weightedAnalystRatingsEveryDay.forEach(function(weightedRating) {
+                        _weightedAnalystRatingsSeries.push(
+                            [
+                                new Date(weightedRating.date).valueOf(),
+                                weightedRating.weightedRating
+                            ]
+                        );
+                    });
+
+                    seriesModel.push({
+                        name: "weighted rating every day" ,
+                        data: _weightedAnalystRatingsSeries,
+                        type : 'spline',
+                        tooltip : {
+                            valueDecimals : 2
+                        }
+                    });
+                }
             }
 
             var _earningsReleases = obj.earningsReleases;
