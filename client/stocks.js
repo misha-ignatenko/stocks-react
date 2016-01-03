@@ -236,7 +236,6 @@ if (Meteor.isClient) {
                 }
             });
             var avgRatingsData = _avgRatingsDataWithinDateRange.slice(0, _avgRatingsDataWithinDateRange.length - priceReactionDelayDays);
-            console.log("avg ratings data within date range after offset: ", avgRatingsData);
 
             var _pricesDataWithinDateRange = [];
             pricesDataRaw.forEach(function(priceItem) {
@@ -246,7 +245,6 @@ if (Meteor.isClient) {
                 }
             });
             var pricesData = _pricesDataWithinDateRange.slice(priceReactionDelayDays, _pricesDataWithinDateRange.length);
-            console.log("prices data within date range after offset: ", pricesData);
 
 
             var _uniqueResearchFirmIds = [];
@@ -259,12 +257,11 @@ if (Meteor.isClient) {
                     });
                 }
             });
-            console.log("all unique firm ids: ", _uniqueResearchFirmIds);
-            _result.uniqueResearchFirmIds = _uniqueResearchFirmIds;
 
 
             //generate feature matrix
             var _featureMatrix = [];
+            var _constantFeatureValue = 1;
             avgRatingsData.forEach(function(obj) {
                 var _features = new Array(_uniqueResearchFirmIds.length);
                 if (obj.ratingScales) {
@@ -277,6 +274,7 @@ if (Meteor.isClient) {
 
                 //todo set those undefined inside feature to zeros
 
+                _features.unshift(_constantFeatureValue);
                 _featureMatrix.push(_features);
             });
             _result.featureMatrix = _featureMatrix;
@@ -286,6 +284,8 @@ if (Meteor.isClient) {
             _uniqueResearchFirmIds.forEach(function(firmId) {
                 _initialWeights.push(1 / _uniqueResearchFirmIds.length);
             });
+            var _initialWeightForConstant = 1;
+            _initialWeights.unshift(_initialWeightForConstant);
             _result.initialWeights = _initialWeights;
 
 
@@ -294,6 +294,10 @@ if (Meteor.isClient) {
                 _actualOutput.push(pricePt[priceType]);
             });
             _result.actualOutput = _actualOutput;
+
+
+            _uniqueResearchFirmIds.unshift("constant");
+            _result.uniqueResearchFirmIds = _uniqueResearchFirmIds;
 
 
             return _result;
