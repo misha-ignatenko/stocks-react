@@ -181,15 +181,26 @@ if (Meteor.isClient) {
             _result.forEach(function(res) {
                 var _sum = 0;
                 var _divisor = res.ratingScalesIds.length;
+                var _ratingScalesArr = [];
                 res.ratingScalesIds.forEach(function(ratingScaleId) {
-                    if (RatingScales.findOne({_id: ratingScaleId}).universalScaleValue === "beforeCoverageInitiatedString" || RatingScales.findOne({_id: ratingScaleId}).universalScaleValue === "coverageDroppedString") {
+                    var _rSc = RatingScales.findOne({_id: ratingScaleId});
+                    if (_rSc.universalScaleValue === "beforeCoverageInitiatedString" || _rSc.universalScaleValue === "coverageDroppedString") {
                         _divisor -= 1;
                     } else {
-                        _sum += RatingScales.findOne({_id: ratingScaleId}).universalScaleValue;
+                        _sum += _rSc.universalScaleValue;
                     }
+
+                    _ratingScalesArr.push({
+                        _id: ratingScaleId,
+                        researchFirmId: _rSc.researchFirmId,
+                        universalScaleValue: _rSc.universalScaleValue
+                    });
                 });
                 //TODO omit ratingScalesIds -- extra info
-                _final.push(_.extend(res, {avg: (_sum / _divisor).toFixed(2)}))
+                _final.push(_.extend(res, {
+                    avg: (_sum / _divisor).toFixed(2),
+                    ratingScales: _ratingScalesArr
+                }))
             })
 
             return _final;
