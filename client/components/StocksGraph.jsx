@@ -74,6 +74,26 @@ StocksGraph = React.createClass({
                         valueDecimals : 2
                     }
                 });
+
+                if (obj.avgAnalystRatingsEveryDay && obj.avgAnalystRatingsEveryDay.length > 2) {
+                    var _seriesDataArrayAvgRatingEveryDay = [];
+                    obj.avgAnalystRatingsEveryDay.forEach(function(avgRatingEveryDay) {
+                        _seriesDataArrayAvgRatingEveryDay.push(
+                            [
+                                new Date(avgRatingEveryDay.date).valueOf(),
+                                _minPrice + _multiplyAllRatingsByCoef * (avgRatingEveryDay.avg  - _minRating)
+                            ]
+                        );
+                    });
+                    seriesModel.push({
+                        name: "avg rating every day" ,
+                        data: _seriesDataArrayAvgRatingEveryDay,
+                        type : 'spline',
+                        tooltip : {
+                            valueDecimals : 2
+                        }
+                    });
+                }
             }
 
             var _earningsReleases = obj.earningsReleases;

@@ -25,8 +25,25 @@ if (Meteor.isClient) {
     StocksReact.functions = {
         generateAverageAnalystRatingTimeSeriesEveryDay: function(_averageAnalystRatingSeries, historicalData) {
             var _result = [];
-            console.log(_averageAnalystRatingSeries);
-            console.log(historicalData);
+            //_result that we return should have the same length as historicalData
+            if (_averageAnalystRatingSeries.length > 1) {
+                var _avgRatingIndexInProgress = 0 + 1;
+                historicalData.forEach(function(histData, index) {
+                    var _avgRatingDateInProgress = new Date(_averageAnalystRatingSeries[_avgRatingIndexInProgress].date).toISOString().substring(0,10);
+                    var _date = new Date(histData.date).toISOString().substring(0,10);
+                    if (moment(_date).isBefore(_avgRatingDateInProgress)) {
+                         //grab data from avgRating with index -1
+                        var _obj1 = _.omit(_averageAnalystRatingSeries[_avgRatingIndexInProgress - 1], "date");
+                        _result.push(_.extend(_obj1, {date: histData.date}));
+                    } else {
+                        //grab data from index
+                        var _obj2 = _.omit(_averageAnalystRatingSeries[_avgRatingIndexInProgress], "date");
+                        _result.push(_.extend(_obj2, {date: histData.date}));
+                        //increment index
+                        _avgRatingIndexInProgress++;
+                    }
+                });
+            }
 
             return _result;
         },
