@@ -13,6 +13,10 @@ if (Meteor.isServer) {
 
             if (importType === "upgrades_downgrades") {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
+                _result.upgradesDowngradesImportStats = {};
+                var _numToImport = importData.length;
+                var _newlyImportedNum = 0;
+                var _alreadyExistingNum = 0;
                 importData.forEach(function(importItem) {
 
                     //first, check if that research company exists
@@ -36,7 +40,10 @@ if (Meteor.isServer) {
                             oldRatingId: _ratingScaleObjectForOld._id,
                             dateString: importItem.dateString
                         });
-                        if (!_existingRatingChange) {
+                        if (_existingRatingChange) {
+                            _alreadyExistingNum++;
+                        }
+                        if (!_existingRatingChange && importItem.symbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
                             // can insert
                             var _ratingChange = {
                                 date: new Date(importItem.dateString).toUTCString(),
@@ -51,6 +58,7 @@ if (Meteor.isServer) {
                             };
                             console.log("adding this stock: ", importItem.symbol);
                             RatingChanges.insert(_ratingChange);
+                            _newlyImportedNum++;
                         }
                     } else {
                         //add to error object to let user know these rating scales need to be added
@@ -66,6 +74,9 @@ if (Meteor.isServer) {
                         });
                     }
                 });
+                _result.upgradesDowngradesImportStats.total = _numToImport;
+                _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
+                _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
             } else if (importType === "earnings_releases") {
                 importData.forEach(function(importItem) {
                     //TODO check if this earnings release already exists -- check for plus minus 5 days around it
