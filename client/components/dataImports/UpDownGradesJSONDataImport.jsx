@@ -30,11 +30,19 @@ UpDownGradesJSONDataImport = React.createClass({
             //remove keys, which is the first item in this array
             _splitByTabsAndNewLines.shift();
             _splitByTabsAndNewLines.forEach(function(dataArr){
-                var _row = {};
-                _keyz.forEach(function(key, index) {
-                    _row[key] = dataArr[index];
+                var _everyItemInDataArrIsNonBlank = true;
+                dataArr.forEach(function(val) {
+                    if (val === "") {
+                        _everyItemInDataArrIsNonBlank = false;
+                    }
                 });
-                _parsed.push(_row);
+                if (_everyItemInDataArrIsNonBlank) {
+                    var _row = {};
+                    _keyz.forEach(function(key, index) {
+                        _row[key] = dataArr[index];
+                    });
+                    _parsed.push(_row);
+                }
             });
         }
 
