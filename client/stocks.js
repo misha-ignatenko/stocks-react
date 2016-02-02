@@ -233,7 +233,7 @@ if (Meteor.isClient) {
                 var _ratingScalesArr = [];
                 res.ratingScalesIds.forEach(function(ratingScaleId) {
                     var _rSc = RatingScales.findOne({_id: ratingScaleId});
-                    if (_rSc.universalScaleValue === "beforeCoverageInitiatedString" || _rSc.universalScaleValue === "coverageDroppedString") {
+                    if (_rSc.universalScaleValue === "beforeCoverageInitiatedString" || _rSc.universalScaleValue === "coverageDroppedString" || _rSc.universalScaleValue === "coverageTemporarilySuspendedString") {
                         _divisor -= 1;
                     } else {
                         _sum += _rSc.universalScaleValue;

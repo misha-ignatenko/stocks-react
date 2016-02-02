@@ -18,13 +18,15 @@ ImportRatingScales = React.createClass({
         }
         if (this.refs.researchFirmString.value.trim().length > 0 &&
             this.refs.beforeCoverageInitiatedString.value.trim().length > 0 &&
-            this.refs.coverageDroppedString.value.trim().length > 0
+            this.refs.coverageDroppedString.value.trim().length > 0 &&
+            this.refs.coverageTemporarilySuspendedString.value.trim().length > 0
         ) {
             Meteor.call("importData", {
                 thresholdStringsArray: _allRatings,
                 researchFirmString: this.refs.researchFirmString.value.trim(),
                 beforeCoverageInitiatedString: this.refs.beforeCoverageInitiatedString.value.trim(),
-                coverageDroppedString: this.refs.coverageDroppedString.value.trim()
+                coverageDroppedString: this.refs.coverageDroppedString.value.trim(),
+                coverageTemporarilySuspendedString: this.refs.coverageTemporarilySuspendedString.value.trim()
             }, "grading_scales", function(error, result) {
                 if (!error) {
                     console.log("success. imported grading scales");
@@ -53,6 +55,7 @@ ImportRatingScales = React.createClass({
                         {this.renderAllInputFields()}
                         <li>Before coverage initiated string: <input ref="beforeCoverageInitiatedString"/></li>
                         <li>Coverage dropped string: <input ref="coverageDroppedString"/></li>
+                        <li>Coverage temporarily suspended string:  <input ref="coverageTemporarilySuspendedString"/></li>
                     </ol>
 
                     <button onClick={this.submitRatingScales}>submit</button>

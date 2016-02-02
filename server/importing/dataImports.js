@@ -157,12 +157,17 @@ if (Meteor.isServer) {
 
                 var _beforeCoverageInitiatedString = importData.beforeCoverageInitiatedString;
                 var _coverageDroppedString = importData.coverageDroppedString;
+                var _coverageTemporarilySuspendedString = importData.coverageTemporarilySuspendedString;
                 if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
                     RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
                 }
 
                 if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
                     RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
+                }
+
+                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"})) {
+                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
             }
