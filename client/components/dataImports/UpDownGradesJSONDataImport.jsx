@@ -99,14 +99,14 @@ UpDownGradesJSONDataImport = React.createClass({
                         type: 'danger',
                         align: 'center',
                         width: 800,
-                        delay: 100000
+                        delay: 10000000
                     });
                 } else if (result.upgradesDowngradesImportStats) {
                     $.bootstrapGrowl("imported stats<br>new: " + result.upgradesDowngradesImportStats.new + "<br>duplicates: " + result.upgradesDowngradesImportStats.duplicates + "<br>out of: " + result.upgradesDowngradesImportStats.total, {
                         type: 'success',
                         align: 'center',
                         width: 250,
-                        delay: 100000
+                        delay: 10000000
                     });
                 } else {
                     //TODO show success bootstrapGrowl
