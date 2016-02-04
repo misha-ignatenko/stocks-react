@@ -63,20 +63,31 @@ if (Meteor.isServer) {
                     } else {
                         //add to error object to let user know these rating scales need to be added
                         //Note: both old and new have to exist.
-                        _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
+                        var _new = JSON.stringify({
                             researchFirmString: importItem.researchFirmString,
                             ratingString: importItem.newRatingString
                         });
+                        if (_result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(_new) === -1) {
+                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_new);
+                        }
 
-                        _result.couldNotFindGradingScalesForTheseUpDowngrades.push({
+                        var _old = JSON.stringify({
                             researchFirmString: importItem.researchFirmString,
                             ratingString: importItem.oldRatingString
                         });
+                        if (_result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(_old) === -1) {
+                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_old);
+                        }
                     }
                 });
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
                 _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
+                var _destringified = [];
+                _result.couldNotFindGradingScalesForTheseUpDowngrades.forEach(function(obj) {
+                    _destringified.push(JSON.parse(obj))
+                })
+                _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
             } else if (importType === "earnings_releases") {
                 importData.forEach(function(importItem) {
                     //TODO check if this earnings release already exists -- check for plus minus 5 days around it

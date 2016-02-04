@@ -98,7 +98,7 @@ UpDownGradesJSONDataImport = React.createClass({
                     $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
                         type: 'danger',
                         align: 'center',
-                        width: 250,
+                        width: 800,
                         delay: 100000
                     });
                 } else if (result.upgradesDowngradesImportStats) {
