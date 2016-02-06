@@ -3,7 +3,6 @@ if (Meteor.isClient) {
         passwordSignupFields: "USERNAME_ONLY"
     });
 
-    Meteor.subscribe("earningsReleases");
     Meteor.subscribe("researchCompanies");
     Meteor.subscribe("pickLists");
     Meteor.subscribe("ratingScales");

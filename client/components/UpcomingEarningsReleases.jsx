@@ -60,6 +60,12 @@ UpcomingEarningsReleases = React.createClass({
             earningsReleaseIndex: _newState
         });
     },
+    shouldComponentUpdate(nextProps, nextState) {
+        if (this.state.startEarningsReleaseDateInteger !== nextState.startEarningsReleaseDateInteger || this.state.endEarningsReleaseDateInteger !== nextState.endEarningsReleaseDateInteger) {
+            Meteor.subscribe("earningsReleases", nextState.startEarningsReleaseDateInteger, nextState.endEarningsReleaseDateInteger);
+        }
+        return true;
+    },
     nextEarningsRelease() {
         let _previousState = this.state.earningsReleaseIndex;
         let _newState = _previousState + 1 <= this.data.upcomingEarningsReleases.length - 1 ? _previousState + 1 : 0;
@@ -121,6 +127,10 @@ UpcomingEarningsReleases = React.createClass({
 
     componentWillUnmount: function() {
         window.removeEventListener('keydown', this.handleKeyDown);
+    },
+
+    componentWillMount: function () {
+        Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
     },
 
     render() {

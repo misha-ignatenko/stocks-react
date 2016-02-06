@@ -1,8 +1,26 @@
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
 if (Meteor.isServer) {
-    Meteor.publish("earningsReleases", function () {
-        return EarningsReleases.find();
+    Meteor.publish("earningsReleases", function (startDate, endDate) {
+        var _allEarningsReleases = EarningsReleases.find({$and: [
+            {
+                reportDateNextFiscalQuarter: {
+                    $exists: true
+                }
+            },
+            {
+                reportDateNextFiscalQuarter: {
+                    $gte: startDate
+                }
+            },
+            {
+                reportDateNextFiscalQuarter: {
+                    $lte: endDate
+                }
+            }
+        ]});
+
+        return _allEarningsReleases;
     });
     Meteor.publish("pickLists", function () {
         return PickLists.find();

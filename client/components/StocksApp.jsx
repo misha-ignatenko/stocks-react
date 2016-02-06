@@ -1,5 +1,9 @@
 //TODO React is not defined
 //var React = require('react-bootstrap');
+var _mainTabName = "mainTab";
+var _individualStockTabName = "individualStockTab";
+var _upcomingEarningsReleasesTabName = "upcomingEarningsReleases";
+var _dataImportsTabName = "dataImportsTab";
 
 StocksApp = React.createClass({
 
@@ -7,10 +11,7 @@ StocksApp = React.createClass({
 
     getInitialState() {
         return {
-            showMainTab: true,
-            individualStockTab: false,
-            showUpcomingEarningsReleasesTab: false,
-            showDataImportsTab: false
+            tabNameToShow: _mainTabName
         }
     },
 
@@ -53,34 +54,31 @@ StocksApp = React.createClass({
     },
 
     selectTab(e) {
-        let _showMainTab = e.target.getAttribute("data-tag") === "mainTab";
-        let _showIndividualStockTab = e.target.getAttribute("data-tag") === "individualStockTab";
-        let _showUpcomingEarningsReleasesTab = e.target.getAttribute("data-tag") === "upcomingEarningsReleases";
-        let _showDataImportsTab = e.target.getAttribute("data-tag") === "dataImportsTab";
+        let _clickedTabName = $(e.target).attr("id");
         this.setState({
-            showMainTab: _showMainTab,
-            individualStockTab: _showIndividualStockTab,
-            showUpcomingEarningsReleasesTab: _showUpcomingEarningsReleasesTab,
-            showDataImportsTab: _showDataImportsTab
+            tabNameToShow: _clickedTabName
         });
     },
 
     render() {
         //add this to tabs to make router work
         //<li className="tab3"><a href="/dataimport/updowngrades">TEST TO UP DOWN GRADES</a></li>
+        let _b = "btn btn-default";
+        let _ab = "btn btn-default active";
         return (
             <div className="container">
                 <header>
                     <AccountsUIWrapper />
                 </header>
 
-                <ul className="nav nav-tabs">
-                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="mainTab">Portfolios</a></li>
-                    <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="individualStockTab">Individual Stocks</a></li>
-                    <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="upcomingEarningsReleases">Upcoming Earnings Releases</a></li>
-                    <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="dataImportsTab">Data Imports</a></li>
-                </ul>
-                { this.state.showMainTab ? (
+                <div className="btn-group" role="group" aria-label="...">
+                    <button type="button" className={this.state.tabNameToShow === _mainTabName ? _ab : _b} id={_mainTabName} onClick={this.selectTab}>Portfolios</button>
+                    <button type="button" className={this.state.tabNameToShow === _individualStockTabName ? _ab : _b} id={_individualStockTabName} onClick={this.selectTab}>Individual Stocks</button>
+                    <button type="button" className={this.state.tabNameToShow === _upcomingEarningsReleasesTabName ? _ab : _b} id={_upcomingEarningsReleasesTabName} onClick={this.selectTab}>Upcoming Earnings Releases</button>
+                    <button type="button" className={this.state.tabNameToShow === _dataImportsTabName ? _ab : _b} id={_dataImportsTabName} onClick={this.selectTab}>Data Imports</button>
+                </div>
+
+                { this.state.tabNameToShow === _mainTabName ? (
                     <div>
                         <br/>
                         { this.data.currentUser ?
@@ -97,17 +95,17 @@ StocksApp = React.createClass({
                         <br/>
                     </div>
                 ) : null}
-                { this.state.individualStockTab ? (
+                { this.state.tabNameToShow === _individualStockTabName ? (
                     <div>
                         <IndividualStock />
                     </div>
                 ) : null}
-                { this.state.showUpcomingEarningsReleasesTab ? (
+                { this.state.tabNameToShow === _upcomingEarningsReleasesTabName ? (
                     <div>
                         <UpcomingEarningsReleases />
                     </div>
                 ) : null}
-                { this.state.showDataImportsTab ? (
+                { this.state.tabNameToShow === _dataImportsTabName ? (
                     <div>
                         <DataImportsMain />
                     </div>
