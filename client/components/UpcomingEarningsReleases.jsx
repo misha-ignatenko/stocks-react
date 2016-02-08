@@ -1,3 +1,5 @@
+let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
+
 UpcomingEarningsReleases = React.createClass({
 
     mixins: [ReactMeteorData],
@@ -16,62 +18,45 @@ UpcomingEarningsReleases = React.createClass({
         //check if EXP_RPT_DATE_QR1 or EXP_RPT_DATE_QR2 exist inside earningreleases collection
         //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
 
-        //generate 2 numbers based on todays
-        var _startDate = this.state.startEarningsReleaseDateInteger;
-        var _endDate = this.state.endEarningsReleaseDateInteger;
-        var _allEarningsReleases = EarningsReleases.find({reportDateNextFiscalQuarter: {$exists: true}}).fetch();
-
-        //now get indices of those corresponding qr1, 2 or whatever and see if item at that index inside earningsData array is between the requested start and end date
-        var _upcomingEarningsReleases = [];
-        _allEarningsReleases.forEach(function(release) {
-            var _addToUpcomingList = false;
-            if (release.reportDateNextFiscalQuarter >= _startDate &&
-                release.reportDateNextFiscalQuarter <= _endDate
-            ) {
-                _addToUpcomingList = true;
+        var data = {};
+        data.currentUser = Meteor.user();
+        var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
+        if (_handle1.ready()) {
+            var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
+            var _handle2 = Meteor.subscribe("ratingChangesForSymbols", _uniqSymbols);
+            if (_handle2.ready()) {
+                data.earningsReleasesAndRatingChangesSubsReady = true;
+                this.pullDataFromQuandl(_uniqSymbols);
             }
+        }
 
-            if (_addToUpcomingList) {
-                _upcomingEarningsReleases.push(release);
+        return data;
+    },
+
+    pullDataFromQuandl: function(uniqueSymbols) {
+        let _symbols = [];
+        let _todaysDate = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
+        uniqueSymbols.forEach(function(symbol) {
+            let _earningsReleasesForSymbol = _.filter(EarningsReleases.find().fetch(), function(obj) {
+                return obj.symbol === symbol;
+            });
+            let _sorted = _.sortBy(_earningsReleasesForSymbol, function (obj) {
+                let _date = new Date(obj["lastModified"]).toISOString();
+                return _date;
+            });
+            if (_sorted && _sorted.length > 0) {
+                let _latestDate = _sorted[_sorted.length - 1]["asOf"];
+                let _nextUpdateAllowedOn_NUM = parseInt(moment(new Date(_latestDate)).add(_allowQuandlPullEveryNdaysFromPreviousForThatStock + 1, 'days').format("YYYYMMDD"));
+
+                if (_nextUpdateAllowedOn_NUM <= _todaysDate) {
+                    _symbols.push(symbol);
+                }
             }
         });
-
-        return {
-            currentUser: Meteor.user(),
-            upcomingEarningsReleases: _upcomingEarningsReleases
+        if (_symbols.length > 0) {
+            console.log("GONNA PULL EARNING RELEASES FROM QUANDL FOR: ", _symbols);
+            Meteor.call("importData", _symbols, "earnings_releases");
         }
-    },
-    renderUpcomingEarningsReleases() {
-        return this.data.upcomingEarningsReleases.map((release, index) => {
-            let _btnClass = "btn" + (release.symbol === this.getSelectedSymbol() ? " btn-primary" : "");
-            let _key = release.symbol + "_" + index;
-            return <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, release.symbol, index)}>{release.symbol}</button>
-        })
-    },
-    setNewSelectedSymbol: function(symbol, indexInThisDataUpcomingEarningsReleases) {
-        this.setState({
-            earningsReleaseIndex: indexInThisDataUpcomingEarningsReleases
-        });
-    },
-    previousEarningsRelease() {
-        let _previousState = this.state.earningsReleaseIndex;
-        let _newState = _previousState - 1 >= 0 ? _previousState - 1 : this.data.upcomingEarningsReleases.length - 1;
-        this.setState({
-            earningsReleaseIndex: _newState
-        });
-    },
-    shouldComponentUpdate(nextProps, nextState) {
-        if (this.state.startEarningsReleaseDateInteger !== nextState.startEarningsReleaseDateInteger || this.state.endEarningsReleaseDateInteger !== nextState.endEarningsReleaseDateInteger) {
-            Meteor.subscribe("earningsReleases", nextState.startEarningsReleaseDateInteger, nextState.endEarningsReleaseDateInteger);
-        }
-        return true;
-    },
-    nextEarningsRelease() {
-        let _previousState = this.state.earningsReleaseIndex;
-        let _newState = _previousState + 1 <= this.data.upcomingEarningsReleases.length - 1 ? _previousState + 1 : 0;
-        this.setState({
-            earningsReleaseIndex: _newState
-        });
     },
     setDatepickerOptions: function() {
         let _datepickerOptions = {
@@ -101,40 +86,8 @@ UpcomingEarningsReleases = React.createClass({
         var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
         return _month + "/" + _day + "/" + _year;
     },
-    getSelectedSymbol: function() {
-        let _symbol = this.data.upcomingEarningsReleases &&
-        this.data.upcomingEarningsReleases.length > 0 &&
-        this.state.earningsReleaseIndex.toString() &&
-        this.state.earningsReleaseIndex + 1 <= this.data.upcomingEarningsReleases.length ?
-            this.data.upcomingEarningsReleases[this.state.earningsReleaseIndex].symbol : "undefinedd";
-        return _symbol;
-    },
-    handleKeyDown: function(e) {
-        let _symbolIndex = this.state.earningsReleaseIndex;
-        let _new = e.which === 37 ? _symbolIndex-1 : e.which === 39 ? _symbolIndex+1 : _symbolIndex;
-        if (_symbolIndex !== _new && this.data.upcomingEarningsReleases && this.data.upcomingEarningsReleases.length > 0) {
-            if (e.which === 37) {
-                this.previousEarningsRelease();
-            } else if (e.which === 39) {
-                this.nextEarningsRelease();
-            }
-        }
-    },
-
-    componentDidMount: function() {
-        window.addEventListener('keydown', this.handleKeyDown);
-    },
-
-    componentWillUnmount: function() {
-        window.removeEventListener('keydown', this.handleKeyDown);
-    },
-
-    componentWillMount: function () {
-        Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
-    },
 
     render() {
-        let _symbol = this.getSelectedSymbol();
 
         return (
             <div className="container">
@@ -150,10 +103,9 @@ UpcomingEarningsReleases = React.createClass({
                                 <input className="datepickerInput2" id="endEarningsReleaseDateInteger" />
                             </div>
                             <br/>
-                            { this.renderUpcomingEarningsReleases() }
                             <br/>
                             <br/>
-                            <UpcomingEarningsRelease symbol={_symbol} currentUser={this.data.currentUser}/>
+                            {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "loading"}
                             <br/>
                         </div>
                     ) : null

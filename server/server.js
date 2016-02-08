@@ -22,6 +22,10 @@ if (Meteor.isServer) {
 
         return _allEarningsReleases;
     });
+    Meteor.publish("ratingChangesForSymbols", function (symbolsArr) {
+        console.log("symbols array: ", symbolsArr)
+        return RatingChanges.find({symbol: {$in: symbolsArr}}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
+    });
     Meteor.publish("pickLists", function () {
         return PickLists.find();
     });

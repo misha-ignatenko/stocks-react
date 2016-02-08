@@ -156,7 +156,8 @@ UpcomingEarningsRelease = React.createClass({
     },
 
     checkForNewestDataFromQuandl: function (symbol) {
-        Meteor.call('importData', [symbol], 'earnings_releases');
+        console.log("this is done elsewhere, ", symbol);
+        //Meteor.call('importData', [symbol], 'earnings_releases');
     },
 
     renderEpsMeanEstimates() {
