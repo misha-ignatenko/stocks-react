@@ -52,7 +52,7 @@ StocksGraph = React.createClass({
                 //determing the range of all analyst ratings
                 var _maxRating = 0;
                 var _minRating = 120000;
-                _avgAnalystRatings.forEach(function(avgRating) {
+                _avgAnalystRatings.forEach(function (avgRating) {
                     if (avgRating.avg > _maxRating) {
                         _maxRating = avgRating.avg;
                     }
@@ -64,57 +64,57 @@ StocksGraph = React.createClass({
                 var _multiplyAllRatingsByCoef = _rangeOfPrices / _rangeOfAvgRatings;
 
                 _avgAnalystRatings.forEach(function (avgRating) {
-                    _seriesDataArray2.push([new Date(avgRating.date).valueOf(), _minPrice + _multiplyAllRatingsByCoef * (avgRating.avg  - _minRating)]);
+                    _seriesDataArray2.push([new Date(avgRating.date).valueOf(), _minPrice + _multiplyAllRatingsByCoef * (avgRating.avg - _minRating)]);
                 });
                 seriesModel.push({
-                    name: "avg rating" ,
+                    name: "avg rating",
                     data: _seriesDataArray2,
-                    type : 'spline',
-                    tooltip : {
-                        valueDecimals : 2
+                    type: 'spline',
+                    tooltip: {
+                        valueDecimals: 2
                     }
                 });
+            }
 
-                if (obj.avgAnalystRatingsEveryDay && obj.avgAnalystRatingsEveryDay.length > 2) {
-                    var _seriesDataArrayAvgRatingEveryDay = [];
-                    obj.avgAnalystRatingsEveryDay.forEach(function(avgRatingEveryDay) {
-                        _seriesDataArrayAvgRatingEveryDay.push(
-                            [
-                                new Date(avgRatingEveryDay.date).valueOf(),
-                                _minPrice + _multiplyAllRatingsByCoef * (avgRatingEveryDay.avg  - _minRating)
-                            ]
-                        );
-                    });
-                    seriesModel.push({
-                        name: "avg rating every day" ,
-                        data: _seriesDataArrayAvgRatingEveryDay,
-                        type : 'spline',
-                        tooltip : {
-                            valueDecimals : 2
-                        }
-                    });
-                }
+            if (obj.avgAnalystRatingsEveryDay && obj.avgAnalystRatingsEveryDay.length > 2) {
+                var _seriesDataArrayAvgRatingEveryDay = [];
+                obj.avgAnalystRatingsEveryDay.forEach(function (avgRatingEveryDay) {
+                    _seriesDataArrayAvgRatingEveryDay.push(
+                        [
+                            new Date(avgRatingEveryDay.date).valueOf(),
+                            _minPrice + _multiplyAllRatingsByCoef * (avgRatingEveryDay.avg - _minRating)
+                        ]
+                    );
+                });
+                seriesModel.push({
+                    name: "avg rating every day",
+                    data: _seriesDataArrayAvgRatingEveryDay,
+                    type: 'spline',
+                    tooltip: {
+                        valueDecimals: 2
+                    }
+                });
+            }
 
-                if (obj.weightedAnalystRatingsEveryDay && obj.weightedAnalystRatingsEveryDay.length > 2) {
-                    var _weightedAnalystRatingsSeries = [];
-                    obj.weightedAnalystRatingsEveryDay.forEach(function(weightedRating) {
-                        _weightedAnalystRatingsSeries.push(
-                            [
-                                new Date(weightedRating.date).valueOf(),
-                                weightedRating.weightedRating
-                            ]
-                        );
-                    });
+            if (obj.weightedAnalystRatingsEveryDay && obj.weightedAnalystRatingsEveryDay.length > 2) {
+                var _weightedAnalystRatingsSeries = [];
+                obj.weightedAnalystRatingsEveryDay.forEach(function (weightedRating) {
+                    _weightedAnalystRatingsSeries.push(
+                        [
+                            new Date(weightedRating.date).valueOf(),
+                            weightedRating.weightedRating
+                        ]
+                    );
+                });
 
-                    seriesModel.push({
-                        name: "weighted rating every day" ,
-                        data: _weightedAnalystRatingsSeries,
-                        type : 'spline',
-                        tooltip : {
-                            valueDecimals : 2
-                        }
-                    });
-                }
+                seriesModel.push({
+                    name: "weighted rating every day",
+                    data: _weightedAnalystRatingsSeries,
+                    type: 'spline',
+                    tooltip: {
+                        valueDecimals: 2
+                    }
+                });
             }
 
             var _earningsReleases = obj.earningsReleases;
