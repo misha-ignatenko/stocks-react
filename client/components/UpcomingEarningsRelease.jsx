@@ -311,7 +311,7 @@ UpcomingEarningsRelease = React.createClass({
                     var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose");
                     _that.setState({
                         stocksToGraphObjs: [_.extend(result, {
-                            avgAnalystRatings: _averageAnalystRatingSeries,
+                            //avgAnalystRatings: _averageAnalystRatingSeries,
                             avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
                             weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
                         })]
