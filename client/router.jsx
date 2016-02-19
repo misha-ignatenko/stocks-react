@@ -15,6 +15,7 @@ Meteor.startup(function() {
                 <Router component={UpDownGradesJSONDataImport} path="dataimport/updowngrades"/>
                 <Router component={EarningsReleasesJSONDataImport} path="dataimport/earningsreleases"/>
                 <Router component={ImportRatingScales} path="dataimport/ratingscales"/>
+                <Router component={Blob} path="blob"/>
             </Route>
         </Router>
     )
