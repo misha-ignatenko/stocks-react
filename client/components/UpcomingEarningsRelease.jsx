@@ -231,6 +231,10 @@ UpcomingEarningsRelease = React.createClass({
             })
         }
     },
+    componentWillMount() {
+        //call getLatestGraph2 to show ratings graph for initially selected symbol
+        this.getLatestGraph2(this.props.symbol);
+    },
     renderAllExistingUpDowngradesForStock: function() {
         var _that = this;
         return <div className="row allUpDowngrades">
