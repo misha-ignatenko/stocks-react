@@ -21,17 +21,12 @@ StocksGraph = React.createClass({
         stocksObjectsArray.forEach(function (obj) {
             //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
             var _histData = obj.historicalData;
-            var _maxPrice = 0.00;
-            var _minPrice = 10000000.00;
+            var _minMaxPrice = StocksReact.utilities.getMinMaxFromArrOfObj(obj.historicalData, "adjClose");
+            var _maxPrice = _minMaxPrice[1];
+            var _minPrice = _minMaxPrice[0];
             if (_histData) {
                 let _seriesDataArray = [];
                 _histData.forEach(function (histData) {
-                    if (histData.adjClose > _maxPrice) {
-                        _maxPrice = histData.adjClose;
-                    }
-                    if (histData.adjClose < _minPrice) {
-                        _minPrice = histData.adjClose;
-                    }
                     _seriesDataArray.push([new Date(histData.date).valueOf(), histData.adjClose]);
                 });
 
@@ -50,16 +45,10 @@ StocksGraph = React.createClass({
             if (_avgAnalystRatings && _avgAnalystRatings.length > 2) {
                 let _seriesDataArray2 = [];
                 //determing the range of all analyst ratings
-                var _maxRating = 0;
-                var _minRating = 120000;
-                _avgAnalystRatings.forEach(function (avgRating) {
-                    if (avgRating.avg > _maxRating) {
-                        _maxRating = avgRating.avg;
-                    }
-                    if (avgRating.avg < _minRating) {
-                        _minRating = avgRating.avg;
-                    }
-                });
+                var _minMaxAvgRating = StocksReact.utilities.getMinMaxFromArrOfObj(_avgAnalystRatings, "avg");
+                var _maxRating = _minMaxAvgRating[1];
+                var _minRating = _minMaxAvgRating[0];
+
                 var _rangeOfAvgRatings = _maxRating - _minRating;
                 var _multiplyAllRatingsByCoef = _rangeOfPrices / _rangeOfAvgRatings;
 
@@ -72,17 +61,25 @@ StocksGraph = React.createClass({
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
-                    }
+                    },
+                    yAxis: 1
                 });
             }
 
             if (obj.avgAnalystRatingsEveryDay && obj.avgAnalystRatingsEveryDay.length > 2) {
                 var _seriesDataArrayAvgRatingEveryDay = [];
+                var _rangeOfAvgRatingsByDay = StocksReact.utilities.getMinMaxFromArrOfObj(obj.avgAnalystRatingsEveryDay, "avg");
+                var _coef = 1;
+                if (_rangeOfAvgRatingsByDay.length > 0) {
+                    _coef = _rangeOfPrices / (_rangeOfAvgRatingsByDay[1] - _rangeOfAvgRatingsByDay[0]);
+                }
+
                 obj.avgAnalystRatingsEveryDay.forEach(function (avgRatingEveryDay) {
                     _seriesDataArrayAvgRatingEveryDay.push(
                         [
                             new Date(avgRatingEveryDay.date).valueOf(),
-                            _minPrice + _multiplyAllRatingsByCoef * (avgRatingEveryDay.avg - _minRating)
+                            //_minPrice + _coef * (avgRatingEveryDay.avg - _rangeOfAvgRatingsByDay[0])
+                            avgRatingEveryDay.avg
                         ]
                     );
                 });
@@ -92,7 +89,8 @@ StocksGraph = React.createClass({
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
-                    }
+                    },
+                    yAxis: 1
                 });
             }
 
@@ -158,6 +156,32 @@ StocksGraph = React.createClass({
                     year: '%Y'
                 }
             },
+
+            yAxis: [
+                {
+                    labels: {
+                        format: '${value}'
+                    },
+                    opposite: false
+                }, {
+                    title: {
+                        text: "avg rating"
+                    },
+                    labels: {
+                        format: '{value} pt'
+                    },
+                    opposite: true
+                }
+                , {
+                    //title: {
+                    //    text: "avg weighted rating"
+                    //},
+                    labels: {
+                        format: '{value} pt'
+                    },
+                    opposite: true
+                }
+            ],
 
             rangeSelector: {
                 inputEnabled: false

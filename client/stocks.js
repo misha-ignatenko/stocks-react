@@ -118,6 +118,48 @@ if (Meteor.isClient) {
             return _result;
         },
 
+        getLatestRatingScaleIdFor(symbol, researchFirmId, requestedDate) {
+            var _ratingChanges = RatingChanges.find({symbol: symbol, researchFirmId: researchFirmId}).fetch();
+            var _format = "YYYY-MM-DD";
+            var rDate = moment(new Date(requestedDate)).format(_format);
+
+            var _ratingScaleId;
+            if (_ratingChanges && _ratingChanges.length > 0) {
+                var _onOrBeforeUnsorted = _.filter(_ratingChanges, function(rChange) {
+                    var _extractedDateStringNoTimezone = moment(new Date(rChange.date)).format(_format);
+                    return (
+                        moment(_extractedDateStringNoTimezone).isSame(rDate) ||
+                        moment(_extractedDateStringNoTimezone).isBefore(rDate)
+                    );
+                });
+                var _afterUnsorted = _.filter(_ratingChanges, function(rChange) {
+                    var _extractedDateStringNoTimezone = moment(new Date(rChange.date)).format(_format);
+                    return (moment(_extractedDateStringNoTimezone).isAfter(rDate));
+                });
+                var _onOrBeforeSorted = _.sortBy(_onOrBeforeUnsorted, function(obj) {
+                    return moment(new Date(obj.date));
+                });
+                var _afterSorted = _.sortBy(_afterUnsorted, function(obj) {
+                    return moment(new Date(obj.date));
+                });
+
+                if (_onOrBeforeSorted && _onOrBeforeSorted.length > 0) {
+                    //case 1
+                    //check if anything is for date or before
+                    //if yes, grab the newRatingId of the last item in that array
+                    _ratingScaleId = _onOrBeforeSorted[_onOrBeforeSorted.length - 1].newRatingId;
+                } else if (_afterSorted && _afterSorted.length > 0) {
+                    //case 2
+                    //if there's something that's after the requested date, then
+                    // return oldRatingId of the rating change that's closest to requested date (index 0)
+                    _ratingScaleId = _afterSorted[0].oldRatingId;
+                }
+
+            }
+
+            return _ratingScaleId;
+        },
+
 
         generateAverageAnalystRatingTimeSeries: function(symbol, startDate, endDate) {
             var _allRatingChgs = RatingChanges.find({symbol: symbol}).fetch();
@@ -158,56 +200,18 @@ if (Meteor.isClient) {
                 }
             });
 
-            _result.push({
-                date: new Date(startDate).toUTCString(),
-                ratingScalesIds: _zeroSeries
-            });
+            //_result.push({
+            //    date: new Date(startDate).toUTCString(),
+            //    ratingScalesIds: _zeroSeries
+            //});
 
-            //for each rating change get the firm and find the nearest before rating of other firms
-            _ratingChangesOfInterest.forEach(function(ratingChange, index) {
-                var _curFirmId = ratingChange.researchFirmId;
-                var _arrayOfConnectedRatingChanges = [ratingChange.newRatingId];
-                _uniqueFirms.forEach(function(researchFirmId) {
-                    //only interested at looking at research firms that are NOT equal to _curFirmId
-                    if (researchFirmId !== _curFirmId) {
-                        var _i = index + 1;
-                        var _found;
-                        while (_i < _ratingChangesOfInterest.length) {
-                            if (_ratingChangesOfInterest[_i].researchFirmId === researchFirmId) {
-                                _found = _ratingChangesOfInterest[_i];
-                                _arrayOfConnectedRatingChanges.push(_found.oldRatingId);
-                                break;
-                            }
-                            _i++;
-                        }
-                        if (!_found) {
-                            //try to go backward
-                            _i = index - 1;
-                            while (_i >= 0) {
-                                if (_ratingChangesOfInterest[_i].researchFirmId === researchFirmId) {
-                                    _found =_ratingChangesOfInterest[_i];
-                                    _arrayOfConnectedRatingChanges.push(_found.newRatingId);
-                                    break;
-                                }
-                                _i--;
-                            }
-                        }
 
-                        if (!_found) {
-                            console.log("ERROR!!");
-                        } else {
 
-                        }
-                    }
-                })
-                _result.push({
-                    date: ratingChange.date,
-                    ratingScalesIds: _arrayOfConnectedRatingChanges
-                });
-            })
 
-            //same as the very last one except date will be set below to either today or endDate
-            var _finalSeries = _result[_result.length - 1].ratingScalesIds;
+            console.log("all rating changes of interest: ", _ratingChangesOfInterest);
+            var _uniqDates = [new Date(startDate).toUTCString()];
+            var _uniqDatesAddition = _.uniq(_.pluck(_ratingChangesOfInterest, "date"));
+            _uniqDates = _uniqDates.concat(_.pluck(_ratingChangesOfInterest, "date"));
 
             //figure out date for finalSeries
             var _dateForFinalSeries;
@@ -217,13 +221,23 @@ if (Meteor.isClient) {
             } else {
                 _dateForFinalSeries = new Date(endDate).toUTCString()
             }
+            _uniqDates.push(_dateForFinalSeries);
+            _uniqDates = _.uniq(_uniqDates);
+            console.log("unique dates: ", _uniqDates);
 
+            _uniqDates.forEach(function(uniqDate) {
+                var __arrayOfConnectedRatingChanges = [];
+                _uniqueFirms.forEach(function(firmId){
+                    var _id = StocksReact.functions.getLatestRatingScaleIdFor(symbol, firmId, uniqDate);
+                    __arrayOfConnectedRatingChanges.push(_id);
+                });
 
-
-            _result.push({
-                date: _dateForFinalSeries,
-                ratingScalesIds: _finalSeries
+                _result.push({
+                    date: uniqDate,
+                    ratingScalesIds: __arrayOfConnectedRatingChanges
+                });
             });
+            console.log("RESULT from avg ratings: ", _result);
 
             var _final = [];
             _result.forEach(function(res) {
@@ -246,7 +260,7 @@ if (Meteor.isClient) {
                 });
                 //TODO omit ratingScalesIds -- extra info
                 _final.push(_.extend(res, {
-                    avg: (_sum / _divisor).toFixed(2),
+                    avg: parseFloat(_sum / _divisor),
                     ratingScales: _ratingScalesArr
                 }))
             })
