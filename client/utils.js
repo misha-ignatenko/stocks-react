@@ -3,7 +3,7 @@ if (!StocksReact) {
 };
 
 StocksReact.utilities = {
-    getMinMaxFromArrOfObj(arrOfObj, key) {
+    getMinMaxFromArrOfObj: function(arrOfObj, key) {
         var _max = -1000000000.00;
         var _min = 1000000000.00;
         if (arrOfObj && arrOfObj.length > 0) {
