@@ -167,6 +167,15 @@ StocksGraph = React.createClass({
                     title: {
                         text: "avg rating"
                     },
+                    min: 0,
+                    max: 130,
+                    plotLines: [
+                        {
+                            color: '#FF0000',
+                            width: 1,
+                            value: 60
+                        }
+                    ],
                     labels: {
                         format: '{value} pt'
                     },

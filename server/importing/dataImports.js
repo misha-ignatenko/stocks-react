@@ -48,6 +48,7 @@ if (Meteor.isServer) {
                             var _ratingChange = {
                                 date: new Date(importItem.dateString).toUTCString(),
                                 dateString: importItem.dateString,
+                                dateValue: moment(importItem.dateString).valueOf(),
                                 researchFirmId: _researchCompanyId,
                                 symbol: importItem.symbol,
                                 newRatingId: _ratingScaleObjectForNew._id,
