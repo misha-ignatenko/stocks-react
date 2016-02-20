@@ -118,7 +118,7 @@ if (Meteor.isClient) {
             return _result;
         },
 
-        getLatestRatingScaleIdFor(symbol, researchFirmId, requestedDate) {
+        getLatestRatingScaleIdFor: function(symbol, researchFirmId, requestedDate) {
             var _ratingChanges = RatingChanges.find({symbol: symbol, researchFirmId: researchFirmId}).fetch();
             var _format = "YYYY-MM-DD";
             var rDate = moment(new Date(requestedDate)).format(_format);
