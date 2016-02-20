@@ -231,7 +231,7 @@ UpcomingEarningsRelease = React.createClass({
             })
         }
     },
-    componentWillMount() {
+    componentWillMount: function() {
         //call getLatestGraph2 to show ratings graph for initially selected symbol
         this.getLatestGraph2(this.props.symbol);
     },
