@@ -17,7 +17,17 @@ if (Meteor.isServer) {
                 var _numToImport = importData.length;
                 var _newlyImportedNum = 0;
                 var _alreadyExistingNum = 0;
+                var _checkForEarningsReleasesForTheseSymbols = [];
+                if (!Meteor.serverConstants.pullFromQuandEveryNDays) {
+                    _result.serverConstantsNotOk = {
+                        pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
+                    };
+                }
                 importData.forEach(function(importItem) {
+                    //check if symbol isn't already in  _checkForEarningsReleasesForTheseSymbols
+                    if (_checkForEarningsReleasesForTheseSymbols.indexOf(importItem.symbol) === -1) {
+                        _checkForEarningsReleasesForTheseSymbols.push(importItem.symbol);
+                    }
 
                     //first, check if that research company exists
                     var _researchCompany = ResearchCompanies.findOne({name: importItem.researchFirmString});
@@ -81,6 +91,11 @@ if (Meteor.isServer) {
                         }
                     }
                 });
+
+                if (_checkForEarningsReleasesForTheseSymbols.length > 0) {
+                    Meteor.call("importData", _checkForEarningsReleasesForTheseSymbols, "earnings_releases");
+                }
+
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
                 _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
@@ -90,51 +105,71 @@ if (Meteor.isServer) {
                 })
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
             } else if (importType === "earnings_releases") {
+                console.log("earnings_releases import function called with: ", importData);
                 importData.forEach(function(importItem) {
-                    //TODO check if this earnings release already exists -- check for plus minus 5 days around it
-                    var _earningRelease = {
-                        symbol: importItem
-                    };
+
+                    if (_canPullAgainFromQuandl(importItem)) {
+                        //TODO check if this earnings release already exists -- check for plus minus 5 days around it
+                        var _earningRelease = {
+                            symbol: importItem
+                        };
 
 
-                    var _authToken = "";
-                    var _symbol = _earningRelease.symbol;
-                    var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _symbol + ".json?auth_token=" + _authToken;
-                    HTTP.get(_url, function(error, result) {
-                        if (!error && result) {
-                            //TODO check if earnings release data for that stock exists.
-                            //TODO should only have 1 record per symbol and expand it WITH NEW STUFF ONLY over time.
-                            var _resultColumnNames = result.data.dataset.column_names;
-                            var _newEarningsData = result.data.dataset.data[0];
-                            var _objectFromQuandlMyDbFormat = {};
-                            var _i = 0;
-                            _resultColumnNames.forEach(function(fieldName, index) {
-                                var _convertedFieldName = _convertQuandlZEAfieldName(fieldName);
-                                if (_convertedFieldName) {
-                                    _objectFromQuandlMyDbFormat[_convertedFieldName] = _newEarningsData[index];
-                                    _i++;
-                                }
-                            });
-                            if (_i === 14) {
-                                console.log("object from quandl: ", _objectFromQuandlMyDbFormat);
-                                //now check if any of the existing earnings releases match this one we are trying to import
+                        var _authToken = "";
+                        var _symbol = _earningRelease.symbol;
+                        var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _symbol + ".json?auth_token=" + _authToken;
+                        HTTP.get(_url, function (error, result) {
+                            if (!error && result) {
+                                //TODO check if earnings release data for that stock exists.
+                                //TODO should only have 1 record per symbol and expand it WITH NEW STUFF ONLY over time.
+                                var _resultColumnNames = result.data.dataset.column_names;
+                                var _newEarningsData = result.data.dataset.data[0];
+                                var _objectFromQuandlMyDbFormat = {};
+                                var _i = 0;
+                                _resultColumnNames.forEach(function (fieldName, index) {
+                                    var _convertedFieldName = _convertQuandlZEAfieldName(fieldName);
+                                    if (_convertedFieldName) {
+                                        _objectFromQuandlMyDbFormat[_convertedFieldName] = _newEarningsData[index];
+                                        _i++;
+                                    }
+                                });
+                                if (_i === 14) {
+                                    console.log("object from quandl: ", _objectFromQuandlMyDbFormat);
+                                    //now check if any of the existing earnings releases match this one we are trying to import
 
-                                if (!_matchingEntryExistsInEarningsReleases(_symbol, _objectFromQuandlMyDbFormat) && result.statusCode === 200) {
-                                    _.extend(_earningRelease, _objectFromQuandlMyDbFormat);
-                                    _.extend(_earningRelease, {
-                                        lastModified: new Date().toUTCString(),
-                                        lastModifiedBy: Meteor.userId()
-                                    });
-                                    console.log("inserting into earningsReleases: ", _earningRelease);
-                                    EarningsReleases.insert(_earningRelease);
+                                    if (result.statusCode === 200) {
+                                        var _matchingEarningsReleaseId = _matchingEntryExistsInEarningsReleases(_symbol, _objectFromQuandlMyDbFormat);
+                                        _.extend(_earningRelease, _objectFromQuandlMyDbFormat);
+                                        var _lastMod = {
+                                            lastModified: new Date().toUTCString(),
+                                            lastModifiedBy: Meteor.userId()
+                                        };
+                                        _.extend(_earningRelease, _lastMod);
+
+                                        if (!_matchingEarningsReleaseId) {
+                                            console.log("inserting into earningsReleases: ", _earningRelease);
+                                            EarningsReleases.insert(_earningRelease);
+                                        } else {
+                                            var _previousAsOfField = EarningsReleases.findOne({_id: _matchingEarningsReleaseId}).asOf;
+                                            var _latestAsOfField = _objectFromQuandlMyDbFormat.asOf;
+                                            if (_previousAsOfField !== _latestAsOfField) {
+                                                EarningsReleases.update(
+                                                    {_id: _matchingEarningsReleaseId},
+                                                    {$set:
+                                                        _.extend({asOf: _objectFromQuandlMyDbFormat.asOf}, _lastMod)
+                                                    }
+                                                );
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    console.log("ERROR. _i is less than 14.");
                                 }
                             } else {
-                                console.log("ERROR. _i is less than 14.");
+                                console.log("error while getting a response from Quandl. Symbol: ", _symbol);
                             }
-                        } else {
-                            console.log("error while getting a response from Quandl. Symbol: ", _symbol);
-                        }
-                    });
+                        });
+                    }
                 });
             } else if (importType === "grading_scales") {
                 var _allRatings = importData.thresholdStringsArray;
@@ -265,7 +300,7 @@ if (Meteor.isServer) {
     }
 
     function _matchingEntryExistsInEarningsReleases(_symbol, _objectFromQuandlMyDbFormat) {
-        var _matchingEarningReleaseFound = false;
+        var _matchingEarningReleaseId;
         var _allExistingEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol});
         _allExistingEarningsReleasesForSymbol.forEach(function(existingRelease) {
             console.log("existing release: ", existingRelease);
@@ -279,9 +314,34 @@ if (Meteor.isServer) {
                 }
             }
             if (_allFieldsMatch) {
-                _matchingEarningReleaseFound = true;
+                _matchingEarningReleaseId = existingRelease._id;
             }
         })
-        return _matchingEarningReleaseFound;
+        return _matchingEarningReleaseId;
     }
+
+    function _canPullAgainFromQuandl(symbol) {
+        var _canPull = false;
+
+        var _canPullFromQuandlEveryNDays;
+        if (Meteor.serverConstants.pullFromQuandEveryNDays) {
+            _canPullFromQuandlEveryNDays = Meteor.serverConstants.pullFromQuandEveryNDays;
+        }
+
+        var _lastPullFromQuandl;
+        var _latestEarningsRelease = EarningsReleases.findOne({symbol: symbol}, {sort: {asOf: -1}});
+        if (_latestEarningsRelease) {
+            _lastPullFromQuandl = _latestEarningsRelease.asOf;
+        }
+        var _todaysDateInteger = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
+
+        if (
+            !_lastPullFromQuandl ||
+            (_lastPullFromQuandl && _canPullFromQuandlEveryNDays && parseInt(moment(new Date(_lastPullFromQuandl)).add(_canPullFromQuandlEveryNDays + 1, 'days').format("YYYYMMDD")) <= _todaysDateInteger)
+        ) {
+            _canPull = true;
+        }
+
+        return _canPull;
+    };
 }
