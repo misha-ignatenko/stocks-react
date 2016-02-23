@@ -57,6 +57,7 @@ if (Meteor.isServer) {
 
         //set premium to false no matter what
         _createdUser.premium = false;
+        _createdUser.permissions = {};
 
         return _createdUser;
     })

@@ -11,7 +11,12 @@ if (Meteor.isServer) {
 
             var _result = {};
 
-            if (importType === "upgrades_downgrades") {
+            var _userId = Meteor.userId();
+            var _permissions = _userId && Meteor.users.findOne(_userId).permissions;
+            var _dataImportingPermissions = _permissions && _permissions.dataImports;
+            var _upgradesDowngradesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportUpgradesDowngrades") > -1;
+
+            if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
@@ -104,6 +109,8 @@ if (Meteor.isServer) {
                     _destringified.push(JSON.parse(obj))
                 })
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
+            } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
+                _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === "earnings_releases") {
                 console.log("earnings_releases import function called with: ", importData);
                 importData.forEach(function(importItem) {
