@@ -15,6 +15,7 @@ if (Meteor.isServer) {
             var _permissions = _userId && Meteor.users.findOne(_userId).permissions;
             var _dataImportingPermissions = _permissions && _permissions.dataImports;
             var _upgradesDowngradesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportUpgradesDowngrades") > -1;
+            var _ratingScalesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportRatingScales") > -1;
 
             if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
@@ -178,7 +179,7 @@ if (Meteor.isServer) {
                         });
                     }
                 });
-            } else if (importType === "grading_scales") {
+            } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
                 //get an id of that research company
@@ -224,6 +225,8 @@ if (Meteor.isServer) {
                     RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
+            } else if (importType === "grading_scales" && !_ratingScalesImportPermission) {
+                _result.cannotImportGradingScalesDueToMissingPermissions = true;
             }
 
             return _result;
