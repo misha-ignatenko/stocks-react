@@ -94,7 +94,14 @@ UpDownGradesJSONDataImport = React.createClass({
         this.clearCells();
         Meteor.call('importData', _parsed, 'upgrades_downgrades', function(error, result) {
             if (!error && result) {
-                if (result.couldNotFindGradingScalesForTheseUpDowngrades.length > 0) {
+                if (result.noPermissionToImportUpgradesDowngrades) {
+                    $.bootstrapGrowl("You do not have permission to import upgrades/downgrades.", {
+                        type: 'danger',
+                        align: 'center',
+                        width: 400,
+                        delay: 10000000
+                    });
+                } else if (result.couldNotFindGradingScalesForTheseUpDowngrades.length > 0) {
                     $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
                         type: 'danger',
                         align: 'center',
