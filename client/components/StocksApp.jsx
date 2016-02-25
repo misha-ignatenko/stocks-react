@@ -75,7 +75,7 @@ StocksApp = React.createClass({
                     <button type="button" className={this.state.tabNameToShow === _mainTabName ? _ab : _b} id={_mainTabName} onClick={this.selectTab}>Portfolios</button>
                     <button type="button" className={this.state.tabNameToShow === _individualStockTabName ? _ab : _b} id={_individualStockTabName} onClick={this.selectTab}>Individual Stocks</button>
                     <button type="button" className={this.state.tabNameToShow === _upcomingEarningsReleasesTabName ? _ab : _b} id={_upcomingEarningsReleasesTabName} onClick={this.selectTab}>Upcoming Earnings Releases</button>
-                    <button type="button" className={this.state.tabNameToShow === _dataImportsTabName ? _ab : _b} id={_dataImportsTabName} onClick={this.selectTab}>Data Imports</button>
+                    {this.data.currentUser && this.data.currentUser.showDataImportsTab ? <button type="button" className={this.state.tabNameToShow === _dataImportsTabName ? _ab : _b} id={_dataImportsTabName} onClick={this.selectTab}>Data Imports</button> : null }
                 </div>
 
                 { this.state.tabNameToShow === _mainTabName ? (
