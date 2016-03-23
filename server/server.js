@@ -30,12 +30,21 @@ if (Meteor.isServer) {
         return PickLists.find();
     });
 
+    Meteor.publish("portfolios", function() {
+        if (this.userId) {
+            //portfolios that are either public or the user is owner
+            return Portfolios.find({ $or: [ {private: false}, {owner: this.userId} ] }, {fields: {_id: 1, name: 1, firmId: 1, owner: 1, private: 1, ownerName: 1}});
+        } else {
+            return Portfolios.find({private: false}, {fields: {_id: 1, name: 1, ownerName: 1}});
+        }
+    });
+
     Meteor.publish("pickListItems", function () {
         return PickListItems.find();
     });
 
     Meteor.publish(null, function() {
-        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1}}) : null;
+        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
         return _user;
     });
 
@@ -58,6 +67,7 @@ if (Meteor.isServer) {
         //set premium to false no matter what
         _createdUser.premium = false;
         _createdUser.permissions = {};
+        _createdUser.showDataImportsTab = false;
 
         return _createdUser;
     })

@@ -1,0 +1,54 @@
+NewPortfolioImport = React.createClass({
+    getInitialState() {
+        return {
+            private: true
+        }
+    },
+
+    propTypes: {
+        onNewPortfolioCreate: React.PropTypes.func.isRequired
+    },
+
+    toggle(event) {
+        this.setState({
+            private: !this.state.private
+        });
+    },
+
+    createNewPortfolio(event) {
+        var _that = this;
+        var _obj = {
+            name: ReactDOM.findDOMNode(this.refs.newPortfolioName).value.trim(),
+            private: this.state.private,
+            firmId: ReactDOM.findDOMNode(this.refs.firmId).value.trim()
+        };
+        Meteor.call("importData", _obj, "portfolio", function(error, result) {
+            if (!error && result && result.newPortfolioId) {
+                _that.props.onNewPortfolioCreate(result.newPortfolioId);
+            } else if (error) {
+                $.bootstrapGrowl(error.error, {
+                    type: 'danger',
+                    align: 'center',
+                    width: 400,
+                    delay: 10000000
+                });
+            }
+        });
+    },
+
+    render() {
+        let _b = "btn btn-default";
+        let _ab = "btn btn-default active";
+
+        return (<div className="container">
+            <br/>
+            <input type="text" ref="newPortfolioName" placeholder="Name" /><div className="btn-group" role="group" aria-label="...">
+            <button type="button" className={!this.state.private ? _ab : _b} onClick={this.toggle}>Public</button>
+            <button type="button" className={this.state.private ? _ab : _b} onClick={this.toggle}>Private</button></div>
+            <br/>
+            <input type="text" ref="firmId" placeholder="Firm ID (if known)" />
+            <br/>
+            <button className={_b} onClick={this.createNewPortfolio}>Submit</button>
+        </div>);
+    }
+});

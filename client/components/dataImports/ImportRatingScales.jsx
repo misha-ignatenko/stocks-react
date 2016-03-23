@@ -30,8 +30,22 @@ ImportRatingScales = React.createClass({
                 _objToInsert.coverageTemporarilySuspendedString = this.refs.coverageTemporarilySuspendedString.value.trim();
             }
             Meteor.call("importData", _objToInsert, "grading_scales", function(error, result) {
-                if (!error) {
-                    console.log("success. imported grading scales");
+                if (!error && result) {
+                    if (result.cannotImportGradingScalesDueToMissingPermissions) {
+                        $.bootstrapGrowl("You do not have permission to import rating scales.", {
+                            type: 'danger',
+                            align: 'center',
+                            width: 400,
+                            delay: 10000000
+                        });
+                    } else {
+                        $.bootstrapGrowl("Successfully imported grading scales.", {
+                            type: 'success',
+                            align: 'center',
+                            width: 400,
+                            delay: 10000000
+                        });
+                    }
                 }
             })
         }

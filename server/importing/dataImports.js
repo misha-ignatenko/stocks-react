@@ -15,8 +15,23 @@ if (Meteor.isServer) {
             var _permissions = _userId && Meteor.users.findOne(_userId).permissions;
             var _dataImportingPermissions = _permissions && _permissions.dataImports;
             var _upgradesDowngradesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportUpgradesDowngrades") > -1;
+            var _ratingScalesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportRatingScales") > -1;
+            var _portfoliosImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportPortfolios") > -1;
 
-            if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
+            if (importType === "portfolio" && _portfoliosImportPermission) {
+                if (importData.name) {
+                    importData.owner = _userId;
+                    if (!importData.firmId) {
+                        importData.firmId = null;
+                    }
+                    importData.ownerName = Meteor.user().username;
+                    _result.newPortfolioId = Portfolios.insert(importData);
+                } else {
+                    throw new Meteor.Error("Please give a name to this portfolio.");
+                }
+            } else if (importType === "portfolio" && !_portfoliosImportPermission) {
+                throw new Meteor.Error("You do not have permission to import portfolios.");
+            } else if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
@@ -178,7 +193,7 @@ if (Meteor.isServer) {
                         });
                     }
                 });
-            } else if (importType === "grading_scales") {
+            } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
                 //get an id of that research company
@@ -224,6 +239,8 @@ if (Meteor.isServer) {
                     RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
+            } else if (importType === "grading_scales" && !_ratingScalesImportPermission) {
+                _result.cannotImportGradingScalesDueToMissingPermissions = true;
             }
 
             return _result;

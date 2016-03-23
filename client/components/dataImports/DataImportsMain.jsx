@@ -1,35 +1,39 @@
+var _earningsReleasesImportTabName = "Earnings Releases";
+var _ratingScalesImportTabName = "Rating Scales";
+var _ratingChangesImportTabName = "Rating Changes";
+var _portfolioImportTabName = "Portfolios";
+
 DataImportsMain = React.createClass({
 
     getInitialState() {
         return {
-            showEarningReleasesImportTab: false,
-            showRatingScalesImportTab: false,
-            showRatingChangesImportTab: false
+            selectedTab: ""
         }
     },
     selectTab(e) {
-        let showEarningReleasesImportTab = e.target.getAttribute("data-tag") === "earningsReleases";
-        let showRatingScalesImportTab = e.target.getAttribute("data-tag") === "ratingScales";
-        let showRatingChangesImportTab = e.target.getAttribute("data-tag") === "ratingChanges";
+        let _clickedTabName = $(e.target).attr("id");
         this.setState({
-            showEarningReleasesImportTab: showEarningReleasesImportTab,
-            showRatingScalesImportTab: showRatingScalesImportTab,
-            showRatingChangesImportTab: showRatingChangesImportTab
+            selectedTab: _clickedTabName
         });
     },
 
     render() {
+        let _b = "btn btn-default";
+        let _ab = "btn btn-default active";
+
         return (
             <div className="container DataImportsMainDiv">
-                <ul className="nav nav-tabs">
-                    <li className="tab1"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="earningsReleases">Earnings Releases</a></li>
-                    <li className="tab2"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="ratingScales">Rating Scales</a></li>
-                    <li className="tab3"><a href="javascript:void(0)" onClick={this.selectTab} data-tag="ratingChanges">Rating Changes</a></li>
-                </ul>
+                <div className="btn-group" role="group" aria-label="...">
+                    <button type="button" className={this.state.selectedTab === _earningsReleasesImportTabName ? _ab : _b} id={_earningsReleasesImportTabName} onClick={this.selectTab}>{_earningsReleasesImportTabName}</button>
+                    <button type="button" className={this.state.selectedTab === _ratingScalesImportTabName ? _ab : _b} id={_ratingScalesImportTabName} onClick={this.selectTab}>{_ratingScalesImportTabName}</button>
+                    <button type="button" className={this.state.selectedTab === _ratingChangesImportTabName ? _ab : _b} id={_ratingChangesImportTabName} onClick={this.selectTab}>{_ratingChangesImportTabName}</button>
+                    <button type="button" className={this.state.selectedTab === _portfolioImportTabName ? _ab : _b} id={_portfolioImportTabName} onClick={this.selectTab}>{_portfolioImportTabName}</button>
+                </div>
 
-                {this.state.showEarningReleasesImportTab ? <EarningsReleasesJSONDataImport /> : null}
-                {this.state.showRatingScalesImportTab ? <ImportRatingScales /> : null}
-                {this.state.showRatingChangesImportTab ? <UpDownGradesJSONDataImport /> : null}
+                {this.state.selectedTab === _earningsReleasesImportTabName ? <EarningsReleasesJSONDataImport /> : null}
+                {this.state.selectedTab === _ratingScalesImportTabName ? <ImportRatingScales /> : null}
+                {this.state.selectedTab === _ratingChangesImportTabName ? <UpDownGradesJSONDataImport /> : null}
+                {this.state.selectedTab === _portfolioImportTabName ? <PortfoliosImport /> : null}
             </div>
         );
     }
