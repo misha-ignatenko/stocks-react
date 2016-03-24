@@ -7,13 +7,18 @@ CorrelationOne = React.createClass({
             sampleDataString: "",
             rawPrices: [],
             splitIntoCells: false,
-            cellValues: []
+            cellValues: [],
+            stepSize: 4,
+            tolerance: 3,
+            maxIter: 500
         };
     },
 
     enterPrices() {
         this.setState({
-            showPriceEntryForm: true
+            showPriceEntryForm: true,
+            splitIntoCells: false,
+            textAreaValue: ""
         });
     },
 
@@ -160,9 +165,10 @@ CorrelationOne = React.createClass({
         _featureMatrix[0].forEach(function(item) {
             _initialWeights.push(1/_featureMatrix[0].length);
         });
-        var _stepSize = Math.pow(10, -4);
-        var _tolerance = Math.pow(10, -3);
-        var _maxIter = 500;
+        var _stepSize = Math.pow(10, -this.state.stepSize);
+        var _tolerance = Math.pow(10, -this.state.tolerance);
+        var _maxIter = this.state.maxIter;
+        console.log("hereherehere", _stepSize, _tolerance, _maxIter);
         var _resultFromGradientDescent = IgnRegression.functions.multiple_regression_gradient_descent(
             _featureMatrix,
             _actualOutput,
@@ -176,7 +182,7 @@ CorrelationOne = React.createClass({
         console.log("_weights: ", _weights);
         var _answer = "";
         for (var i = _numberOfTrainingExamples; i < _allCellValues.length; i++) {
-            _answer += (i === _numberOfTrainingExamples ? "" : "<br>");
+            _answer += (i === _numberOfTrainingExamples ? "<h1>Predictions:</h1>" : "<br>");
             var blah = JSON.stringify(_allCellValues[i]);
             var rowDataa = JSON.parse(blah);
             console.log("rowDataa before: ", rowDataa);
@@ -196,12 +202,14 @@ CorrelationOne = React.createClass({
             console.log("----------------------------");
         }
         console.log("ANSWER IS: ", _answer);
-        $.bootstrapGrowl(_answer, {
-            type: 'success',
-            align: 'center',
-            width: 400,
-            delay: 10000000
-        });
+        $("#answer").html(_answer);
+        this.enterPrices();
+        //$.bootstrapGrowl(_answer, {
+        //    type: 'success',
+        //    align: 'center',
+        //    width: 400,
+        //    delay: 10000000
+        //});
 
         //option 2.
         //do not include a random variable
@@ -216,6 +224,26 @@ CorrelationOne = React.createClass({
         //do not include a random variable
         //do not include S1 for predicting S1 in training set
         //use average percentage change for S2...S10 for x days before.
+    },
+
+
+    changeStepSize() {
+        var newVal = this.refs.stepSize.value.trim().length > 0 ? parseInt(this.refs.stepSize.value.trim()) : "";
+        this.setState({
+            stepSize: newVal
+        });
+    },
+    changeTolerance() {
+        var newVal = this.refs.tolerance.value.trim().length > 0 ? parseInt(this.refs.tolerance.value.trim()) : "";
+        this.setState({
+            tolerance: newVal
+        });
+    },
+    changeMaxIter() {
+        var newVal = this.refs.maxIter.value.trim().length > 0 ? parseInt(this.refs.maxIter.value.trim()) : "";
+        this.setState({
+            maxIter: newVal
+        });
     },
 
     render() {
@@ -244,10 +272,20 @@ CorrelationOne = React.createClass({
                     <div>
                         {this.renderCells()}
                         <br/>
+                        step size: 10^-<input type="text" value={this.state.stepSize} ref="stepSize" onChange={this.changeStepSize}/><br/>
+                        tolerance: 10^-<input type="text" value={this.state.tolerance} ref="tolerance" onChange={this.changeTolerance}/><br/>
+                        max iter: <input type="text" value={this.state.maxIter} ref="maxIter" onChange={this.changeMaxIter}/><br/>
+                        <br/>
                         <button className="btn btn-default predict" onClick={this.predict}>predict</button>
+                        <br/>
+                        <br/>
                     </div> :
                     null
                 }
+                <span className="answer" id="answer"></span>
+                <br/>
+                <br/>
+                <br/>
 
 
 
