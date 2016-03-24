@@ -110,6 +110,6 @@ Locate and click the "Predict" button below the table.
 ---
 
 
-Predictions will appear below the "Predict" button in csv format.
+Predictions will appear at the bottom of the page in csv format.
 ---
 
