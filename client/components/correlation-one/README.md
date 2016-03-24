@@ -1,7 +1,7 @@
 Correlation-One Challenge Info
 
 Instructions
-Click "Enter Prices" button and enter this sample csv data into the text box:
+Click the "Enter Prices" button and enter this sample csv data into the text box:
 ---
 2015-01-02,-0.018493554345036037,0.009108501242064667,-0.0016544285656800702,0.0021431204457781072,-0.008453695579694408,-0.014753046824887777,-0.00924248409356693,0.00833578445966051,-0.014823678478512759,-0.0016099710552747158
 2015-01-05,-0.018838313613091608,0.003309514799200953,-0.010130815203995178,-0.0008625620198956575,-0.006906077157290687,-0.023809523809523774,-0.011468381196086428,-0.009447889266250061,-0.02224015410918238,-0.020549437816887745
@@ -107,5 +107,9 @@ Click "Enter Prices" button and enter this sample csv data into the text box:
 You will see the text box and csv values turn into a table where column 1 has date and all other columns have open-to-close price changes in hundredths (NOT percents). The first 50 rows of data have values in column 2 (S1), and the last 50 rows of data have empty cell in column 2 (S1).
 
 Locate and click the "Predict" button below the table.
+---
+
+
+Predictions will appear at the bottom of the page in csv format.
 ---
 
