@@ -21,7 +21,7 @@ CorrelationOne = React.createClass({
         var _textAreaNewValue = event.target.value;
         console.log("new value: ", _textAreaNewValue);
 
-        var _allLines = _textAreaNewValue.split("\n");
+        var _allLines = _textAreaNewValue.replace( /\n/g, " " ).split(" ");
         var _splitByCommasAndNewLines = [];
         _allLines.forEach(function(line) {
             var _splitLine = line.split(",");
