@@ -128,6 +128,7 @@ CorrelationOne = React.createClass({
     },
 
     predict() {
+        var _noiseVariable = 0.001;
         var _allCellValues = this.state.cellValues;
         console.log("_allCellValues: ", _allCellValues);
         var _numberOfTrainingExamples = 50;
@@ -153,7 +154,7 @@ CorrelationOne = React.createClass({
             _prices = JSON.parse(_prices);
             _prices.shift();
             _actualOutput.push(_prices[0]);
-            _prices[0] = 0.0;
+            _prices[0] = _noiseVariable;
             _featureMatrix.push(_prices);
         });
         console.log("_featureMatrix: ", _featureMatrix);
@@ -162,7 +163,7 @@ CorrelationOne = React.createClass({
         _featureMatrix[0].forEach(function(item) {
             _initialWeights.push(1/_featureMatrix[0].length);
         });
-        var _stepSize = Math.pow(10, -6);
+        var _stepSize = Math.pow(10, -4);
         var _tolerance = Math.pow(10, -3);
         var _maxIter = 500;
         var _resultFromGradientDescent = IgnRegression.functions.multiple_regression_gradient_descent(
@@ -174,6 +175,36 @@ CorrelationOne = React.createClass({
             _maxIter
         );
         console.log("RESULT: ", _resultFromGradientDescent);
+        var _weights = _resultFromGradientDescent.weights;
+        console.log("_weights: ", _weights);
+        var _answer = "";
+        for (var i = _numberOfTrainingExamples; i < _allCellValues.length; i++) {
+            _answer += (i === _numberOfTrainingExamples ? "" : "<br>");
+            var blah = JSON.stringify(_allCellValues[i]);
+            var rowDataa = JSON.parse(blah);
+            console.log("rowDataa before: ", rowDataa);
+            _answer += rowDataa.shift();
+            //set unknown to _noiseVariable
+            rowDataa[0] = _noiseVariable;
+            //convert to floats
+            var _rowDataFloats = [];
+            rowDataa.forEach(function(d) {
+                _rowDataFloats.push(parseFloat(d));
+            });
+            console.log("_rowDataFloats: ", _rowDataFloats);
+            console.log("rowDataa after: ", rowDataa);
+            var _prediction = IgnRegression.utilities.get_dot_product_two_arrays(_rowDataFloats, _weights);
+            console.log("prediction: ", _prediction);
+            _answer += ("," + _prediction);
+            console.log("----------------------------");
+        }
+        console.log("ANSWER IS: ", _answer);
+        $.bootstrapGrowl(_answer, {
+            type: 'success',
+            align: 'center',
+            width: 400,
+            delay: 10000000
+        });
 
         //option 2.
         //do not include a random variable
