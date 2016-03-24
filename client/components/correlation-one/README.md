@@ -109,3 +109,7 @@ You will see the text box and csv values turn into a table where column 1 has da
 Locate and click the "Predict" button below the table.
 ---
 
+
+The predictions will appear below the "Predict" button.
+---
+
