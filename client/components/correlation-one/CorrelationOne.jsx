@@ -227,19 +227,6 @@ CorrelationOne = React.createClass({
 
                 <button className="btn btn-default enterPrices" onClick={this.enterPrices}>Enter Prices</button>
 
-
-
-
-
-
-                <button className="btn btn-default generateSampleData" onClick={this.generateSampleDataString}>Generate Sample Data String</button>
-
-
-
-
-
-
-
                 <br/><br/>
                 {this.state.showPriceEntryForm && !this.state.splitIntoCells ?
                     <div className="priceEntryForm">
