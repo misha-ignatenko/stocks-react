@@ -104,7 +104,6 @@ CorrelationOne = React.createClass({
     },
 
     renderCells() {
-        console.log("rendering cells, this.state.cellValues: ", this.state.cellValues);
         return (
             <div>
 
@@ -114,10 +113,8 @@ CorrelationOne = React.createClass({
 
 
                 {this.state.cellValues.map((cellValues, index) => {
-                    console.log("cellValues: ", cellValues);
                     return (<div className="row" key={index}>{cellValues.map((keyy) => {
                         const val = keyy;
-                        console.log("val: ", val);
                         const _key = index.toString() + "_" + keyy;
 
                         return <div className="col-md-1" key={_key}><input className="simpleInput" id={_key} key={_key} value={val} onChange={this.handleIndividualCellChange}/></div>;
