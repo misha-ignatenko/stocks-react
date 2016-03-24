@@ -106,6 +106,10 @@ Click the "Enter Prices" button and enter this sample csv data into the text box
 
 You will see the text box and csv values turn into a table where column 1 has date and all other columns have open-to-close price changes in hundredths (NOT percents). The first 50 rows of data have values in column 2 (S1), and the last 50 rows of data have empty cell in column 2 (S1).
 
+Change the parameters for multiple regression with gradient descent, if needed.
+---
+Tolerance refers to gradient sum of squares that determines whether gradient descent converges.
+
 Locate and click the "Predict" button below the table.
 ---
 
