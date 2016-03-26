@@ -23,7 +23,17 @@ UpcomingEarningsReleases = React.createClass({
         var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
         if (_handle1.ready()) {
             var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
-            var _handle2 = Meteor.subscribe("ratingChangesForSymbols", _uniqSymbols);
+            var _onlyThreeUniqueSymbols = [];
+            if (_uniqSymbols[0]) {
+                _onlyThreeUniqueSymbols.push(_uniqSymbols[0]);
+                if (_uniqSymbols[1]) {
+                    _onlyThreeUniqueSymbols.push(_uniqSymbols[1]);
+                    if (_uniqSymbols[2]) {
+                        _onlyThreeUniqueSymbols.push(_uniqSymbols[2]);
+                    }
+                }
+            }
+            var _handle2 = Meteor.subscribe("ratingChangesForSymbols", _onlyThreeUniqueSymbols);
             if (_handle2.ready()) {
                 data.earningsReleasesAndRatingChangesSubsReady = true;
                 this.pullDataFromQuandl(_uniqSymbols);
