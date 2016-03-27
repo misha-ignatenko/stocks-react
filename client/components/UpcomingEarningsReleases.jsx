@@ -9,6 +9,7 @@ UpcomingEarningsReleases = React.createClass({
             startEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).format("YYYYMMDD")),
             endEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")),
             earningsReleaseIndex: 0
+            , ratingChangesSubscriptionHandles: {}
         }
     },
 
@@ -97,6 +98,35 @@ UpcomingEarningsReleases = React.createClass({
         return _month + "/" + _day + "/" + _year;
     },
 
+    focusStocks(stocksArr) {
+        var _alreadyAvailableRatingChangesForSymbols = _.pluck(RatingChanges.find().fetch(), "symbol");
+        var _additionalSymbolsToSubscribeForRatingChangesFor = _.difference(stocksArr, _alreadyAvailableRatingChangesForSymbols);
+
+        var _existingHandles = this.state.ratingChangesSubscriptionHandles;
+        _additionalSymbolsToSubscribeForRatingChangesFor.forEach(function(symbol) {
+            var _handle = Meteor.subscribe("ratingChangesForSymbol", symbol);
+            _existingHandles[symbol] = _handle;
+        });
+
+
+        //STOP ALL UNNECESSARY ONES if no user
+        if (!Meteor.user()) {
+            var _stopTheseSubs = _.uniq(_.difference(_alreadyAvailableRatingChangesForSymbols, stocksArr));
+            if (_stopTheseSubs.length > 0) {
+                _stopTheseSubs.forEach(function(symbol) {
+                    if (_existingHandles[symbol]) {
+                        _existingHandles[symbol].stop();
+                    }
+                });
+            }
+        }
+
+        this.setState({
+            ratingChangesSubscriptionHandles: _existingHandles
+        });
+
+    },
+
     render() {
 
         return (
@@ -118,7 +148,7 @@ UpcomingEarningsReleases = React.createClass({
                         </div>
                     ) : null
                 ) : null}
-                {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "loading"}
+                {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol focusStocksFunction={this.focusStocks}/> : "loading"}
                 <br/>
             </div>
         );

@@ -136,21 +136,6 @@ UpcomingEarningsRelease = React.createClass({
         if (this.props.symbol !== nextProps.symbol) {
             //console.log("props updated. new symbol: ", nextProps.symbol);
         }
-        //if (this.props.currentUser.lastModified !== nextProps.currentUser.lastModified) {
-        //    console.log("resubscribe to rating changes because last modified changed because premium status changed");
-        //    var _that = this;
-        //    Meteor.call("getRatingChangesFor", nextProps.symbol, function (error, result) {
-        //        if (!error && result) {
-        //            _that.setState({
-        //                allRatingChangesForStock: result
-        //            })
-        //        }
-        //    });
-        //}
-
-        if (this.props.symbol !== nextProps.symbol) {
-            Meteor.subscribe("ratingChangesForSymbol", nextProps.symbol);
-        }
 
         return true;
     },
@@ -219,16 +204,18 @@ UpcomingEarningsRelease = React.createClass({
     },
     componentWillReceiveProps: function(nextProps) {
         if (this.props.symbol !== nextProps.symbol) {
-            var _handle = Meteor.subscribe("ratingChangesForSymbol", nextProps.symbol);
-            var _that = this;
-            Tracker.autorun(function(handle){
-                if (_handle.ready()) {
-                    _that.getLatestGraph2(nextProps.symbol);
-                    if (handle) {
-                        handle.stop();
-                    }
-                }
-            })
+            console.log("should not be here");
+            this.getLatestGraph2(nextProps.symbol);
+            //var _handle = Meteor.subscribe("ratingChangesForSymbol", nextProps.symbol);
+            //var _that = this;
+            //Tracker.autorun(function(handle){
+            //    if (_handle.ready()) {
+            //        _that.getLatestGraph2(nextProps.symbol);
+            //        if (handle) {
+            //            handle.stop();
+            //        }
+            //    }
+            //})
         }
     },
     componentWillMount: function() {

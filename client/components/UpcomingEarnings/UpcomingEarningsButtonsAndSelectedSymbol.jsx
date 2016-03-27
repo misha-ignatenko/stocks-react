@@ -3,7 +3,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
 
     , getInitialState() {
         return {
-            selectedSymbolIndex: 0
+            selectedSymbolIndex: 1
         };
     }
 
@@ -26,6 +26,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             //, selectedSymbol: React.PropTypes.string.isRequired
             //, showPickListItem: React.PropTypes.bool.isRequired
             //, setSelectedSymbol: React.PropTypes.func.isRequired
+            focusStocksFunction: React.PropTypes.func.isRequired
         }
     }
 
@@ -44,7 +45,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
 
         console.log("symbols from rating changes: ", _ratingChangesSymbols);
         return _symbols.map((symbol, index) => {
-            let _btnClass = "btn" + (index === this.state.selectedSymbolIndex ? " btn-primary" : "");
+            let _btnClass = "btn btn-default" + (index === this.state.selectedSymbolIndex ? " active" : "");
             let _key = symbol + "_" + index;
             let _count = _.countBy(_ratingChangesSymbols, function(symb) {
                 return symb === symbol ? "yes" : "no";
@@ -100,12 +101,32 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             //TODO need number of current ratings with unique firms (excluding firms that dropped coverage), not number of rating changes
             let _numberOfLatestReports = _latestRatingScaleIdsForUniqueFirms.length;
 
-            return <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button>
+            //return _indexWithinRange ? <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button> : null;
+            let nextAmt = this.data.uniqueSymbols.length - (1 + this.nextSymbolIndex(this.state.selectedSymbolIndex));
+
+            return index === this.state.selectedSymbolIndex ?
+                <button key={_key} className={_btnClass}>{symbol} ({_numberOfLatestReports})</button> :
+                index === this.previousSymbolIndex(this.state.selectedSymbolIndex) ?
+                    <button key={_key} className="btn btn-default" onClick={this.previousEarningsRelease}>
+                        <span className="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>Previous
+                        <br/>{symbol} ({_numberOfLatestReports})
+                    </button> :
+                    index === this.nextSymbolIndex(this.state.selectedSymbolIndex) ?
+                        <button key={_key} className="btn btn-default" onClick={this.nextEarningsRelease}>
+                            Next({nextAmt})<span className="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                            <br/>{symbol} ({_numberOfLatestReports})
+                        </button> :
+                        null;
         })
     }
 
     , shouldComponentUpdate(nextProps, nextState) {
         if (this.state.selectedSymbolIndex !== nextState.selectedSymbolIndex) {
+            this.props.focusStocksFunction([
+                this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
+                this.data.uniqueSymbols[nextState.selectedSymbolIndex],
+                this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
+            ]);
             return true;
         }
         return false;
@@ -131,33 +152,26 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         }
     }
 
-    , previousEarningsRelease() {
-        let _previousState = this.state.selectedSymbolIndex;
+    , previousSymbolIndex(_previousState) {
         let _newState = _previousState - 1 >= 0 ? _previousState - 1 : this.data.uniqueSymbols.length - 1;
+        return _newState;
+    }
+    , nextSymbolIndex(_previousState) {
+        let _newState = _previousState + 1 <= this.data.uniqueSymbols.length - 1 ? _previousState + 1 : 0;
+        return _newState;
+    }
+
+    , previousEarningsRelease() {
+        let _newState = this.previousSymbolIndex(this.state.selectedSymbolIndex);
         this.setState({
             selectedSymbolIndex: _newState
         });
     }
     , nextEarningsRelease() {
-        let _previousState = this.state.selectedSymbolIndex;
-        let _newState = _previousState + 1 <= this.data.uniqueSymbols.length - 1 ? _previousState + 1 : 0;
+        let _newState = this.nextSymbolIndex(this.state.selectedSymbolIndex);
         this.setState({
             selectedSymbolIndex: _newState
         });
-    }
-
-    , renderSeletedEarningsReleaseButtonWithArrows: function() {
-        var _symbols = this.data.uniqueSymbols;
-
-        return (<div>
-            <button className="btn btn-default">
-                <span className="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>Previous
-            </button>
-            <button className="btn btn-default">
-                Next<span className="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
-                <br/>hi
-            </button>
-        </div>)
     }
 
     , render() {
@@ -170,8 +184,6 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 <br/>
                 {!this.data.ratingChanges ? "subs loading" : <div className="row">
                     {this.renderButtons()}
-                    <br/>
-                    {this.renderSeletedEarningsReleaseButtonWithArrows()}
                     <br/>
                     <UpcomingEarningsRelease symbol={_symbol} currentUser={this.data.currentUser}/>
                 </div>}
