@@ -137,7 +137,7 @@ if (Meteor.isServer) {
                         };
 
 
-                        var _authToken = "";
+                        var _authToken = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
                         var _symbol = _earningRelease.symbol;
                         var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _symbol + ".json?auth_token=" + _authToken;
                         HTTP.get(_url, function (error, result) {
@@ -327,12 +327,9 @@ if (Meteor.isServer) {
         var _matchingEarningReleaseId;
         var _allExistingEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol});
         _allExistingEarningsReleasesForSymbol.forEach(function(existingRelease) {
-            console.log("existing release: ", existingRelease);
             var _allFieldsMatch = true;
             for (var key in _objectFromQuandlMyDbFormat) {
-                console.log("checking key: ", key);
                 if (key !== "asOf" && _objectFromQuandlMyDbFormat.hasOwnProperty(key) && (!existingRelease.hasOwnProperty(key) || _objectFromQuandlMyDbFormat[key] !== existingRelease[key])) {
-                    console.log("key does not match: ", key);
                     _allFieldsMatch = false;
                     break;
                 }
