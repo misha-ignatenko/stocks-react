@@ -11,7 +11,7 @@ StocksApp = React.createClass({
 
     getInitialState() {
         return {
-            tabNameToShow: _mainTabName
+            tabNameToShow: _upcomingEarningsReleasesTabName
         }
     },
 

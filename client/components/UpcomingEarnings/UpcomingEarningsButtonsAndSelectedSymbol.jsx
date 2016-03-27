@@ -4,6 +4,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
     , getInitialState() {
         return {
             selectedSymbolIndex: 1
+            , showAllButtons: false
         };
     }
 
@@ -101,7 +102,6 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             //TODO need number of current ratings with unique firms (excluding firms that dropped coverage), not number of rating changes
             let _numberOfLatestReports = _latestRatingScaleIdsForUniqueFirms.length;
 
-            //return _indexWithinRange ? <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button> : null;
             let nextAmt = this.data.uniqueSymbols.length - (1 + this.nextSymbolIndex(this.state.selectedSymbolIndex));
 
             return index === this.state.selectedSymbolIndex ?
@@ -113,10 +113,12 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                     </button> :
                     index === this.nextSymbolIndex(this.state.selectedSymbolIndex) ?
                         <button key={_key} className="btn btn-default" onClick={this.nextEarningsRelease}>
-                            Next({nextAmt})<span className="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                            Next({nextAmt} more)<span className="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
                             <br/>{symbol} ({_numberOfLatestReports})
                         </button> :
-                        null;
+                        this.state.showAllButtons ?
+                            <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button> :
+                            null;
         })
     }
 
@@ -127,6 +129,8 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 this.data.uniqueSymbols[nextState.selectedSymbolIndex],
                 this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
             ]);
+            return true;
+        } else if (this.state.showAllButtons !== nextState.showAllButtons) {
             return true;
         }
         return false;
@@ -173,6 +177,11 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             selectedSymbolIndex: _newState
         });
     }
+    , changeShowAllBtnsSetting() {
+        this.setState({
+            showAllButtons: !this.state.showAllButtons
+        });
+    }
 
     , render() {
         let _symbol = this.data.uniqueSymbols ? this.data.uniqueSymbols[this.state.selectedSymbolIndex] : "";
@@ -183,6 +192,13 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 {this.props.endDate}
                 <br/>
                 {!this.data.ratingChanges ? "subs loading" : <div className="row">
+                    {this.data.currentUser ?
+                        <button className="btn btn-default" onClick={this.changeShowAllBtnsSetting}>
+                            {this.state.showAllButtons ? "hide individual buttons" : "show all individual buttons"}
+                        </button> :
+                        null
+                    }
+                    <br/>
                     {this.renderButtons()}
                     <br/>
                     <UpcomingEarningsRelease symbol={_symbol} currentUser={this.data.currentUser}/>
