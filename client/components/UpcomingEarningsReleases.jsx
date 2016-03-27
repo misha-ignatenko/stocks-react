@@ -64,7 +64,7 @@ UpcomingEarningsReleases = React.createClass({
             }
         });
         if (_symbols.length > 0) {
-            console.log("GONNA PULL EARNING RELEASES FROM QUANDL FOR: ", _symbols);
+            //console.log("GONNA PULL EARNING RELEASES FROM QUANDL FOR: ", _symbols);
             Meteor.call("importData", _symbols, "earnings_releases");
         }
     },
@@ -115,11 +115,11 @@ UpcomingEarningsReleases = React.createClass({
                             <br/>
                             <br/>
                             <br/>
-                            {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "loading"}
-                            <br/>
                         </div>
                     ) : null
                 ) : null}
+                {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "loading"}
+                <br/>
             </div>
         );
     }

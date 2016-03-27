@@ -160,6 +160,40 @@ if (Meteor.isClient) {
             return _ratingScaleId;
         },
 
+        getRatingScaleById: _.memoize(function(ratingScaleId) {
+            return RatingScales.findOne(ratingScaleId);
+        }),
+
+        excludeRatingChangesWhoseFirmsInitiatedOrSuspendedOrDroppedCoverage: function(ratingsChangesArray) {
+            var _firmIdsWhoseRatingsToReject = [];
+
+            ratingsChangesArray.forEach(function(rChange) {
+                var _newRScale = StocksReact.functions.getRatingScaleById(rChange.newRatingId);
+                var _oldRScale = StocksReact.functions.getRatingScaleById(rChange.oldRatingId);
+                var _newRScaleValue = _newRScale.universalScaleValue;
+                var _oldRScaleValue = _oldRScale.universalScaleValue;
+                if (_newRScaleValue === "beforeCoverageInitiatedString" ||
+                    _newRScaleValue === "coverageDroppedString" ||
+                    _newRScaleValue === "coverageTemporarilySuspendedString" ||
+                    _oldRScaleValue === "beforeCoverageInitiatedString" ||
+                    _oldRScaleValue === "coverageDroppedString" ||
+                    _oldRScaleValue === "coverageTemporarilySuspendedString"
+                ) {
+                    _firmIdsWhoseRatingsToReject.push(_newRScale.researchFirmId);
+                    _firmIdsWhoseRatingsToReject.push(_oldRScale.researchFirmId);
+                }
+            });
+            _firmIdsWhoseRatingsToReject = _.uniq(_firmIdsWhoseRatingsToReject);
+
+            if (_firmIdsWhoseRatingsToReject.length > 0) {
+                ratingsChangesArray = _.reject(ratingsChangesArray, function(ratingsChange) {
+                    return _firmIdsWhoseRatingsToReject.indexOf(ratingsChange.researchFirmId) > -1;
+                });
+            }
+
+            return ratingsChangesArray;
+        },
+
 
         generateAverageAnalystRatingTimeSeries: function(symbol, startDate, endDate) {
             var _allRatingChgs = RatingChanges.find({symbol: symbol}).fetch();
@@ -177,6 +211,8 @@ if (Meteor.isClient) {
                     _ratingChangesOfInterest.push(ratingChange);
                 }
             });
+
+            _ratingChangesOfInterest = StocksReact.functions.excludeRatingChangesWhoseFirmsInitiatedOrSuspendedOrDroppedCoverage(_ratingChangesOfInterest);
 
             //_ratingChangesOfInterest is already sorted with dates in increasing order
 

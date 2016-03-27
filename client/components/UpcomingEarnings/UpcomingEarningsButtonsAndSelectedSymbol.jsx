@@ -36,7 +36,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
     }
 
     , renderButtons() {
-        console.log("gonna render buttons");
+        //console.log("gonna render buttons");
 
         let _symbols = _.uniq(_.pluck(this.data.earningReleases, "symbol"));
         let _ratingChangesSymbols = _.pluck(this.data.ratingChanges, "symbol");
@@ -57,10 +57,10 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             let _ratingChangesForSymbol = _.filter(this.data.ratingChanges, function(obj) {
                 return obj.symbol === symbol;
             })
-            console.log("rating changes for symbol: ", _ratingChangesForSymbol);
+            //console.log("rating changes for symbol: ", _ratingChangesForSymbol);
             let _uniqueResearchFirmIdsArr = _.uniq(_.pluck(_ratingChangesForSymbol, "researchFirmId"));
-            console.log("symbol: ", symbol);
-            console.log("unique research firm ids: ", _uniqueResearchFirmIdsArr);
+            //console.log("symbol: ", symbol);
+            //console.log("unique research firm ids: ", _uniqueResearchFirmIdsArr);
 
 
             //todo now for each unique firm id look thru all _ratingChangesForSymbol and find the one with the latest date and
@@ -94,8 +94,8 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 }
             });
 
-            console.log("symbol: ", symbol );
-            console.log("_count: ", _count);
+            //console.log("symbol: ", symbol );
+            //console.log("_count: ", _count);
             let _numOfRatingChangesForSymbol = _count["yes"] ? _count["yes"] : 0;
             //TODO need number of current ratings with unique firms (excluding firms that dropped coverage), not number of rating changes
             let _numberOfLatestReports = _latestRatingScaleIdsForUniqueFirms.length;

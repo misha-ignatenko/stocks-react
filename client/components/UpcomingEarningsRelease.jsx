@@ -5,8 +5,8 @@ UpcomingEarningsRelease = React.createClass({
     mixins: [ReactMeteorData],
 
     propTypes: {
-        symbol: React.PropTypes.string.isRequired,
-        currentUser: React.PropTypes.object.isRequired
+        symbol: React.PropTypes.string.isRequired
+        //, currentUser: React.PropTypes.object.isRequired
     },
 
     getInitialState() {
@@ -136,17 +136,17 @@ UpcomingEarningsRelease = React.createClass({
         if (this.props.symbol !== nextProps.symbol) {
             //console.log("props updated. new symbol: ", nextProps.symbol);
         }
-        if (this.props.currentUser.lastModified !== nextProps.currentUser.lastModified) {
-            console.log("resubscribe to rating changes because last modified changed because premium status changed");
-            var _that = this;
-            Meteor.call("getRatingChangesFor", nextProps.symbol, function (error, result) {
-                if (!error && result) {
-                    _that.setState({
-                        allRatingChangesForStock: result
-                    })
-                }
-            });
-        }
+        //if (this.props.currentUser.lastModified !== nextProps.currentUser.lastModified) {
+        //    console.log("resubscribe to rating changes because last modified changed because premium status changed");
+        //    var _that = this;
+        //    Meteor.call("getRatingChangesFor", nextProps.symbol, function (error, result) {
+        //        if (!error && result) {
+        //            _that.setState({
+        //                allRatingChangesForStock: result
+        //            })
+        //        }
+        //    });
+        //}
 
         if (this.props.symbol !== nextProps.symbol) {
             Meteor.subscribe("ratingChangesForSymbol", nextProps.symbol);
