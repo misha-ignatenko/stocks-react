@@ -10,10 +10,11 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
 
     , getMeteorData() {
         let _earningReleases = EarningsReleases.find().fetch();
-        let _uniqueSymbols = _.uniq(_.pluck(_earningReleases, "symbol"))
+        let _earningsReleasesSorted = _.sortBy(_earningReleases, "reportDateNextFiscalQuarter");
+        let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
 
         return {
-            earningReleases: _earningReleases
+            earningReleases: _earningsReleasesSorted
             , ratingChanges: RatingChanges.find().fetch()
             , currentUser: Meteor.user()
             , uniqueSymbols: _uniqueSymbols
@@ -40,7 +41,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
     , renderButtons() {
         //console.log("gonna render buttons");
 
-        let _symbols = _.uniq(_.pluck(this.data.earningReleases, "symbol"));
+        let _symbols = this.data.uniqueSymbols;
         let _ratingChangesSymbols = _.pluck(this.data.ratingChanges, "symbol");
 
 
