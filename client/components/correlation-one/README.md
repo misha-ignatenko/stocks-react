@@ -30,21 +30,13 @@ Here are the weights that I got from my model (the first weight is for the 0.001
 
 
 4. I used multiple gradient descent because I believe it's the simplest algorithm for this problem. If given more time I could implement more complex algorithms such as: 
-
 1) Ridge
-
 2) k-NN
-
 3) Kernel
-
 4) add seasonality since some prices can be cyclical
-
 5) k-fold validation
-
 6) composite variables such as some stock's % change cubed (cubed to retain the +/- sign) or cubic root-ed or one stock's % change multiplied by other stock's % change, % change over the past few days (not just 1 day)
-
 7) closed-form solution for multiple regression instead and compare it to gradient descent
-
 8) automatically re-run regressions to find the most optimal combination of tolerance, step size and max iter (instead of doing it manually)
 
 
