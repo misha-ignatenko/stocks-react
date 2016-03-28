@@ -52,6 +52,21 @@ IgnRegression.utilities = {
         }
         return _result;
     },
+
+    remove_column_indices_from_matrix: function (matrix, arrayOfIndicesToRemove) {
+        var _newFeatureMatrix = [];
+        matrix.forEach(function (rowArr) {
+            var _newRow = [];
+            rowArr.forEach(function (rowColItem, colIndex) {
+                if (arrayOfIndicesToRemove.indexOf(colIndex) === -1) {
+                    _newRow.push(rowColItem);
+                }
+            });
+            _newFeatureMatrix.push(_newRow);
+        });
+        return _newFeatureMatrix;
+    },
+
     get_dot_product_two_arrays: function(array1, array2) {
         var _result = 0;
         if (array1.length === array2.length && array1.length > 0) {
