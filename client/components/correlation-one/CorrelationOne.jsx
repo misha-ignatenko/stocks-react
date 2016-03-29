@@ -81,6 +81,7 @@ CorrelationOne = React.createClass({
             rawPrices: [],
             splitIntoCells: false,
             cellValues: [],
+            trainingRowsNum: 0,
             stepSize: 4,
             tolerance: 2,
             maxIter: 40000
@@ -102,11 +103,15 @@ CorrelationOne = React.createClass({
 
         var _allLines = _textAreaNewValue.split( /\n/g );
         var _splitByCommasAndNewLines = [];
+        var _numberOfTrainingRows = 0;
         _allLines.forEach(function(line) {
             var _splitLine = line.split(",");
             if (_splitLine.length > 1) {
                 if (_splitLine[0].indexOf(" 0:00") > -1) {
                     _splitLine[0] = _splitLine[0].substring(0, _splitLine[0].indexOf(" 0:00"));
+                }
+                if (_splitLine[1]) {
+                    _numberOfTrainingRows++;
                 }
                 _splitByCommasAndNewLines.push(_splitLine);
             }
@@ -118,7 +123,8 @@ CorrelationOne = React.createClass({
         this.setState({
             textAreaValue: _textAreaNewValue,
             splitIntoCells: true,
-            cellValues: _splitByCommasAndNewLines
+            cellValues: _splitByCommasAndNewLines,
+            trainingRowsNum: _numberOfTrainingRows
         });
     },
 
@@ -208,7 +214,7 @@ CorrelationOne = React.createClass({
     predict() {
         var _noiseVariable = 0.001;
         var _allCellValues = this.state.cellValues;
-        var _numberOfTrainingExamples = 50;
+        var _numberOfTrainingExamples = this.state.trainingRowsNum;
         var _trainingSet = [];
         for (var i = 0; i < _numberOfTrainingExamples; i++) {
             var _rowOfDoubles = [_allCellValues[i][0]];
