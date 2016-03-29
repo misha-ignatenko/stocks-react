@@ -1,17 +1,6 @@
 function getRegressionResults(_initialWeightsStringified, _featureMatrix, _actualOutput, stepSize, tolerance, maxIter, _numberOfTrainingExamples, _trainingSet, _noiseVariable) {
     var _initialWghts = JSON.parse(_initialWeightsStringified);
 
-
-    //console.log("blahblahblah");
-    //console.log(_featureMatrix);
-    //console.log(_actualOutput);
-    //console.log(_initialWghts);
-    //console.log(stepSize);
-    //console.log(tolerance);
-    //console.log(maxIter);
-    //console.log("blahblahblah");
-
-
     var reslt = IgnRegression.functions.multiple_regression_gradient_descent(
         _featureMatrix,
         _actualOutput,
@@ -20,7 +9,6 @@ function getRegressionResults(_initialWeightsStringified, _featureMatrix, _actua
         tolerance,
         maxIter
     );
-    //console.log("reslt: ", reslt);
 
     var wghts = reslt.weights;
     var iter = reslt.iter;
@@ -40,9 +28,6 @@ function getRegressionResults(_initialWeightsStringified, _featureMatrix, _actua
         //console.log("wgts: ", wghts);
         //console.log(_trainingRow);
         var _prediction = IgnRegression.utilities.get_dot_product_two_arrays(wghts, _trainingRow);
-        //console.log("_prediction: ", _prediction);
-        //console.log("_actualValue: ", _actualValue);
-        //console.log("---------------------------------");
         var _error = _prediction - _actualValue;
         _rss += (_error * _error);
     }
@@ -128,66 +113,7 @@ CorrelationOne = React.createClass({
         });
     },
 
-    generateSampleDataString() {
-        console.log("generate sample data string clicked");
-        var _symbols = [
-            "AAPL",
-            "TWTR",
-            "FB",
-            "MSFT",
-            "INTC",
-            "F",
-            "MCD",
-            "T",
-            "DAL",
-            "AXP"
-        ];
-        var _startDate = "2015-01-02";
-        var _endDate = "2015-05-27";
-        var _that = this;
-        _symbols.forEach(function(symbol) {
-            console.log("gonna call the function for symbol: ", symbol);
-            Meteor.call("checkHistoricalData", symbol, _startDate, _endDate, function(error, result) {
-                if (!error && result && result.historicalData) {
-                    var _pricesArray = result.historicalData;
-                    console.log("_pricesArray: ", _pricesArray);
-
-                    var _pricesSoFar = _that.state.rawPrices;
-                    _pricesSoFar.push(_pricesArray);
-                    _that.setState({
-                        rawPrices: _pricesSoFar
-                    });
-
-                    var _sampleDataString = "";
-
-                    console.log("_pricesSoFar length: ", _pricesSoFar.length);
-
-                    if (_pricesSoFar.length === _symbols.length) {
-                        console.log("_pricesSoFar length is 10: ", _pricesSoFar);
-                        for (var dayIndex = 0; dayIndex < 100; dayIndex++) {
-                            var _rowString = dayIndex > 0 ? "\n" : "";
-                            _rowString += (new Date(_pricesSoFar[0][dayIndex].date).toISOString()).substring(0,10);
-                            console.log(_rowString);
-                            for (var stockIndex = 0; stockIndex < _symbols.length; stockIndex++) {
-                                var _openPrice = _pricesSoFar[stockIndex][dayIndex].open;
-                                var _closePrice = _pricesSoFar[stockIndex][dayIndex].close;
-                                var _difference = _closePrice - _openPrice;
-                                var _pctDiff = (dayIndex >= 100/2 && stockIndex === 0) ? "" : _difference / _openPrice;
-                                _rowString += ("," + _pctDiff);
-                            }
-                            console.log("_rowString: ", _rowString);
-                            _sampleDataString += _rowString;
-                        }
-
-                        console.log("SAMPLE STRING: ", _sampleDataString);
-                    }
-                }
-            });
-        });
-    },
-
     handleIndividualCellChange() {
-        console.log("nothing");
     },
 
     renderCells() {
@@ -272,10 +198,7 @@ CorrelationOne = React.createClass({
 
         var _stepSizePowsArray = [
             //3,
-
-
             //3.5,
-
             4,
             //4.5,
             //5
@@ -286,11 +209,7 @@ CorrelationOne = React.createClass({
 
         var _tolerancePowsArray = [
             //1,
-
             //1.5
-
-
-
             2,
             //2.5,
             //3,
@@ -307,10 +226,7 @@ CorrelationOne = React.createClass({
             //1000,
             //10000,
             //15000,
-
             40000
-
-
             //75000,
             //75000
             //, 10000
@@ -318,13 +234,10 @@ CorrelationOne = React.createClass({
         ];
 
 
-
-        //todo make sure this is not overfitting
         //stepSize 4
         //tolerance 2
         //maxIter 40000
         //{"tolerance":0.01,"stepSize":0.0001,"maxIter":50000,"weights":[0.08437538723994861,-0.23520298895145317,0.0835870197105594,-0.056339223469445705,0.07410998120446002,0.26328066062683103,0.1352465854784302,-0.18387878019730358,-0.04397078623929067,-0.0052832452373803565],"rss":4.211200706086055,"iter":30336}
-
 
         //stepSize 3.5
         //tolerance 0.5
@@ -336,32 +249,17 @@ CorrelationOne = React.createClass({
         //5000
         //{"tolerance":0.1,"stepSize":0.00031622776601683794,"maxIter":5000,"weights":[0.0967161180400092,-0.23624773237913452,0.08803001929597244,-0.05571674674938814,0.08796787761555394,0.1772070881694138,0.1397766887896975,-0.17960681912214962,-0.03491570715163283,-0.007139508025893961],"rss":4.216021184664399,"iter":2080}
 
-
-
         //{"tolerance":0.03162277660168379,"stepSize":0.00031622776601683794,"maxIter":75000,"weights":[0.0908819867168768,-0.2355831560263735,0.08469039874940648,-0.0561850903561864,0.07756579450085192,0.2418488305738363,0.13642808250561334,-0.18296305990529443,-0.04181102455227586,-0.005778611551950316],"rss":4.211669497327664,"iter":5631}
-
-
-
-
-
-
-
-
 
         //tolerance 1
         //maxIter 1000
         //stepSize 3.5
         //{"tolerance":0.1,"stepSize":0.00031622776601683794,"maxIter":1000,"weights":[0.0984841297096578,-0.22449114464425637,0.09074233066166487,-0.05425476425773075,0.09393276096182615,0.13821864394171413,0.13674105969132824,-0.16340734636502482,-0.02281651535645431,-0.005287987220346154],"rss":4.223336067682049,"iter":1001}
 
-
         //tolerance 1
         //maxIter 500
         //stepSize 3.5
         //{"tolerance":0.1,"stepSize":0.00031622776601683794,"maxIter":500,"weights":[0.09928209701221087,-0.17591194919155823,0.09695484552022714,-0.04336644114299272,0.09596550363646304,0.11711040333015031,0.12008720985888073,-0.11001770190947796,0.004051641914088748,0.003026636134215092],"rss":4.274326043853076,"iter":501}
-
-
-
-
 
         var _iterAndWeights = [
             //{"tolerance":0.1,"stepSize":0.00031622776601683794,"maxIter":500,"weights":[0.09928209701221087,-0.17591194919155823,0.09695484552022714,-0.04336644114299272,0.09596550363646304,0.11711040333015031,0.12008720985888073,-0.11001770190947796,0.004051641914088748,0.003026636134215092],"rss":4.274326043853076,"iter":501}
@@ -407,16 +305,10 @@ CorrelationOne = React.createClass({
                 );
                 console.log("NEW OBJ: ", _obj);
 
-
-
                 if (_obj.rss < iterAndWeightObj.rss) {
-                    console.log("yay!");
                     console.log("new obj: ", _obj);
                     console.log("old obj: ", iterAndWeightObj);
-                    console.log("------------------------------");
                 }
-
-
             });
         });
 
