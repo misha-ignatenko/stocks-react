@@ -137,7 +137,16 @@ UpcomingEarningsRelease = React.createClass({
             //console.log("props updated. new symbol: ", nextProps.symbol);
         }
 
-        return true;
+        var _previousSymbolsInGraphData = _.pluck(this.state.stocksToGraphObjs, "symbol");
+        var _newSymbolsInGraphData = _.pluck(nextState.stocksToGraphObjs, "symbol");
+        if (
+            _.difference(_previousSymbolsInGraphData, _newSymbolsInGraphData).length > 0 ||
+            _.difference(_newSymbolsInGraphData, _previousSymbolsInGraphData).length > 0
+        ) {
+            return true;
+        }
+
+        return false;
     },
 
     checkForNewestDataFromQuandl: function (symbol) {
