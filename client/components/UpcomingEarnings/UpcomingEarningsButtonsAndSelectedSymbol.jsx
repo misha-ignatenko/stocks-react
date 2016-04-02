@@ -28,7 +28,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             //, selectedSymbol: React.PropTypes.string.isRequired
             //, showPickListItem: React.PropTypes.bool.isRequired
             //, setSelectedSymbol: React.PropTypes.func.isRequired
-            focusStocksFunction: React.PropTypes.func.isRequired
+            //focusStocksFunction: React.PropTypes.func.isRequired
         }
     }
 
@@ -125,11 +125,11 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
 
     , shouldComponentUpdate(nextProps, nextState) {
         if (this.state.selectedSymbolIndex !== nextState.selectedSymbolIndex) {
-            this.props.focusStocksFunction([
-                this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
-                this.data.uniqueSymbols[nextState.selectedSymbolIndex],
-                this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
-            ]);
+            //this.props.focusStocksFunction([
+            //    this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
+            //    this.data.uniqueSymbols[nextState.selectedSymbolIndex],
+            //    this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
+            //]);
             return true;
         } else if (this.state.showAllButtons !== nextState.showAllButtons) {
             return true;

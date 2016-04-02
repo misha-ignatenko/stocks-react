@@ -22,10 +22,7 @@ if (Meteor.isServer) {
 
         return _allEarningsReleases;
     });
-    Meteor.publish("ratingChangesForSymbols", function (symbolsArr) {
-        console.log("symbols array: ", symbolsArr)
-        return RatingChanges.find({symbol: {$in: symbolsArr}}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
-    });
+
     Meteor.publish("pickLists", function () {
         return PickLists.find();
     });
@@ -46,10 +43,6 @@ if (Meteor.isServer) {
     Meteor.publish(null, function() {
         var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
         return _user;
-    });
-
-    Meteor.publish("ratingChangesForSymbol", function(symbol) {
-        return RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
     });
 
     Meteor.publish("ratingScales", function() {

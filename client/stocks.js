@@ -8,6 +8,8 @@ if (Meteor.isClient) {
     Meteor.subscribe("ratingScales");
     Meteor.subscribe("pickListItems");
 
+    Meteor.subscribe("settings");
+
     //Meteor.startup(function () {
     //    React.render(<App />, document.getElementById("render-target"));
     //});

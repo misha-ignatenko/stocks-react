@@ -8,8 +8,7 @@ UpcomingEarningsReleases = React.createClass({
         return {
             startEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).format("YYYYMMDD")),
             endEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")),
-            earningsReleaseIndex: 0
-            , ratingChangesSubscriptionHandles: {}
+            ratingChangesSubscriptionHandles: {}
         }
     },
 
@@ -24,19 +23,10 @@ UpcomingEarningsReleases = React.createClass({
         var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
         if (_handle1.ready()) {
             var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
-            var _onlyThreeUniqueSymbols = [];
-            if (_uniqSymbols[0]) {
-                _onlyThreeUniqueSymbols.push(_uniqSymbols[0]);
-                if (_uniqSymbols[1]) {
-                    _onlyThreeUniqueSymbols.push(_uniqSymbols[1]);
-                    if (_uniqSymbols[2]) {
-                        _onlyThreeUniqueSymbols.push(_uniqSymbols[2]);
-                    }
-                }
-            }
-            var _handle2 = Meteor.subscribe("ratingChangesForSymbols", _onlyThreeUniqueSymbols);
-            if (_handle2.ready()) {
-                data.earningsReleasesAndRatingChangesSubsReady = true;
+            //todo add other conditions, such as a daterange
+            var _ratingsChangesHandle = Meteor.subscribe("ratingChangesForSymbols", _uniqSymbols);
+            if (_ratingsChangesHandle.ready()) {
+                data.earningsReleasesAndRatingChangesSubscriptionsReady = true;
                 this.pullDataFromQuandl(_uniqSymbols);
             }
         }
@@ -148,7 +138,7 @@ UpcomingEarningsReleases = React.createClass({
                         </div>
                     ) : null
                 ) : null}
-                {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol focusStocksFunction={this.focusStocks}/> : "loading"}
+                {this.data.earningsReleasesAndRatingChangesSubscriptionsReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases and their ratings changes."}
                 <br/>
             </div>
         );
