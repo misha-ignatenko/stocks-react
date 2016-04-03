@@ -133,16 +133,9 @@ UpcomingEarningsRelease = React.createClass({
         return _uniq;
     },
     shouldComponentUpdate: function(nextProps, nextState) {
-        if (this.props.symbol !== nextProps.symbol) {
-            //console.log("props updated. new symbol: ", nextProps.symbol);
-        }
-
-        var _previousSymbolsInGraphData = _.pluck(this.state.stocksToGraphObjs, "symbol");
-        var _newSymbolsInGraphData = _.pluck(nextState.stocksToGraphObjs, "symbol");
-        if (
-            _.difference(_previousSymbolsInGraphData, _newSymbolsInGraphData).length > 0 ||
-            _.difference(_newSymbolsInGraphData, _previousSymbolsInGraphData).length > 0
-        ) {
+        //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
+        //because it takes a few seconds after new symbol prop is set to get new data to graph
+        if (JSON.stringify(this.state.stocksToGraphObjs) !== JSON.stringify(nextState.stocksToGraphObjs)) {
             return true;
         }
 
