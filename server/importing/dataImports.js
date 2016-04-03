@@ -61,6 +61,24 @@ if (Meteor.isServer) {
                     //second, get rating scales id so that can check if item already exists in RatingChanges
                     var _ratingScaleObjectForNew = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
                     var _ratingScaleObjectForOld = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
+
+
+                    //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
+                    if (!_ratingScaleObjectForNew) {
+                        var _secondaryNew = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
+                        if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
+                            _ratingScaleObjectForNew = RatingScales.findOne({_id: _secondaryNew.referenceRatingScaleId});
+                        }
+                    }
+
+                    if (!_ratingScaleObjectForOld) {
+                        var _secondaryOld = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
+                        if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
+                            _ratingScaleObjectForOld = RatingScales.findOne({_id: _secondaryOld.referenceRatingScaleId});
+                        }
+                    }
+
+
                     if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
                         //can try to check if this RatingChanges item already exists. if not then insert it.
                         var _existingRatingChange = RatingChanges.findOne({
