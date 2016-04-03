@@ -111,7 +111,8 @@ StocksGraph = React.createClass({
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
-                    }
+                    },
+                    yAxis: 1
                 });
             }
 

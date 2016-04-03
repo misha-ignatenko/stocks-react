@@ -65,24 +65,36 @@ if (Meteor.isClient) {
 
             var _featureMatrix = _data.featureMatrix;
             var _actualOutput = _data.actualOutput;
-            var _initialWeights = _data.initialWeights;
-            var _stepSize = Math.pow(10, -7);
-            var _tolerance = Math.pow(10, 4);
-            var _maxIter = 300;
-            if (_featureMatrix && _actualOutput && _initialWeights && _stepSize && _tolerance && _maxIter) {
-                var _resultFromGradientDescent = IgnRegression.functions.multiple_regression_gradient_descent(
+            var _initialWeights = JSON.stringify(_data.initialWeights);
+            if (_featureMatrix && _actualOutput && _initialWeights) {
+
+                var _pctGoUpPerDayAtMaxRating = 1;
+                var _pctGoDownPerDayAtMinRating = 0.5;
+                var _maxRatingValue = 120;
+                var _minRatingValue = 0;
+                //the cutoff value is the value at which we consider rating to be positive or negative
+                var _cutoffValue = (_maxRatingValue - _minRatingValue) / 2;
+                var _stepSize2 = Math.pow(10, -7);
+                var _tolerance2 = Math.pow(10, 2.5);
+                var _maxIter2 = 10000;
+                var _resultFromGradientDescent2 = IgnRegression.functions.multiple_regression_gradient_descent2(
                     _featureMatrix,
                     _actualOutput,
-                    _initialWeights,
-                    _stepSize,
-                    _tolerance,
-                    _maxIter
+                    JSON.parse(_initialWeights),
+                    _stepSize2,
+                    _tolerance2,
+                    _maxIter2,
+                    _pctGoDownPerDayAtMinRating / 100,
+                    _pctGoUpPerDayAtMaxRating / 100,
+                    _minRatingValue,
+                    _maxRatingValue,
+                    _cutoffValue
                 );
-                console.log("final weights: ", _resultFromGradientDescent.weights);
+                console.log("final weights: ", _resultFromGradientDescent2.weights);
                 console.log("unique firm ids: ", _data.uniqueResearchFirmIds);
-                console.log("total iterations: ", _resultFromGradientDescent.iter);
+                console.log("total iterations: ", _resultFromGradientDescent2.iter);
 
-                var _preparedArrayOfWeightedRatings = StocksReact.functions.prepareArrayOfWeightedRatingsForGraph(_data.uniqueResearchFirmIds, _resultFromGradientDescent.weights, _avgRatingsSeriesEveryDay);
+                var _preparedArrayOfWeightedRatings = StocksReact.functions.prepareArrayOfWeightedRatingsForGraph(_data.uniqueResearchFirmIds, _resultFromGradientDescent2.weights, _avgRatingsSeriesEveryDay);
                 _result = _preparedArrayOfWeightedRatings;
             }
 
@@ -342,7 +354,7 @@ if (Meteor.isClient) {
 
             //generate feature matrix
             var _featureMatrix = [];
-            var _constantFeatureValue = 1;
+            var _constantFeatureValue = 60;
             avgRatingsData.forEach(function(obj) {
                 var _features = new Array(_uniqueResearchFirmIds.length);
                 if (obj.ratingScales) {
@@ -365,7 +377,7 @@ if (Meteor.isClient) {
             _uniqueResearchFirmIds.forEach(function(firmId) {
                 _initialWeights.push(1 / _uniqueResearchFirmIds.length);
             });
-            var _initialWeightForConstant = 1;
+            var _initialWeightForConstant = 1 / _uniqueResearchFirmIds.length;
             _initialWeights.unshift(_initialWeightForConstant);
             _result.initialWeights = _initialWeights;
 
