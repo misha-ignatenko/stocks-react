@@ -77,6 +77,8 @@ if (Meteor.isClient) {
                 var _stepSize2 = Math.pow(10, -7);
                 var _tolerance2 = Math.pow(10, 2.5);
                 var _maxIter2 = 10000;
+                var _maxPossibleWeight = Math.pow(10, 10);
+                var _minPossibleWeight = -_maxPossibleWeight;
                 var _resultFromGradientDescent2 = IgnRegression.functions.multiple_regression_gradient_descent2(
                     _featureMatrix,
                     _actualOutput,
@@ -88,7 +90,9 @@ if (Meteor.isClient) {
                     _pctGoUpPerDayAtMaxRating / 100,
                     _minRatingValue,
                     _maxRatingValue,
-                    _cutoffValue
+                    _cutoffValue,
+                    _minPossibleWeight,
+                    _maxPossibleWeight
                 );
                 console.log("final weights: ", _resultFromGradientDescent2.weights);
                 console.log("unique firm ids: ", _data.uniqueResearchFirmIds);

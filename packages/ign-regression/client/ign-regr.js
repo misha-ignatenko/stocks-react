@@ -45,8 +45,11 @@ IgnRegression.functions = {
         goUpPerDayAtMaxRating,
         minRatingValue,
         maxRatingValue,
-        cutoffValue
+        cutoffValue,
+        minPossibleWeight,
+        maxPossibleWeight
     ) {
+
         var _converged = false;
         var _weights = initialWeights;
 
@@ -84,9 +87,12 @@ IgnRegression.functions = {
                     );
                 _gradientSumSquates += _derivative * _derivative;
 
-                var _updateToWeight = -stepSize*_derivative;
+                _weights[featureIndex] -= stepSize * _derivative;
 
-                _weights[featureIndex] -= stepSize * _derivative
+                //break out of method before reaching positive or negative infinities
+                if (_weights[featureIndex] < minPossibleWeight || _weights[featureIndex] > maxPossibleWeight) {
+                    _converged = true;
+                }
             });
 
             var _gradientMagnitude = Math.sqrt(_gradientSumSquates);
