@@ -5,7 +5,11 @@ UpcomingEarningsReleases = React.createClass({
     mixins: [ReactMeteorData],
 
     getInitialState() {
+        let _ratingChangesDateFormat = "YYYY-MM-DD";
+
         return {
+            startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
+            endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
             startEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).format("YYYYMMDD")),
             endEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")),
             ratingChangesSubscriptionHandles: {}
@@ -20,14 +24,24 @@ UpcomingEarningsReleases = React.createClass({
 
         var data = {};
         data.currentUser = Meteor.user();
-        var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
-        if (_handle1.ready()) {
-            var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
-            //todo add other conditions, such as a daterange
-            var _ratingsChangesHandle = Meteor.subscribe("ratingChangesForSymbols", _uniqSymbols);
-            if (_ratingsChangesHandle.ready()) {
-                data.earningsReleasesAndRatingChangesSubscriptionsReady = true;
-                this.pullDataFromQuandl(_uniqSymbols);
+        data.settings = Settings.findOne();
+        if (data.settings) {
+            var _endDateForEarningsReleasesSubscription =
+                data.currentUser ?
+                    this.state.endEarningsReleaseDateInteger :
+                    parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
+            var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription);
+            if (_handle1.ready()) {
+                var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
+                var _startDateForRatingChangesSubscription =
+                    data.currentUser ?
+                        this.state.startDateRatingChanges :
+                        moment(new Date().toISOString()).subtract(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
+                var _ratingsChangesHandle = Meteor.subscribe("ratingChangesForSymbols", _uniqSymbols, _startDateForRatingChangesSubscription, this.state.endDateRatingChanges);
+                if (_ratingsChangesHandle.ready()) {
+                    data.earningsReleasesAndRatingChangesSubscriptionsReady = true;
+                    this.pullDataFromQuandl(_uniqSymbols);
+                }
             }
         }
 
