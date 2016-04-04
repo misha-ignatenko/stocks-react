@@ -76,7 +76,7 @@ if (Meteor.isClient) {
                 var _cutoffValue = (_maxRatingValue - _minRatingValue) / 2;
                 var _stepSize2 = Math.pow(10, -7);
                 var _tolerance2 = Math.pow(10, 2.5);
-                var _maxIter2 = 10000;
+                var _maxIter2 = Settings.findOne().clientSettings.regressions.maxIterForRegressionTwo;
                 var _maxPossibleWeight = Math.pow(10, 10);
                 var _minPossibleWeight = -_maxPossibleWeight;
                 var _resultFromGradientDescent2 = IgnRegression.functions.multiple_regression_gradient_descent2(
