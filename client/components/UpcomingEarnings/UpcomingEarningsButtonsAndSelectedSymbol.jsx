@@ -2,9 +2,13 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
     mixins: [ReactMeteorData]
 
     , getInitialState() {
+        let _ratingChangesDateFormat = "YYYY-MM-DD";
+
         return {
             selectedSymbolIndex: 1
             , showAllButtons: false
+            , startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat)
+            , endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat)
         };
     }
 
@@ -12,12 +16,36 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         let _earningReleases = EarningsReleases.find().fetch();
         let _earningsReleasesSorted = _.sortBy(_earningReleases, "reportDateNextFiscalQuarter");
         let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
+        //todo this should come from settings
+        let _limit = 3;
+        let _selectedIndex = this.state.selectedSymbolIndex;
+        let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1, _selectedIndex - 1 + _limit);
+        let _ratingsChangeSubscriptionForCurrentSymbol;
+
+        let _currentUser = Meteor.user();
+        let _settings = Settings.findOne();
+
+        let _startDateForRatingChangesSubscription =
+            _currentUser ?
+                this.state.startDateRatingChanges :
+                moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
+        let _endDateRatingChanges = this.state.endDateRatingChanges;
+        console.log("_startDateForRatingChangesSubscription: ", _startDateForRatingChangesSubscription);
+        console.log("_endDateRatingChanges: ", _endDateRatingChanges);
+
+        _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
+            var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
+            if (symbol === _uniqueSymbols[_selectedIndex]) {
+                _ratingsChangeSubscriptionForCurrentSymbol = _handle;
+            }
+        });
 
         return {
             earningReleases: _earningsReleasesSorted
             , ratingChanges: RatingChanges.find().fetch()
-            , currentUser: Meteor.user()
+            , currentUser: _currentUser
             , uniqueSymbols: _uniqueSymbols
+            , ratingsChangesSubscriptionReadyForCurrentSymbol: _ratingsChangeSubscriptionForCurrentSymbol.ready()
         };
     }
 
@@ -192,7 +220,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 {this.props.startDate}
                 {this.props.endDate}
                 <br/>
-                {!this.data.ratingChanges ? "subs loading" : <div className="row">
+                {!this.data.ratingsChangesSubscriptionReadyForCurrentSymbol ? "ratings changes loading for " + _symbol : <div className="row">
                     {this.data.currentUser ?
                         <button className="btn btn-default" onClick={this.changeShowAllBtnsSetting}>
                             {this.state.showAllButtons ? "hide individual buttons" : "show all individual buttons"}

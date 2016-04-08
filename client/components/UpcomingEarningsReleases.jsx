@@ -33,15 +33,8 @@ UpcomingEarningsReleases = React.createClass({
             var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription);
             if (_handle1.ready()) {
                 var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
-                var _startDateForRatingChangesSubscription =
-                    data.currentUser ?
-                        this.state.startDateRatingChanges :
-                        moment(new Date().toISOString()).subtract(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
-                var _ratingsChangesHandle = Meteor.subscribe("ratingChangesForSymbols", _uniqSymbols, _startDateForRatingChangesSubscription, this.state.endDateRatingChanges);
-                if (_ratingsChangesHandle.ready()) {
-                    data.earningsReleasesAndRatingChangesSubscriptionsReady = true;
-                    this.pullDataFromQuandl(_uniqSymbols);
-                }
+                data.earningsReleasesSubscriptionReady = true;
+                this.pullDataFromQuandl(_uniqSymbols);
             }
         }
 
@@ -152,7 +145,7 @@ UpcomingEarningsReleases = React.createClass({
                         </div>
                     ) : null
                 ) : null}
-                {this.data.earningsReleasesAndRatingChangesSubscriptionsReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases and their ratings changes."}
+                {this.data.earningsReleasesSubscriptionReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases."}
                 <br/>
             </div>
         );
