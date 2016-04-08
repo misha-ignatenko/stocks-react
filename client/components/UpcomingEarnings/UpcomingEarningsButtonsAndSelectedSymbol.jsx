@@ -20,7 +20,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         let _limit = 3;
         let _selectedIndex = this.state.selectedSymbolIndex;
         let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1, _selectedIndex - 1 + _limit);
-        let _ratingsChangeSubscriptionForCurrentSymbol;
+        let _ratingsChangesSubsStatuses = {};
 
         let _currentUser = Meteor.user();
         let _settings = Settings.findOne();
@@ -30,14 +30,10 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 this.state.startDateRatingChanges :
                 moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
         let _endDateRatingChanges = this.state.endDateRatingChanges;
-        console.log("_startDateForRatingChangesSubscription: ", _startDateForRatingChangesSubscription);
-        console.log("_endDateRatingChanges: ", _endDateRatingChanges);
 
         _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
             var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
-            if (symbol === _uniqueSymbols[_selectedIndex]) {
-                _ratingsChangeSubscriptionForCurrentSymbol = _handle;
-            }
+            _ratingsChangesSubsStatuses[symbol] = _handle.ready();
         });
 
         return {
@@ -45,7 +41,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             , ratingChanges: RatingChanges.find().fetch()
             , currentUser: _currentUser
             , uniqueSymbols: _uniqueSymbols
-            , ratingsChangesSubscriptionReadyForCurrentSymbol: _ratingsChangeSubscriptionForCurrentSymbol.ready()
+            , ratingsChangesSubsStatuses: _ratingsChangesSubsStatuses
         };
     }
 
@@ -220,7 +216,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 {this.props.startDate}
                 {this.props.endDate}
                 <br/>
-                {!this.data.ratingsChangesSubscriptionReadyForCurrentSymbol ? "ratings changes loading for " + _symbol : <div className="row">
+                {!this.data.ratingsChangesSubsStatuses[_symbol] ? "ratings changes loading for " + _symbol : <div className="row">
                     {this.data.currentUser ?
                         <button className="btn btn-default" onClick={this.changeShowAllBtnsSetting}>
                             {this.state.showAllButtons ? "hide individual buttons" : "show all individual buttons"}
