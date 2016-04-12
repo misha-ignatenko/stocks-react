@@ -63,11 +63,14 @@ if (Meteor.isServer) {
                     var _ratingScaleObjectForOld = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
 
 
+                    var _originalOldRatingString;
+                    var _originalNewRatingString;
                     //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
                     if (!_ratingScaleObjectForNew) {
                         var _secondaryNew = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
                         if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
                             _ratingScaleObjectForNew = RatingScales.findOne({_id: _secondaryNew.referenceRatingScaleId});
+                            _originalNewRatingString = importItem.newRatingString;
                         }
                     }
 
@@ -75,6 +78,7 @@ if (Meteor.isServer) {
                         var _secondaryOld = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
                         if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
                             _ratingScaleObjectForOld = RatingScales.findOne({_id: _secondaryOld.referenceRatingScaleId});
+                            _originalOldRatingString = importItem.oldRatingString;
                         }
                     }
 
@@ -105,6 +109,12 @@ if (Meteor.isServer) {
                                 addedBy: Meteor.userId(),
                                 addedOn: new Date().toUTCString()
                             };
+                            if (_originalOldRatingString || _originalNewRatingString) {
+                                _ratingChange.originalRatingStrings = {
+                                    old: _originalOldRatingString,
+                                    new: _originalNewRatingString
+                                };
+                            }
                             console.log("adding this stock: ", importItem.symbol);
                             RatingChanges.insert(_ratingChange);
                             _newlyImportedNum++;
