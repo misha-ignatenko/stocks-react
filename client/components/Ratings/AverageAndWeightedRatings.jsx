@@ -22,39 +22,65 @@ AverageAndWeightedRatings = React.createClass({
         let _currentUser = Meteor.user();
         let _settings = Settings.findOne();
 
+
+        let _format = "YYYY-MM-DD";
+
+        let _dayDiff = 1;
+        var _d = new Date().toISOString();
+        var _dateStr = _d.substring(11, _d.length);
+        var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
+        if (_dateStr > _4PMEST_IN_ISO) {
+            _dayDiff = 0;
+        }
+
+        let _avgRatingStartDate = moment((new Date()).toISOString()).subtract(90 + _dayDiff, "days").format(_format);
+        let _avgRatingEndDate = moment((new Date()).toISOString()).subtract(_dayDiff, "days").format(_format);
+
         let _startDateForRatingChangesSubscription =
             _currentUser ?
-                this.state.avgRatingStartDate :
+                _avgRatingStartDate :
                 moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
-        let _endDateRatingChanges = this.state.avgRatingEndDate;
+        let _endDateRatingChanges = _avgRatingEndDate;
         let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbols", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
         if (_ratingChangesHandle.ready()) {
             let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol]);
             if (_pricesHandle.ready()) {
-                //todo make sure to pull data if necessary
-                let result = this.getPricesBetweenTwoDates(StockPrices.findOne({symbol: _symbol}), _startDateForRatingChangesSubscription, _endDateRatingChanges);
+                let _allAvailablePricesForSymbol = StockPrices.findOne({symbol: _symbol});
+                if (
+                    _allAvailablePricesForSymbol &&
+                    _allAvailablePricesForSymbol.existingStartDate &&
+                    _allAvailablePricesForSymbol.existingEndDate &&
+                    (moment(_startDateForRatingChangesSubscription).isSame(_allAvailablePricesForSymbol.existingStartDate) || moment(_startDateForRatingChangesSubscription).isAfter(_allAvailablePricesForSymbol.existingStartDate)) &&
+                    (moment(_endDateRatingChanges).isSame(_allAvailablePricesForSymbol.existingEndDate) || moment(_endDateRatingChanges).isBefore(_allAvailablePricesForSymbol.existingEndDate))
+                ) {
 
-                _data.stocksToGraphObjs = [];
-                var _startDate = _startDateForRatingChangesSubscription;
-                var _endDate = _endDateRatingChanges;
-                var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate);
-                //TODO: start date and end date for regression are coming from a different date picker
-                var _startDateForRegression = _startDate;
-                var _endDateForRegression = _endDate;
-                if (result && result.historicalData) {
-                    var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
-                    var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
-                    var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose");
+                    let result = this.getPricesBetweenTwoDates(_allAvailablePricesForSymbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
-                    _data.stocksToGraphObjs = [_.extend(result, {
-                        avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
-                        weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
-                    })]
+                    _data.stocksToGraphObjs = [];
+                    var _startDate = _startDateForRatingChangesSubscription;
+                    var _endDate = _endDateRatingChanges;
+                    var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate);
+                    //TODO: start date and end date for regression are coming from a different date picker
+                    var _startDateForRegression = _startDate;
+                    var _endDateForRegression = _endDate;
+                    if (result && result.historicalData) {
+                        var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
+                        var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
+                        var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose");
+
+                        _data.stocksToGraphObjs = [_.extend(result, {
+                            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                        })]
+                    }
+
+                    _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
+                    _data.ratingChanges = RatingChanges.find({}, {sort: {date: 1}}).fetch();
+                    _data.ratingScales = RatingScales.find().fetch()
+
+                } else {
+                    Meteor.call('checkHistoricalData', _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
                 }
-
-                _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
-                _data.ratingChanges = RatingChanges.find({}, {sort: {date: 1}}).fetch();
-                _data.ratingScales = RatingScales.find().fetch()
             }
         }
 
@@ -135,7 +161,7 @@ AverageAndWeightedRatings = React.createClass({
         let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingStartDate);
         let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingEndDate);
         return (this.data.ratingChanges.length > 0 ? <div>
-            <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays}</span><br/>
+            <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays} </span>
             <button type="button" className="btn btn-default" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
             <button type="button" className="btn btn-default" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
 
