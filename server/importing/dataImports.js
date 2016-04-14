@@ -217,6 +217,8 @@ if (Meteor.isServer) {
                                 }
                             } else {
                                 console.log("error while getting a response from Quandl. Symbol: ", _symbol);
+                                var _err = {message: error.response.data.quandl_error.message, asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"), symbol: _symbol};
+                                QuandlDataPullErrors.insert(_err);
                             }
                         });
                     }
@@ -371,6 +373,7 @@ if (Meteor.isServer) {
 
     function _canPullAgainFromQuandl(symbol) {
         var _canPull = false;
+        var _canPullFromQuandlEveryNDaysIfPreviousPullWasError = Settings.findOne().serverSettings.quandl.canRepullFromQuandlEveryNDaysIfPreviousPullWasError;
 
         var _canPullFromQuandlEveryNDays;
         if (Meteor.serverConstants.pullFromQuandEveryNDays) {
@@ -384,11 +387,25 @@ if (Meteor.isServer) {
         }
         var _todaysDateInteger = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
 
-        if (
-            !_lastPullFromQuandl ||
-            (_lastPullFromQuandl && _canPullFromQuandlEveryNDays && parseInt(moment(new Date(_lastPullFromQuandl)).add(_canPullFromQuandlEveryNDays + 1, 'days').format("YYYYMMDD")) <= _todaysDateInteger)
-        ) {
-            _canPull = true;
+        var _lastErrorFromQuandl = QuandlDataPullErrors.findOne({symbol: symbol}, {sort: {asOf: -1}});
+        var _lastErrorDateFromQuandl = _lastErrorFromQuandl && _lastErrorFromQuandl.asOf;
+        var _format = "YYYYMMDD";
+        var _days = "days";
+
+
+        var _lastPullDoesNotExist = !_lastPullFromQuandl;
+        var _lastPullExistsAndAboutTimeToRepull = _lastPullFromQuandl &&
+            _canPullFromQuandlEveryNDays &&
+            (parseInt(moment(new Date(_lastPullFromQuandl)).add(_canPullFromQuandlEveryNDays + 1, _days).format(_format)) <= _todaysDateInteger);
+
+
+        if (_lastPullDoesNotExist || _lastPullExistsAndAboutTimeToRepull ) {
+            //great. this means that can pull again based on previous pull history
+
+            var _previousErrorDoesNotExist = !_lastErrorDateFromQuandl;
+            var _previousErrorExistsAndItsAboutTimeToRetry = _lastErrorDateFromQuandl && _canPullFromQuandlEveryNDaysIfPreviousPullWasError && parseInt(moment(new Date(_lastErrorDateFromQuandl)).add(_canPullFromQuandlEveryNDaysIfPreviousPullWasError + 1, _days).format(_format)) <= _todaysDateInteger;
+            //now make sure that there were no latest error that would prevent us from pulling again
+            if (_previousErrorDoesNotExist || _previousErrorExistsAndItsAboutTimeToRetry) {_canPull = true;}
         }
 
         return _canPull;
