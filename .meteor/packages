@@ -15,7 +15,6 @@ reactive-var
 react-template-helper
 ajbarry:yahoo-finance
 twbs:bootstrap
-standard-minifiers
 meteor-base
 mobile-experience
 mongo
@@ -40,3 +39,5 @@ mrt:bootstrap-growl
 http
 
 ign-regression
+standard-minifier-css
+standard-minifier-js
