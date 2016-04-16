@@ -34,7 +34,8 @@ UpcomingEarningsReleases = React.createClass({
             if (_handle1.ready()) {
                 var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
                 data.earningsReleasesSubscriptionReady = true;
-                this.pullDataFromQuandl(_uniqSymbols);
+                //this is now done automatically every night
+                //this.pullDataFromQuandl(_uniqSymbols);
             }
         }
 

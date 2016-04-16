@@ -5,7 +5,7 @@ if (Meteor.isServer) {
         importData: function(importData, importType) {
             //run all the checks here
 
-            if (! Meteor.userId()) {
+            if (! Meteor.userId() && importType !== "earnings_releases") {
                 throw new Meteor.Error("not-authorized");
             }
 
