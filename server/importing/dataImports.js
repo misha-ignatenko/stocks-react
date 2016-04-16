@@ -117,6 +117,7 @@ if (Meteor.isServer) {
                             }
                             console.log("adding this stock: ", importItem.symbol);
                             RatingChanges.insert(_ratingChange);
+                            Meteor.call("insertNewStockSymbols", [importItem.symbol]);
                             _newlyImportedNum++;
                         }
                     } else {
@@ -199,6 +200,7 @@ if (Meteor.isServer) {
                                         if (!_matchingEarningsReleaseId) {
                                             console.log("inserting into earningsReleases: ", _earningRelease);
                                             EarningsReleases.insert(_earningRelease);
+                                            Meteor.call("insertNewStockSymbols", [_symbol]);
                                         } else {
                                             var _previousAsOfField = EarningsReleases.findOne({_id: _matchingEarningsReleaseId}).asOf;
                                             var _latestAsOfField = _objectFromQuandlMyDbFormat.asOf;
