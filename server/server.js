@@ -178,9 +178,8 @@ if (Meteor.isServer) {
         removePickListItem: function(pickListItemId) {
             PickListItems.remove(pickListItemId);
         },
-        getFullQuote: function (symbol) {
-            var _fullQuote = YahooFinance.snapshot({symbols: [symbol]});
-            return _fullQuote;
+        getFullQuote: function (symbolsArray) {
+            return YahooFinance.snapshot({symbols: symbolsArray});
         },
         getLatestAskPrice: function (symbol) {
             var _latestPriceQuote = YahooFinance.snapshot({symbols: [symbol], fields: ['s', 'n', 'd1', 'l1', 'y', 'r']});
@@ -251,9 +250,7 @@ if (Meteor.isServer) {
                             existingEndDate: _actualEndDateFromQuery,
                             symbol: symbol
                         });
-                        if (Stocks.find({_id: symbol}).count() === 0) {
-                            Stocks.insert({_id: symbol});
-                        }
+                        Meteor.call("insertNewStockSymbols", [symbol]);
                     }
                 });
             }
@@ -293,6 +290,32 @@ if (Meteor.isServer) {
             //todo delete this method if not being used anyhere
             var _result = StockPrices.findOne({symbol: symbol}).historicalData;
             return _result;
+        },
+        insertNewStockSymbols: function(symbolsArray) {
+            var _symbolsAllCapsArray = [];
+            symbolsArray.forEach(function(symbol) {
+                _symbolsAllCapsArray.push(symbol.toUpperCase());
+            });
+
+            if (_symbolsAllCapsArray.length > 0) {
+                Meteor.call("getFullQuote", _symbolsAllCapsArray, function(error, quotesArray) {
+                    if (!error && quotesArray && quotesArray.length > 0) {
+                        quotesArray.forEach(function(quote) {
+                            if (quote.name) {
+                                var _symbolUpperCase = quote.symbol.toUpperCase();
+                                if (Stocks.find({_id: _symbolUpperCase}).count() === 0) {
+                                    Stocks.insert({
+                                        _id: _symbolUpperCase,
+                                        quote: _.extend(quote, {
+                                            asOf: new Date().toISOString()
+                                        })
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            }
         }
     });
 }
