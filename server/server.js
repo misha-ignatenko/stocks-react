@@ -251,6 +251,9 @@ if (Meteor.isServer) {
                             existingEndDate: _actualEndDateFromQuery,
                             symbol: symbol
                         });
+                        if (Stocks.find({_id: symbol}).count() === 0) {
+                            Stocks.insert({_id: symbol});
+                        }
                     }
                 });
             }
