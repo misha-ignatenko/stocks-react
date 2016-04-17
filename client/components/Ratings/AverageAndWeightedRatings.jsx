@@ -7,11 +7,14 @@ AverageAndWeightedRatings = React.createClass({
     },
 
     getInitialState() {
-        let _format = "YYYY-MM-DD";
+        let _settings = Settings.findOne();
+        var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
+        let _avgRatingStartDate = StocksReact.utilities.getClosestNextWeekDayDate(moment().tz("America/New_York").subtract(90, "days"));
+        let _avgRatingEndDate = StocksReact.utilities.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
 
         return {
-            avgRatingStartDate: moment((new Date()).toISOString()).subtract(90, "days").format(_format),
-            avgRatingEndDate: moment((new Date()).toISOString()).format(_format),
+            avgRatingStartDate: _avgRatingStartDate,
+            avgRatingEndDate: _avgRatingEndDate,
             priceReactionDelayDays: 0
         }
     },
@@ -33,8 +36,8 @@ AverageAndWeightedRatings = React.createClass({
             _dayDiff = 0;
         }
 
-        let _avgRatingStartDate = moment((new Date()).toISOString()).subtract(90 + _dayDiff, "days").format(_format);
-        let _avgRatingEndDate = moment((new Date()).toISOString()).subtract(_dayDiff, "days").format(_format);
+        let _avgRatingStartDate = this.state.avgRatingStartDate;
+        let _avgRatingEndDate = this.state.avgRatingEndDate;
 
         let _startDateForRatingChangesSubscription =
             _currentUser ?
@@ -95,7 +98,7 @@ AverageAndWeightedRatings = React.createClass({
             //push items from _allHistoricalData to _historicalDataBetweenTwoRequestedDates
             //only where dates are within the requested date range
             _allHistoricalData.forEach(function(priceObjForDay) {
-                var _extractedDateStringNoTimezone = moment(new Date(priceObjForDay.date)).format("YYYY-MM-DD");
+                var _extractedDateStringNoTimezone = moment(priceObjForDay.date).tz("America/New_York").format("YYYY-MM-DD");
                 if ((moment(_extractedDateStringNoTimezone).isSame(startDate) || moment(_extractedDateStringNoTimezone).isAfter(startDate)) &&
                     (moment(_extractedDateStringNoTimezone).isSame(endDate) || moment(_extractedDateStringNoTimezone).isBefore(endDate))
                 ) {

@@ -31,7 +31,7 @@ if (Meteor.isClient) {
                 var _avgRatingIndexInProgress = 0 + 1;
                 historicalData.forEach(function(histData, index) {
                     var _avgRatingDateInProgress = new Date(_averageAnalystRatingSeries[_avgRatingIndexInProgress].date).toISOString().substring(0,10);
-                    var _date = new Date(histData.date).toISOString().substring(0,10);
+                    var _date = moment(histData.date).tz("America/New_York").format("YYYY-MM-DD");;
                     if (moment(_date).isBefore(_avgRatingDateInProgress)) {
                          //grab data from avgRating with index -1
                         var _obj1 = _.omit(_averageAnalystRatingSeries[_avgRatingIndexInProgress - 1], "date");
