@@ -9,3 +9,7 @@ Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD
 Meteor.publish("stockPricesFor", function(symbolsArr) {
     return StockPrices.find({symbol: {$in: symbolsArr}});
 });
+
+Meteor.publish("allStockNames", function() {
+    return Stocks.find({}, {fields: {_id: 1}});
+});
