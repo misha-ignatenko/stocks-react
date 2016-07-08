@@ -1,5 +1,90 @@
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
+Meteor.methods({
+    getStockPricesFromYahooFinance: function (symbol, startDate, endDate) {
+        console.log("requesting from yahoo finance: ", symbol, startDate, endDate);
+        return YahooFinance.historical({
+            symbol: symbol,
+            from: startDate,
+            to: endDate
+        });
+    },
+    stockPriceInsertAttempt: function (stockPriceObj) {
+        var _symbol = stockPriceObj.symbol;
+        var _dateString = stockPriceObj.dateString;
+
+        var _obj = NewStockPrices.findOne({symbol: _symbol, dateString: _dateString});
+
+        if (!_obj) {
+            console.log("did not find an obj so gonna insert");
+            return NewStockPrices.insert(stockPriceObj)
+        } else {
+            console.log("object already exists in db");
+            return _obj._id + '_existing';
+        }
+    },
+    getStockPricesNew: function(symbol, startStr, endStr) {
+        console.log("in the outer method getStockPrices New");
+        var _res;
+
+        var _existingStartDate = NewStockPrices.find({symbol: symbol}, {sort: {dateString: 1}, limit: 1}).fetch();
+        if (_existingStartDate && _existingStartDate[0]) {
+            _existingStartDate = _existingStartDate[0].dateString;
+            console.log("start date: ", _existingStartDate)
+        }
+
+        var _existingEndDate = NewStockPrices.find({symbol: symbol}, {sort: {dateString: -1}, limit: 1}).fetch();
+        if (_existingEndDate && _existingEndDate[0]) {
+            _existingEndDate = _existingEndDate[0].dateString;
+            console.log("end date: ", _existingEndDate)
+        }
+
+        var _dataDoesNotExistInDbAlready = true;
+        if (_existingStartDate && _existingEndDate && _existingStartDate <= startStr && _existingEndDate >= endStr) {
+            _dataDoesNotExistInDbAlready = false;
+        }
+
+        // todo: in some cases can narrow down the requested date range if a portion of the existing date range already exists.
+        // for example, SBUX has info for June 5 to July 5 and the user requested June 1 to July 7. This means
+        // only need to request for June 1-4 and July 6-7
+
+        if (_dataDoesNotExistInDbAlready) {
+            Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
+                if (!error && result) {
+                    console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
+                    // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
+
+                    var _getStockPricesFromYahooFinanceResults = [];
+                    result.forEach(function (priceObj) {
+                        var _dateString = moment.tz(priceObj.date.toISOString(), "America/New_York").format('YYYY-MM-DD');
+
+                        var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
+                            dateString: _dateString
+                        });
+
+                        Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
+                            if (error) {
+                                _getStockPricesFromYahooFinanceResults.push(error);
+                            } else {
+                                _getStockPricesFromYahooFinanceResults.push(result);
+                            }
+                        })
+                    });
+
+                    _res = _getStockPricesFromYahooFinanceResults;
+
+                } else {
+                    _res = error;
+                }
+            })
+        } else {
+            _res = 'already have all the needed stock prices data';
+        }
+
+        return _res;
+    }
+})
+
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate) {
         var _allEarningsReleases = EarningsReleases.find({$and: [
