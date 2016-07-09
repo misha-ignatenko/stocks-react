@@ -27,28 +27,46 @@ Meteor.methods({
         console.log("in the outer method getStockPrices New");
         var _res;
 
-        var _existingStartDate = NewStockPrices.find({symbol: symbol}, {sort: {dateString: 1}, limit: 1}).fetch();
+        var _existingStartDate = NewStockPrices.findOne({symbol: symbol}) && NewStockPrices.find({symbol: symbol}, {sort: {dateString: 1}, limit: 1}).fetch();
         if (_existingStartDate && _existingStartDate[0]) {
             _existingStartDate = _existingStartDate[0].dateString;
             console.log("start date: ", _existingStartDate)
         }
 
-        var _existingEndDate = NewStockPrices.find({symbol: symbol}, {sort: {dateString: -1}, limit: 1}).fetch();
+        var _existingEndDate = NewStockPrices.findOne({symbol: symbol}) && NewStockPrices.find({symbol: symbol}, {sort: {dateString: -1}, limit: 1}).fetch();
         if (_existingEndDate && _existingEndDate[0]) {
             _existingEndDate = _existingEndDate[0].dateString;
             console.log("end date: ", _existingEndDate)
         }
 
-        var _dataDoesNotExistInDbAlready = true;
+        var _pullNewData = true;
+
         if (_existingStartDate && _existingEndDate && _existingStartDate <= startStr && _existingEndDate >= endStr) {
-            _dataDoesNotExistInDbAlready = false;
+            // this means that all data already exists in the requested date range so no need to pull anything new
+            _pullNewData = false;
+        } else if (_existingStartDate && _existingEndDate) {
+            // this means that there is SOME data but not everything that we want exists yet
+            _pullNewData = true;
+            // now reset startStr and endStr
+            var _allDateNums = [
+                parseInt(_existingStartDate.replace(/-/g, '')),
+                parseInt(_existingEndDate.replace(/-/g, '')),
+                parseInt(startStr.replace(/-/g, '')),
+                parseInt(endStr.replace(/-/g, ''))
+            ]
+
+            // modify startStr and endStr that will go into the getStockPricesFromYahooFinance method below
+            var _minDateStrNoDashes = _.min(_allDateNums).toString();
+            var _maxDateStrNoDashes = _.max(_allDateNums).toString();
+
+            startStr = _minDateStrNoDashes.substring(0,4) + '-' + _minDateStrNoDashes.substring(4,6) + '-' + _minDateStrNoDashes.substring(6,8);
+            endStr = _maxDateStrNoDashes.substring(0,4) + '-' + _maxDateStrNoDashes.substring(4,6) + '-' + _maxDateStrNoDashes.substring(6,8);
+        } else {
+            // there is no existing start or end date
+            _pullNewData = true;
         }
 
-        // todo: in some cases can narrow down the requested date range if a portion of the existing date range already exists.
-        // for example, SBUX has info for June 5 to July 5 and the user requested June 1 to July 7. This means
-        // only need to request for June 1-4 and July 6-7
-
-        if (_dataDoesNotExistInDbAlready) {
+        if (_pullNewData && startStr <= endStr) {
             Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
                 if (!error && result) {
                     console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
