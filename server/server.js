@@ -404,7 +404,7 @@ if (Meteor.isServer) {
                 Meteor.call("getFullQuote", _symbolsAllCapsArray, function(error, quotesArray) {
                     if (!error && quotesArray && quotesArray.length > 0) {
                         quotesArray.forEach(function(quote) {
-                            if (quote.name) {
+                            if (quote.stockExchange) {
                                 var _symbolUpperCase = quote.symbol.toUpperCase();
                                 if (Stocks.find({_id: _symbolUpperCase}).count() === 0) {
                                     Stocks.insert({
