@@ -44,9 +44,10 @@ if (Meteor.isServer) {
                     };
                 }
                 importData.forEach(function(importItem) {
+                    var _universalSymbol = _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
                     //check if symbol isn't already in  _checkForEarningsReleasesForTheseSymbols
-                    if (_checkForEarningsReleasesForTheseSymbols.indexOf(importItem.symbol) === -1) {
-                        _checkForEarningsReleasesForTheseSymbols.push(importItem.symbol);
+                    if (_checkForEarningsReleasesForTheseSymbols.indexOf(_universalSymbol) === -1) {
+                        _checkForEarningsReleasesForTheseSymbols.push(_universalSymbol);
                     }
 
                     //first, check if that research company exists
@@ -87,7 +88,7 @@ if (Meteor.isServer) {
                         //can try to check if this RatingChanges item already exists. if not then insert it.
                         var _existingRatingChange = RatingChanges.findOne({
                             researchFirmId: _researchCompanyId,
-                            symbol: importItem.symbol,
+                            symbol: _universalSymbol,
                             newRatingId: _ratingScaleObjectForNew._id,
                             oldRatingId: _ratingScaleObjectForOld._id,
                             dateString: importItem.dateString
@@ -95,14 +96,14 @@ if (Meteor.isServer) {
                         if (_existingRatingChange) {
                             _alreadyExistingNum++;
                         }
-                        if (!_existingRatingChange && importItem.symbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
+                        if (!_existingRatingChange && _universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
                             // can insert
                             var _ratingChange = {
                                 date: new Date(importItem.dateString).toUTCString(),
                                 dateString: importItem.dateString,
                                 //dateValue: moment(importItem.dateString).valueOf(),
                                 researchFirmId: _researchCompanyId,
-                                symbol: importItem.symbol,
+                                symbol: _universalSymbol,
                                 newRatingId: _ratingScaleObjectForNew._id,
                                 oldRatingId: _ratingScaleObjectForOld._id,
                                 private: true,
@@ -115,9 +116,9 @@ if (Meteor.isServer) {
                                     new: _originalNewRatingString
                                 };
                             }
-                            console.log("adding this stock: ", importItem.symbol);
+                            console.log("adding rating change for universal symbol: ", _universalSymbol);
                             RatingChanges.insert(_ratingChange);
-                            Meteor.call("insertNewStockSymbols", [importItem.symbol]);
+                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
                             _newlyImportedNum++;
                         }
                     } else {
@@ -438,6 +439,18 @@ if (Meteor.isServer) {
             return SymbolMappings.findOne(_query).universalSymbolStr;
         } else {
             return earnRelSymbol;
+        }
+    };
+
+    function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
+        var _query = {
+            from: 'rating_change',
+            symbolStr: ratingChangeSymbol
+        };
+        if (SymbolMappings.find(_query).count() === 1) {
+            return SymbolMappings.findOne(_query).universalSymbolStr;
+        } else {
+            return ratingChangeSymbol;
         }
     };
 }
