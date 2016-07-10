@@ -111,7 +111,49 @@ Meteor.methods({
             return SymbolMappings.insert(_obj);
         }
     }
+    , getPricesNewForAllStocks: function(startStr, endStr, keyCode) {
+        var _allUniqueSymbols = _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), '_id'));
+        console.log("the length of all unique symbols is: ", _allUniqueSymbols.length);
+        console.log("----------------------------------");
+
+        var _initialIndex = 0;
+        if (keyCode === Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken) {
+            _recursiveF(_allUniqueSymbols, _initialIndex, startStr, endStr);
+        } else {
+            console.log("wrong key code.");
+        }
+    }
 })
+
+
+function _recursiveF(arr, index, startStr, endStr) {
+    if (index <= arr.length - 1) {
+        var _symbol = arr[index];
+        console.log("getting prices for: ", _symbol, startStr, endStr);
+        console.log('the index is: ', index);
+        Meteor.call('getStockPricesFromYahooFinance', _symbol, startStr, endStr, function (error, result) {
+            if (!error && result) {
+                console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
+                // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
+
+                result.forEach(function (priceObj) {
+                    var _dateString = moment.tz(priceObj.date.toISOString(), "America/New_York").format('YYYY-MM-DD');
+
+                    var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
+                        dateString: _dateString
+                    });
+
+                    NewStockPrices.insert(_stockPriceObjToAttemptInsering)
+                });
+
+            } else {
+                console.log("there was an error for symbol: ", _symbol);
+            }
+            console.log('------------------------------------------');
+            _recursiveF(arr, index + 1, startStr, endStr);
+        });
+    }
+};
 
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate) {
