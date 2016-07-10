@@ -169,41 +169,6 @@ UpcomingEarningsRelease = React.createClass({
 
         })
     },
-    setDatepickerOptions: function() {
-        let _datepickerOptions = {
-            autoclose: true,
-            todayHighlight: true,
-            orientation: "top auto"
-        };
-        $('#individualStockStartDate').datepicker(_datepickerOptions);
-        $('#individualStockEndDate').datepicker(_datepickerOptions);
-        var _that = this;
-
-        $('.datepickerInput').on('change', function() {
-            let _newVal = $(this).val();
-            let _momentDate = moment(new Date(_newVal).toISOString()).format("YYYY-MM-DD");
-            let _id = $(this).attr('id');
-            let _set = {};
-            _set[_id] = _momentDate;
-            _that.setState(_set);
-            _that.getLatestGraph(_that.props.symbol);
-        });
-    },
-    getLatestGraph: function(symbol) {
-        //make sure that end date is after start date
-        //or disable dates based on previously selected dates
-        if (symbol && this.state.individualStockStartDate && this.state.individualStockEndDate) {
-            console.log('getting the latest graph.');
-            var _that = this;
-            Meteor.call('checkHistoricalData', symbol, this.state.individualStockStartDate, this.state.individualStockEndDate, function(err, result) {
-                if (result && result.historicalData) {
-                    _that.setState({
-                        stocksToGraphObjects: [result]
-                    });
-                }
-            });
-        }
-    },
     componentWillReceiveProps: function(nextProps) {
         if (this.props.symbol !== nextProps.symbol) {
             console.log("should not be here");
@@ -324,16 +289,6 @@ UpcomingEarningsRelease = React.createClass({
             {this.renderEpsMeanEstimates()}
             <br/>
 
-            <div className="datepickers" ref={this.setDatepickerOptions}>
-                start date:
-                <input className="datepickerInput" id="individualStockStartDate"/>
-                end date:
-                <input className="datepickerInput" id="individualStockEndDate" />
-            </div>
-            <div className="col-md-12 individualStockGraph">
-                <StocksGraph
-                    stocksToGraphObjects={this.state.stocksToGraphObjects}/>
-            </div>
         </div>);
     }
 });
