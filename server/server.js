@@ -116,9 +116,12 @@ Meteor.methods({
         console.log("the length of all unique symbols is: ", _allUniqueSymbols.length);
         console.log("----------------------------------");
 
+        var _existingUniqStockPriceSymbols = _.uniq(_.pluck(NewStockPrices.find({}, {fields: {symbol: 1}}).fetch(), 'symbol'));
+        var _stocksThatAreNotInStockPricesYet = _.difference(_allUniqueSymbols, _existingUniqStockPriceSymbols);
+
         var _initialIndex = 0;
         if (keyCode === Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken) {
-            _recursiveF(_allUniqueSymbols, _initialIndex, startStr, endStr);
+            _recursiveF(_stocksThatAreNotInStockPricesYet, _initialIndex, startStr, endStr);
         } else {
             console.log("wrong key code.");
         }

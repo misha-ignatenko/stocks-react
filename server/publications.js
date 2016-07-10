@@ -13,3 +13,16 @@ Meteor.publish("stockPricesFor", function(symbolsArr) {
 Meteor.publish("allStockNames", function() {
     return Stocks.find({}, {fields: {_id: 1}});
 });
+
+Meteor.publish("allNewStockPricesForDate", function(dateStr) {
+    return NewStockPrices.find(
+        {
+            dateString: dateStr
+        }, {
+            fields: {
+                _id: 1,
+                dateString: 1,
+                symbol: 1
+            }
+        });
+})

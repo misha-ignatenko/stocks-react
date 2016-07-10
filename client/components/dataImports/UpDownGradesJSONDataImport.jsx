@@ -4,6 +4,7 @@ UpDownGradesJSONDataImport = React.createClass({
     getMeteorData() {
         return {
             currentUser: Meteor.user()
+            , newStockPricesCount: Meteor.subscribe('allNewStockPricesForDate', '2016-07-08').ready() && NewStockPrices.find().count()
         }
     },
 
@@ -180,6 +181,7 @@ UpDownGradesJSONDataImport = React.createClass({
             <div className="container">
                 { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Up/downgrades entry page:</h1>
+                    <h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>
                     {!this.state.splitIntoCells ?
                         <div className="textAreaEntryDiv">
                             <textarea rows="20" cols="100"
