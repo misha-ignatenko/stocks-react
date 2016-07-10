@@ -41,7 +41,7 @@ IndividualStock = React.createClass({
         });
     },
 
-    componentDidMount: function() {
+    componentWillMount: function() {
         if (_.isNull(Meteor.user())) {
             var _username = Random.id() + "@ign-stocks.com";
             var _password = Random.id();
@@ -207,6 +207,14 @@ IndividualStock = React.createClass({
                                 stocksToGraphObjects={this.state.stocksToGraphObjects}/>
                         </div>
                     </div> : null}
+
+                    {this.state.selectedStock ?
+                        <div className="container">
+                            <AverageAndWeightedRatings symbol={this.state.selectedStock} />
+                        </div> :
+                        null
+                    }
+
                 </div> : "u havta be logged in."}
             </div>
         )

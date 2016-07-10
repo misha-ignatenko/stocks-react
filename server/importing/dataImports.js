@@ -5,7 +5,7 @@ if (Meteor.isServer) {
         importData: function(importData, importType) {
             //run all the checks here
 
-            if (! Meteor.userId()) {
+            if (! Meteor.userId() && importType !== "earnings_releases") {
                 throw new Meteor.Error("not-authorized");
             }
 
@@ -44,9 +44,10 @@ if (Meteor.isServer) {
                     };
                 }
                 importData.forEach(function(importItem) {
+                    var _universalSymbol = _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
                     //check if symbol isn't already in  _checkForEarningsReleasesForTheseSymbols
-                    if (_checkForEarningsReleasesForTheseSymbols.indexOf(importItem.symbol) === -1) {
-                        _checkForEarningsReleasesForTheseSymbols.push(importItem.symbol);
+                    if (_checkForEarningsReleasesForTheseSymbols.indexOf(_universalSymbol) === -1) {
+                        _checkForEarningsReleasesForTheseSymbols.push(_universalSymbol);
                     }
 
                     //first, check if that research company exists
@@ -61,11 +62,33 @@ if (Meteor.isServer) {
                     //second, get rating scales id so that can check if item already exists in RatingChanges
                     var _ratingScaleObjectForNew = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
                     var _ratingScaleObjectForOld = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
+
+
+                    var _originalOldRatingString;
+                    var _originalNewRatingString;
+                    //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
+                    if (!_ratingScaleObjectForNew) {
+                        var _secondaryNew = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
+                        if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
+                            _ratingScaleObjectForNew = RatingScales.findOne({_id: _secondaryNew.referenceRatingScaleId});
+                            _originalNewRatingString = importItem.newRatingString;
+                        }
+                    }
+
+                    if (!_ratingScaleObjectForOld) {
+                        var _secondaryOld = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
+                        if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
+                            _ratingScaleObjectForOld = RatingScales.findOne({_id: _secondaryOld.referenceRatingScaleId});
+                            _originalOldRatingString = importItem.oldRatingString;
+                        }
+                    }
+
+
                     if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
                         //can try to check if this RatingChanges item already exists. if not then insert it.
                         var _existingRatingChange = RatingChanges.findOne({
                             researchFirmId: _researchCompanyId,
-                            symbol: importItem.symbol,
+                            symbol: _universalSymbol,
                             newRatingId: _ratingScaleObjectForNew._id,
                             oldRatingId: _ratingScaleObjectForOld._id,
                             dateString: importItem.dateString
@@ -73,22 +96,29 @@ if (Meteor.isServer) {
                         if (_existingRatingChange) {
                             _alreadyExistingNum++;
                         }
-                        if (!_existingRatingChange && importItem.symbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
+                        if (!_existingRatingChange && _universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
                             // can insert
                             var _ratingChange = {
                                 date: new Date(importItem.dateString).toUTCString(),
                                 dateString: importItem.dateString,
                                 //dateValue: moment(importItem.dateString).valueOf(),
                                 researchFirmId: _researchCompanyId,
-                                symbol: importItem.symbol,
+                                symbol: _universalSymbol,
                                 newRatingId: _ratingScaleObjectForNew._id,
                                 oldRatingId: _ratingScaleObjectForOld._id,
                                 private: true,
                                 addedBy: Meteor.userId(),
                                 addedOn: new Date().toUTCString()
                             };
-                            console.log("adding this stock: ", importItem.symbol);
+                            if (_originalOldRatingString || _originalNewRatingString) {
+                                _ratingChange.originalRatingStrings = {
+                                    old: _originalOldRatingString,
+                                    new: _originalNewRatingString
+                                };
+                            }
+                            console.log("adding rating change for universal symbol: ", _universalSymbol);
                             RatingChanges.insert(_ratingChange);
+                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
                             _newlyImportedNum++;
                         }
                     } else {
@@ -129,17 +159,19 @@ if (Meteor.isServer) {
             } else if (importType === "earnings_releases") {
                 console.log("earnings_releases import function called with: ", importData);
                 importData.forEach(function(importItem) {
+                    var _universalSymbol = _getUniversalSymbolFromEarningsReleaseSymbol(importItem);
+                    var _quandlSymbol = _getEarningsReleaseSymbolFromUniversalSymbol(importItem);
 
                     if (_canPullAgainFromQuandl(importItem)) {
                         //TODO check if this earnings release already exists -- check for plus minus 5 days around it
                         var _earningRelease = {
-                            symbol: importItem
+                            symbol: _universalSymbol
                         };
 
 
                         var _authToken = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
                         var _symbol = _earningRelease.symbol;
-                        var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _symbol + ".json?auth_token=" + _authToken;
+                        var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _quandlSymbol + ".json?auth_token=" + _authToken;
                         HTTP.get(_url, function (error, result) {
                             if (!error && result) {
                                 //TODO check if earnings release data for that stock exists.
@@ -171,6 +203,7 @@ if (Meteor.isServer) {
                                         if (!_matchingEarningsReleaseId) {
                                             console.log("inserting into earningsReleases: ", _earningRelease);
                                             EarningsReleases.insert(_earningRelease);
+                                            Meteor.call("insertNewStockSymbols", [_symbol]);
                                         } else {
                                             var _previousAsOfField = EarningsReleases.findOne({_id: _matchingEarningsReleaseId}).asOf;
                                             var _latestAsOfField = _objectFromQuandlMyDbFormat.asOf;
@@ -189,6 +222,12 @@ if (Meteor.isServer) {
                                 }
                             } else {
                                 console.log("error while getting a response from Quandl. Symbol: ", _symbol);
+                                var _err = {
+                                    message: (error.response.data && error.response.data.quandl_error.message) || 'no error response',
+                                    asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"),
+                                    symbol: _symbol
+                                };
+                                QuandlDataPullErrors.insert(_err);
                             }
                         });
                     }
@@ -343,6 +382,7 @@ if (Meteor.isServer) {
 
     function _canPullAgainFromQuandl(symbol) {
         var _canPull = false;
+        var _canPullFromQuandlEveryNDaysIfPreviousPullWasError = Settings.findOne().serverSettings.quandl.canRepullFromQuandlEveryNDaysIfPreviousPullWasError;
 
         var _canPullFromQuandlEveryNDays;
         if (Meteor.serverConstants.pullFromQuandEveryNDays) {
@@ -356,13 +396,61 @@ if (Meteor.isServer) {
         }
         var _todaysDateInteger = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
 
-        if (
-            !_lastPullFromQuandl ||
-            (_lastPullFromQuandl && _canPullFromQuandlEveryNDays && parseInt(moment(new Date(_lastPullFromQuandl)).add(_canPullFromQuandlEveryNDays + 1, 'days').format("YYYYMMDD")) <= _todaysDateInteger)
-        ) {
-            _canPull = true;
+        var _lastErrorFromQuandl = QuandlDataPullErrors.findOne({symbol: symbol}, {sort: {asOf: -1}});
+        var _lastErrorDateFromQuandl = _lastErrorFromQuandl && _lastErrorFromQuandl.asOf;
+        var _format = "YYYYMMDD";
+        var _days = "days";
+
+
+        var _lastPullDoesNotExist = !_lastPullFromQuandl;
+        var _lastPullExistsAndAboutTimeToRepull = _lastPullFromQuandl &&
+            _canPullFromQuandlEveryNDays &&
+            (parseInt(moment(new Date(_lastPullFromQuandl)).add(_canPullFromQuandlEveryNDays + 1, _days).format(_format)) <= _todaysDateInteger);
+
+
+        if (_lastPullDoesNotExist || _lastPullExistsAndAboutTimeToRepull ) {
+            //great. this means that can pull again based on previous pull history
+
+            var _previousErrorDoesNotExist = !_lastErrorDateFromQuandl;
+            var _previousErrorExistsAndItsAboutTimeToRetry = _lastErrorDateFromQuandl && _canPullFromQuandlEveryNDaysIfPreviousPullWasError && parseInt(moment(new Date(_lastErrorDateFromQuandl)).add(_canPullFromQuandlEveryNDaysIfPreviousPullWasError + 1, _days).format(_format)) <= _todaysDateInteger;
+            //now make sure that there were no latest error that would prevent us from pulling again
+            if (_previousErrorDoesNotExist || _previousErrorExistsAndItsAboutTimeToRetry) {_canPull = true;}
         }
 
         return _canPull;
+    };
+
+    function _getEarningsReleaseSymbolFromUniversalSymbol(universalSymbol) {
+        var _query = {from: 'earnings_release', universalSymbolStr: universalSymbol};
+
+        if (SymbolMappings.find(_query).count() === 1) {
+            return SymbolMappings.findOne(_query).symbolStr;
+        } else {
+            return universalSymbol;
+        }
+    };
+
+    function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
+        var _query = {
+            from: 'earnings_release',
+            symbolStr: earnRelSymbol
+        };
+        if (SymbolMappings.find(_query).count() === 1) {
+            return SymbolMappings.findOne(_query).universalSymbolStr;
+        } else {
+            return earnRelSymbol;
+        }
+    };
+
+    function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
+        var _query = {
+            from: 'rating_change',
+            symbolStr: ratingChangeSymbol
+        };
+        if (SymbolMappings.find(_query).count() === 1) {
+            return SymbolMappings.findOne(_query).universalSymbolStr;
+        } else {
+            return ratingChangeSymbol;
+        }
     };
 }

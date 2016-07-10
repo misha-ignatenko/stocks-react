@@ -133,11 +133,13 @@ UpcomingEarningsRelease = React.createClass({
         return _uniq;
     },
     shouldComponentUpdate: function(nextProps, nextState) {
-        if (this.props.symbol !== nextProps.symbol) {
-            //console.log("props updated. new symbol: ", nextProps.symbol);
+        //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
+        //because it takes a few seconds after new symbol prop is set to get new data to graph
+        if (JSON.stringify(this.state.stocksToGraphObjs) !== JSON.stringify(nextState.stocksToGraphObjs)) {
+            return true;
         }
 
-        return true;
+        return false;
     },
 
     checkForNewestDataFromQuandl: function (symbol) {

@@ -5,7 +5,7 @@ StocksGraph = React.createClass({
     },
 
     componentWillReceiveProps: function(nextProps) {
-        this.initializeChart(nextProps.stocksToGraphObjects);
+        this.initializeChart(nextProps.stocksToGraphObjects || []);
     },
 
     initializeChart: function(stocksObjectsArray) {
@@ -111,7 +111,8 @@ StocksGraph = React.createClass({
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
-                    }
+                    },
+                    yAxis: 1
                 });
             }
 
@@ -225,7 +226,7 @@ StocksGraph = React.createClass({
     },
 
     componentDidMount: function() {
-        this.initializeChart([]);
+        this.initializeChart(this.props.stocksToGraphObjects || []);
     },
 
     render: function() {

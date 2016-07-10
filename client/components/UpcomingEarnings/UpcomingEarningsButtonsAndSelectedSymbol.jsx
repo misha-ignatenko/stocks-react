@@ -2,9 +2,13 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
     mixins: [ReactMeteorData]
 
     , getInitialState() {
+        let _ratingChangesDateFormat = "YYYY-MM-DD";
+
         return {
             selectedSymbolIndex: 1
             , showAllButtons: false
+            , startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat)
+            , endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat)
         };
     }
 
@@ -12,12 +16,32 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         let _earningReleases = EarningsReleases.find().fetch();
         let _earningsReleasesSorted = _.sortBy(_earningReleases, "reportDateNextFiscalQuarter");
         let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
+        //todo this should come from settings
+        let _limit = 3;
+        let _selectedIndex = this.state.selectedSymbolIndex;
+        let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1, _selectedIndex - 1 + _limit);
+        let _ratingsChangesSubsStatuses = {};
+
+        let _currentUser = Meteor.user();
+        let _settings = Settings.findOne();
+
+        let _startDateForRatingChangesSubscription =
+            _currentUser ?
+                this.state.startDateRatingChanges :
+                moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
+        let _endDateRatingChanges = this.state.endDateRatingChanges;
+
+        _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
+            var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
+            _ratingsChangesSubsStatuses[symbol] = _handle.ready();
+        });
 
         return {
             earningReleases: _earningsReleasesSorted
             , ratingChanges: RatingChanges.find().fetch()
-            , currentUser: Meteor.user()
+            , currentUser: _currentUser
             , uniqueSymbols: _uniqueSymbols
+            , ratingsChangesSubsStatuses: _ratingsChangesSubsStatuses
         };
     }
 
@@ -28,7 +52,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             //, selectedSymbol: React.PropTypes.string.isRequired
             //, showPickListItem: React.PropTypes.bool.isRequired
             //, setSelectedSymbol: React.PropTypes.func.isRequired
-            focusStocksFunction: React.PropTypes.func.isRequired
+            //focusStocksFunction: React.PropTypes.func.isRequired
         }
     }
 
@@ -125,11 +149,11 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
 
     , shouldComponentUpdate(nextProps, nextState) {
         if (this.state.selectedSymbolIndex !== nextState.selectedSymbolIndex) {
-            this.props.focusStocksFunction([
-                this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
-                this.data.uniqueSymbols[nextState.selectedSymbolIndex],
-                this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
-            ]);
+            //this.props.focusStocksFunction([
+            //    this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
+            //    this.data.uniqueSymbols[nextState.selectedSymbolIndex],
+            //    this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
+            //]);
             return true;
         } else if (this.state.showAllButtons !== nextState.showAllButtons) {
             return true;
@@ -192,7 +216,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 {this.props.startDate}
                 {this.props.endDate}
                 <br/>
-                {!this.data.ratingChanges ? "subs loading" : <div className="row">
+                {!this.data.ratingsChangesSubsStatuses[_symbol] ? "ratings changes loading for " + _symbol : <div className="row">
                     {this.data.currentUser ?
                         <button className="btn btn-default" onClick={this.changeShowAllBtnsSetting}>
                             {this.state.showAllButtons ? "hide individual buttons" : "show all individual buttons"}

@@ -5,11 +5,14 @@ UpcomingEarningsReleases = React.createClass({
     mixins: [ReactMeteorData],
 
     getInitialState() {
+        let _ratingChangesDateFormat = "YYYY-MM-DD";
+
         return {
+            startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
+            endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
             startEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).format("YYYYMMDD")),
             endEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")),
-            earningsReleaseIndex: 0
-            , ratingChangesSubscriptionHandles: {}
+            ratingChangesSubscriptionHandles: {}
         }
     },
 
@@ -21,23 +24,18 @@ UpcomingEarningsReleases = React.createClass({
 
         var data = {};
         data.currentUser = Meteor.user();
-        var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, this.state.endEarningsReleaseDateInteger);
-        if (_handle1.ready()) {
-            var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
-            var _onlyThreeUniqueSymbols = [];
-            if (_uniqSymbols[0]) {
-                _onlyThreeUniqueSymbols.push(_uniqSymbols[0]);
-                if (_uniqSymbols[1]) {
-                    _onlyThreeUniqueSymbols.push(_uniqSymbols[1]);
-                    if (_uniqSymbols[2]) {
-                        _onlyThreeUniqueSymbols.push(_uniqSymbols[2]);
-                    }
-                }
-            }
-            var _handle2 = Meteor.subscribe("ratingChangesForSymbols", _onlyThreeUniqueSymbols);
-            if (_handle2.ready()) {
-                data.earningsReleasesAndRatingChangesSubsReady = true;
-                this.pullDataFromQuandl(_uniqSymbols);
+        data.settings = Settings.findOne();
+        if (data.settings) {
+            var _endDateForEarningsReleasesSubscription =
+                data.currentUser ?
+                    this.state.endEarningsReleaseDateInteger :
+                    parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
+            var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription);
+            if (_handle1.ready()) {
+                var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
+                data.earningsReleasesSubscriptionReady = true;
+                //this is now done automatically every night
+                //this.pullDataFromQuandl(_uniqSymbols);
             }
         }
 
@@ -148,7 +146,7 @@ UpcomingEarningsReleases = React.createClass({
                         </div>
                     ) : null
                 ) : null}
-                {this.data.earningsReleasesAndRatingChangesSubsReady ? <UpcomingEarningsButtonsAndSelectedSymbol focusStocksFunction={this.focusStocks}/> : "loading"}
+                {this.data.earningsReleasesSubscriptionReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases."}
                 <br/>
             </div>
         );

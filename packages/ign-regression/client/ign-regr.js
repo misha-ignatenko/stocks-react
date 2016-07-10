@@ -15,13 +15,84 @@ IgnRegression.functions = {
             var _gradientSumSquates = 0;
             _weights.forEach(function(weight, featureIndex) {
                 var _derivative = 2 * IgnRegression.utilities.get_dot_product_two_arrays(
+                        _errors,
+                        IgnRegression.utilities.get_column_from_array_of_arrays(featureMartix, featureIndex)
+                    );
+                _gradientSumSquates += _derivative * _derivative;
+
+                _weights[featureIndex] -= stepSize * _derivative;
+            });
+
+            var _gradientMagnitude = Math.sqrt(_gradientSumSquates);
+            if (_gradientMagnitude < tolerance || _iter > maxIter) {
+                _converged = true;
+            }
+        }
+
+        return {
+            weights: _weights,
+            iter: _iter
+        };
+    }
+    , multiple_regression_gradient_descent2: function (
+        featureMartix,
+        actualOutput,
+        initialWeights,
+        stepSize,
+        tolerance,
+        maxIter,
+        goDownPerDayAtMinRating,
+        goUpPerDayAtMaxRating,
+        minRatingValue,
+        maxRatingValue,
+        cutoffValue,
+        minPossibleWeight,
+        maxPossibleWeight
+    ) {
+
+        var _converged = false;
+        var _weights = initialWeights;
+
+        var _iter = 0;
+
+        while (!_converged) {
+            _iter++;
+            var _firstActualValue = actualOutput[0];
+            var _alternativePredictions = [_firstActualValue];
+            featureMartix.forEach(function(featureMatrixRow, index) {
+                if (index > 0) {
+                    var _weightedAvgRatingForDay = IgnRegression.utilities.get_dot_product_two_arrays(featureMatrixRow, _weights);
+                    var _dayIncrease;
+                    var _fractionOfMaxGoUp;
+                    var _fractionOfMaxGoDown;
+                    if (_weightedAvgRatingForDay >= cutoffValue) {
+                        _fractionOfMaxGoUp = (_weightedAvgRatingForDay - cutoffValue) / (maxRatingValue - cutoffValue);
+                        _dayIncrease = _fractionOfMaxGoUp * goUpPerDayAtMaxRating;
+                    } else {
+                        _fractionOfMaxGoDown = (cutoffValue - _weightedAvgRatingForDay) / (cutoffValue - minRatingValue);
+                        _dayIncrease = _fractionOfMaxGoDown * goDownPerDayAtMinRating;
+                    }
+                    var _priceFromPreviousDay = _alternativePredictions[index - 1];
+                    var _newPrice = _priceFromPreviousDay * (1 + _dayIncrease);
+                    _alternativePredictions.push(_newPrice);
+                }
+            });
+
+            var _errors = IgnRegression.utilities.subtract_arrays(_alternativePredictions, actualOutput);
+
+            var _gradientSumSquates = 0;
+            _weights.forEach(function(weight, featureIndex) {
+                var _derivative = 2 * IgnRegression.utilities.get_dot_product_two_arrays(
                         _errors, IgnRegression.utilities.get_column_from_array_of_arrays(featureMartix, featureIndex)
                     );
                 _gradientSumSquates += _derivative * _derivative;
 
-                var _updateToWeight = -stepSize*_derivative;
+                _weights[featureIndex] -= stepSize * _derivative;
 
-                _weights[featureIndex] -= stepSize * _derivative
+                //break out of method before reaching positive or negative infinities
+                if (_weights[featureIndex] < minPossibleWeight || _weights[featureIndex] > maxPossibleWeight) {
+                    _converged = true;
+                }
             });
 
             var _gradientMagnitude = Math.sqrt(_gradientSumSquates);
@@ -52,6 +123,21 @@ IgnRegression.utilities = {
         }
         return _result;
     },
+
+    remove_column_indices_from_matrix: function (matrix, arrayOfIndicesToRemove) {
+        var _newFeatureMatrix = [];
+        matrix.forEach(function (rowArr) {
+            var _newRow = [];
+            rowArr.forEach(function (rowColItem, colIndex) {
+                if (arrayOfIndicesToRemove.indexOf(colIndex) === -1) {
+                    _newRow.push(rowColItem);
+                }
+            });
+            _newFeatureMatrix.push(_newRow);
+        });
+        return _newFeatureMatrix;
+    },
+
     get_dot_product_two_arrays: function(array1, array2) {
         var _result = 0;
         if (array1.length === array2.length && array1.length > 0) {

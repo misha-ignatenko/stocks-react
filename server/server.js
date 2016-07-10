@@ -1,5 +1,118 @@
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
+Meteor.methods({
+    getStockPricesFromYahooFinance: function (symbol, startDate, endDate) {
+        console.log("requesting from yahoo finance: ", symbol, startDate, endDate);
+        return YahooFinance.historical({
+            symbol: symbol,
+            from: startDate,
+            to: endDate
+        });
+    },
+    stockPriceInsertAttempt: function (stockPriceObj) {
+        var _symbol = stockPriceObj.symbol;
+        var _dateString = stockPriceObj.dateString;
+
+        var _obj = NewStockPrices.findOne({symbol: _symbol, dateString: _dateString});
+
+        if (!_obj) {
+            console.log("did not find an obj so gonna insert");
+            return NewStockPrices.insert(stockPriceObj)
+        } else {
+            console.log("object already exists in db");
+            return _obj._id + '_existing';
+        }
+    },
+    getStockPricesNew: function(symbol, startStr, endStr) {
+        console.log("in the outer method getStockPrices New");
+        var _res;
+
+        var _existingStartDate = NewStockPrices.findOne({symbol: symbol}, {sort: {dateString: 1}});
+        if (_existingStartDate) {
+            _existingStartDate = _existingStartDate.dateString;
+            console.log("start date: ", _existingStartDate)
+        }
+
+        var _existingEndDate = NewStockPrices.findOne({symbol: symbol}, {sort: {dateString: -1}});
+        if (_existingEndDate) {
+            _existingEndDate = _existingEndDate.dateString;
+            console.log("end date: ", _existingEndDate)
+        }
+
+        var _pullNewData = true;
+
+        if (_existingStartDate && _existingEndDate && _existingStartDate <= startStr && _existingEndDate >= endStr) {
+            // this means that all data already exists in the requested date range so no need to pull anything new
+            _pullNewData = false;
+        } else if (_existingStartDate && _existingEndDate) {
+            // this means that there is SOME data but not everything that we want exists yet
+            _pullNewData = true;
+            // now reset startStr and endStr
+            var _allDateNums = [
+                parseInt(_existingStartDate.replace(/-/g, '')),
+                parseInt(_existingEndDate.replace(/-/g, '')),
+                parseInt(startStr.replace(/-/g, '')),
+                parseInt(endStr.replace(/-/g, ''))
+            ]
+
+            // modify startStr and endStr that will go into the getStockPricesFromYahooFinance method below
+            var _minDateStrNoDashes = _.min(_allDateNums).toString();
+            var _maxDateStrNoDashes = _.max(_allDateNums).toString();
+
+            startStr = _minDateStrNoDashes.substring(0,4) + '-' + _minDateStrNoDashes.substring(4,6) + '-' + _minDateStrNoDashes.substring(6,8);
+            endStr = _maxDateStrNoDashes.substring(0,4) + '-' + _maxDateStrNoDashes.substring(4,6) + '-' + _maxDateStrNoDashes.substring(6,8);
+        } else {
+            // there is no existing start or end date
+            _pullNewData = true;
+        }
+
+        if (_pullNewData && startStr <= endStr) {
+            Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
+                if (!error && result) {
+                    console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
+                    // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
+
+                    var _getStockPricesFromYahooFinanceResults = [];
+                    result.forEach(function (priceObj) {
+                        var _dateString = moment.tz(priceObj.date.toISOString(), "America/New_York").format('YYYY-MM-DD');
+
+                        var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
+                            dateString: _dateString
+                        });
+
+                        Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
+                            if (error) {
+                                _getStockPricesFromYahooFinanceResults.push(error);
+                            } else {
+                                _getStockPricesFromYahooFinanceResults.push(result);
+                            }
+                        })
+                    });
+
+                    _res = _getStockPricesFromYahooFinanceResults;
+
+                } else {
+                    _res = error;
+                }
+            })
+        } else {
+            _res = 'already have all the needed stock prices data';
+        }
+
+        return _res;
+    },
+    addNewSymbolMapping: function(localStr, fromStr, universalStr) {
+        var _obj = {
+            symbolStr: localStr,
+            from: fromStr,
+            universalSymbolStr: universalStr
+        };
+        if (SymbolMappings.find(_obj).count() == 0) {
+            return SymbolMappings.insert(_obj);
+        }
+    }
+})
+
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate) {
         var _allEarningsReleases = EarningsReleases.find({$and: [
@@ -22,10 +135,7 @@ if (Meteor.isServer) {
 
         return _allEarningsReleases;
     });
-    Meteor.publish("ratingChangesForSymbols", function (symbolsArr) {
-        console.log("symbols array: ", symbolsArr)
-        return RatingChanges.find({symbol: {$in: symbolsArr}}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
-    });
+
     Meteor.publish("pickLists", function () {
         return PickLists.find();
     });
@@ -46,10 +156,6 @@ if (Meteor.isServer) {
     Meteor.publish(null, function() {
         var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
         return _user;
-    });
-
-    Meteor.publish("ratingChangesForSymbol", function(symbol) {
-        return RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
     });
 
     Meteor.publish("ratingScales", function() {
@@ -185,9 +291,8 @@ if (Meteor.isServer) {
         removePickListItem: function(pickListItemId) {
             PickListItems.remove(pickListItemId);
         },
-        getFullQuote: function (symbol) {
-            var _fullQuote = YahooFinance.snapshot({symbols: [symbol]});
-            return _fullQuote;
+        getFullQuote: function (symbolsArray) {
+            return YahooFinance.snapshot({symbols: symbolsArray});
         },
         getLatestAskPrice: function (symbol) {
             var _latestPriceQuote = YahooFinance.snapshot({symbols: [symbol], fields: ['s', 'n', 'd1', 'l1', 'y', 'r']});
@@ -258,6 +363,7 @@ if (Meteor.isServer) {
                             existingEndDate: _actualEndDateFromQuery,
                             symbol: symbol
                         });
+                        Meteor.call("insertNewStockSymbols", [symbol]);
                     }
                 });
             }
@@ -297,6 +403,32 @@ if (Meteor.isServer) {
             //todo delete this method if not being used anyhere
             var _result = StockPrices.findOne({symbol: symbol}).historicalData;
             return _result;
+        },
+        insertNewStockSymbols: function(symbolsArray) {
+            var _symbolsAllCapsArray = [];
+            symbolsArray.forEach(function(symbol) {
+                _symbolsAllCapsArray.push(symbol.toUpperCase());
+            });
+
+            if (_symbolsAllCapsArray.length > 0) {
+                Meteor.call("getFullQuote", _symbolsAllCapsArray, function(error, quotesArray) {
+                    if (!error && quotesArray && quotesArray.length > 0) {
+                        quotesArray.forEach(function(quote) {
+                            if (quote.stockExchange) {
+                                var _symbolUpperCase = quote.symbol.toUpperCase();
+                                if (Stocks.find({_id: _symbolUpperCase}).count() === 0) {
+                                    Stocks.insert({
+                                        _id: _symbolUpperCase,
+                                        quote: _.extend(quote, {
+                                            asOf: new Date().toISOString()
+                                        })
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            }
         }
     });
 }
