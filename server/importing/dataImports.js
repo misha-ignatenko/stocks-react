@@ -162,7 +162,7 @@ if (Meteor.isServer) {
                     var _universalSymbol = _getUniversalSymbolFromEarningsReleaseSymbol(importItem);
                     var _quandlSymbol = _getEarningsReleaseSymbolFromUniversalSymbol(importItem);
 
-                    if (_canPullAgainFromQuandl(importItem)) {
+                    if (_canPullAgainFromQuandl(_universalSymbol)) {
                         //TODO check if this earnings release already exists -- check for plus minus 5 days around it
                         var _earningRelease = {
                             symbol: _universalSymbol
@@ -170,7 +170,6 @@ if (Meteor.isServer) {
 
 
                         var _authToken = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
-                        var _symbol = _earningRelease.symbol;
                         var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _quandlSymbol + ".json?auth_token=" + _authToken;
                         HTTP.get(_url, function (error, result) {
                             if (!error && result) {
@@ -192,7 +191,7 @@ if (Meteor.isServer) {
                                     //now check if any of the existing earnings releases match this one we are trying to import
 
                                     if (result.statusCode === 200) {
-                                        var _matchingEarningsReleaseId = _matchingEntryExistsInEarningsReleases(_symbol, _objectFromQuandlMyDbFormat);
+                                        var _matchingEarningsReleaseId = _matchingEntryExistsInEarningsReleases(_universalSymbol, _objectFromQuandlMyDbFormat);
                                         _.extend(_earningRelease, _objectFromQuandlMyDbFormat);
                                         var _lastMod = {
                                             lastModified: new Date().toUTCString(),
@@ -203,7 +202,7 @@ if (Meteor.isServer) {
                                         if (!_matchingEarningsReleaseId) {
                                             console.log("inserting into earningsReleases: ", _earningRelease);
                                             EarningsReleases.insert(_earningRelease);
-                                            Meteor.call("insertNewStockSymbols", [_symbol]);
+                                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
                                         } else {
                                             var _previousAsOfField = EarningsReleases.findOne({_id: _matchingEarningsReleaseId}).asOf;
                                             var _latestAsOfField = _objectFromQuandlMyDbFormat.asOf;
@@ -221,11 +220,11 @@ if (Meteor.isServer) {
                                     console.log("ERROR. _i is less than 14.");
                                 }
                             } else {
-                                console.log("error while getting a response from Quandl. Symbol: ", _symbol);
+                                console.log("error while getting a response from Quandl. Symbol: ", _universalSymbol);
                                 var _err = {
                                     message: (error.response.data && error.response.data.quandl_error.message) || 'no error response',
                                     asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"),
-                                    symbol: _symbol
+                                    symbol: _universalSymbol
                                 };
                                 QuandlDataPullErrors.insert(_err);
                             }
