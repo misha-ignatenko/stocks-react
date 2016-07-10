@@ -158,17 +158,19 @@ if (Meteor.isServer) {
             } else if (importType === "earnings_releases") {
                 console.log("earnings_releases import function called with: ", importData);
                 importData.forEach(function(importItem) {
+                    var _universalSymbol = _getUniversalSymbolFromEarningsReleaseSymbol(importItem);
+                    var _quandlSymbol = _getEarningsReleaseSymbolFromUniversalSymbol(importItem);
 
                     if (_canPullAgainFromQuandl(importItem)) {
                         //TODO check if this earnings release already exists -- check for plus minus 5 days around it
                         var _earningRelease = {
-                            symbol: importItem
+                            symbol: _universalSymbol
                         };
 
 
                         var _authToken = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
                         var _symbol = _earningRelease.symbol;
-                        var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _symbol + ".json?auth_token=" + _authToken;
+                        var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _quandlSymbol + ".json?auth_token=" + _authToken;
                         HTTP.get(_url, function (error, result) {
                             if (!error && result) {
                                 //TODO check if earnings release data for that stock exists.
@@ -219,7 +221,11 @@ if (Meteor.isServer) {
                                 }
                             } else {
                                 console.log("error while getting a response from Quandl. Symbol: ", _symbol);
-                                var _err = {message: error.response.data.quandl_error.message, asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"), symbol: _symbol};
+                                var _err = {
+                                    message: (error.response.data && error.response.data.quandl_error.message) || 'no error response',
+                                    asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"),
+                                    symbol: _symbol
+                                };
                                 QuandlDataPullErrors.insert(_err);
                             }
                         });
@@ -411,5 +417,27 @@ if (Meteor.isServer) {
         }
 
         return _canPull;
+    };
+
+    function _getEarningsReleaseSymbolFromUniversalSymbol(universalSymbol) {
+        var _query = {from: 'earnings_release', universalSymbolStr: universalSymbol};
+
+        if (SymbolMappings.find(_query).count() === 1) {
+            return SymbolMappings.findOne(_query).symbolStr;
+        } else {
+            return universalSymbol;
+        }
+    };
+
+    function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
+        var _query = {
+            from: 'earnings_release',
+            symbolStr: earnRelSymbol
+        };
+        if (SymbolMappings.find(_query).count() === 1) {
+            return SymbolMappings.findOne(_query).universalSymbolStr;
+        } else {
+            return earnRelSymbol;
+        }
     };
 }

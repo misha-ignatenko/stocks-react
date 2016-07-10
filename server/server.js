@@ -27,15 +27,15 @@ Meteor.methods({
         console.log("in the outer method getStockPrices New");
         var _res;
 
-        var _existingStartDate = NewStockPrices.findOne({symbol: symbol}) && NewStockPrices.find({symbol: symbol}, {sort: {dateString: 1}, limit: 1}).fetch();
-        if (_existingStartDate && _existingStartDate[0]) {
-            _existingStartDate = _existingStartDate[0].dateString;
+        var _existingStartDate = NewStockPrices.findOne({symbol: symbol}, {sort: {dateString: 1}});
+        if (_existingStartDate) {
+            _existingStartDate = _existingStartDate.dateString;
             console.log("start date: ", _existingStartDate)
         }
 
-        var _existingEndDate = NewStockPrices.findOne({symbol: symbol}) && NewStockPrices.find({symbol: symbol}, {sort: {dateString: -1}, limit: 1}).fetch();
-        if (_existingEndDate && _existingEndDate[0]) {
-            _existingEndDate = _existingEndDate[0].dateString;
+        var _existingEndDate = NewStockPrices.findOne({symbol: symbol}, {sort: {dateString: -1}});
+        if (_existingEndDate) {
+            _existingEndDate = _existingEndDate.dateString;
             console.log("end date: ", _existingEndDate)
         }
 
@@ -100,6 +100,16 @@ Meteor.methods({
         }
 
         return _res;
+    },
+    addNewSymbolMapping: function(localStr, fromStr, universalStr) {
+        var _obj = {
+            symbolStr: localStr,
+            from: fromStr,
+            universalSymbolStr: universalStr
+        };
+        if (SymbolMappings.find(_obj).count() == 0) {
+            return SymbolMappings.insert(_obj);
+        }
     }
 })
 
