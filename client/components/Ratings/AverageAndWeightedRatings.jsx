@@ -4,6 +4,8 @@ AverageAndWeightedRatings = React.createClass({
 
     propTypes: {
         symbol: React.PropTypes.string.isRequired
+        , showAvgRatings: React.PropTypes.bool.isRequired
+        , showWeightedRating: React.PropTypes.bool.isRequired
     },
 
     getInitialState() {
@@ -98,15 +100,32 @@ AverageAndWeightedRatings = React.createClass({
                         var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
                         var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose");
 
-                        _data.stocksToGraphObjs = [_.extend(result, {
-                            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
-                            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
-                        })]
+                        var _objToGraph = result;
+                        if (this.props.showAvgRatings && this.props.showWeightedRating) {
+                            _objToGraph = _.extend(_objToGraph, {
+                                avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                                weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                            })
+                        } else if (this.props.showAvgRatings) {
+                            _objToGraph = _.extend(_objToGraph, {
+                                avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay
+                            })
+                        } else if (this.props.showWeightedRating) {
+                            _objToGraph = _.extend(_objToGraph, {
+                                weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                            })
+                        }
+
+                        _data.stocksToGraphObjs = [_objToGraph];
                     }
 
                     _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
                     _data.ratingChanges = RatingChanges.find({}, {sort: {date: 1}}).fetch();
                     _data.ratingScales = RatingScales.find().fetch()
+                    _data.allGraphData = _.extend(result, {
+                        avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                        weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                    })
 
                 } else {
                     //only set download flag to true
@@ -145,6 +164,7 @@ AverageAndWeightedRatings = React.createClass({
         if (this.props.symbol !== nextProps.symbol ||
             this.state.avgRatingStartDate !== nextState.avgRatingStartDate ||
             this.state.avgRatingEndDate !== nextState.avgRatingEndDate || this.state.priceReactionDelayDays !== nextState.priceReactionDelayDays
+            || this.props.showAvgRatings !== nextProps.showAvgRatings || this.props.showWeightedRating !== nextProps.showWeightedRating
         ) {
             return true;
         }

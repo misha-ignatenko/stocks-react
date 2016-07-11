@@ -18,27 +18,8 @@ IndividualStock = React.createClass({
             stocksToGraphObjects: [],
             showRegisterNewAccountFields: false,
             showRegisterAccountBtn: true
-        });
-    },
-
-    setDatepickerOptions: function() {
-        let _datepickerOptions = {
-            autoclose: true,
-            todayHighlight: true,
-            orientation: "top auto"
-        };
-        $('#individualStockStartDate').datepicker(_datepickerOptions);
-        $('#individualStockEndDate').datepicker(_datepickerOptions);
-        var _that = this;
-
-        $('.datepickerInput').on('change', function() {
-            let _newVal = $(this).val();
-            let _momentDate = moment(new Date(_newVal).toISOString()).format("YYYY-MM-DD");
-            let _id = $(this).attr('id');
-            let _set = {};
-            _set[_id] = _momentDate;
-            _that.setState(_set);
-            _that.getLatestGraph();
+            , showAvgRatings: true
+            , showWeightedRating: true
         });
     },
 
@@ -78,7 +59,6 @@ IndividualStock = React.createClass({
             selectedStock: key,
             individualStockSearchResults: []
         });
-        this.getLatestGraph();
     },
     clearSelectedStock: function() {
         this.setState({
@@ -116,20 +96,6 @@ IndividualStock = React.createClass({
             }
         }
     },
-    getLatestGraph: function() {
-        //make sure that end date is after start date
-        //or disable dates based on previously selected dates
-        if (this.state.selectedStock && this.state.individualStockStartDate && this.state.individualStockEndDate) {
-            var _that = this;
-            Meteor.call('checkHistoricalData', this.state.selectedStock, this.state.individualStockStartDate, this.state.individualStockEndDate, function(err, result) {
-                if (result && result.historicalData) {
-                    _that.setState({
-                        stocksToGraphObjects: [result]
-                    });
-                }
-            });
-        }
-    },
     showRegisterAccountFields: function() {
         this.setState({
             showRegisterNewAccountFields: true,
@@ -158,7 +124,19 @@ IndividualStock = React.createClass({
         }
     },
 
+    selectTab: function(e) {
+        let _clickedTabId = $(e.target).attr("id");
+
+        this.setState({
+            showAvgRatings: _clickedTabId === 'wgt' ? false : true,
+            showWeightedRating: _clickedTabId === 'avg' ? false : true
+        });
+    },
+
     render: function() {
+        let _b = "btn btn-default";
+        let _ab = "btn btn-default active";
+
         return (
             <div className="container">
                 { this.data.currentUser ? <div>
@@ -177,27 +155,25 @@ IndividualStock = React.createClass({
                            id="individualStockSearch" onChange={this.searchingStock} onKeyDown={this.selectFirstSearchResult}/>
                     <div id="individualStockSearchResults">{this.renderSearchResults()}</div>
                     <br/>
-                    <div className="datepickers" ref={this.setDatepickerOptions}>
-                        start date:
-                        <input className="datepickerInput" id="individualStockStartDate"/>
-                        end date:
-                        <input className="datepickerInput" id="individualStockEndDate" />
+                    { this.state.selectedStock ? <div>
+                        selected stock:
+                        {this.state.selectedStock}<button onClick={this.clearSelectedStock}>clear</button>
+                    </div> : null}
+
+                    <div className="btn-group" role="group" aria-label="...">
+                        <button type="button" className={this.state.showAvgRatings && !this.state.showWeightedRating ? _ab : _b} id='avg' onClick={this.selectTab}>avg only</button>
+                        <button type="button" className={this.state.showAvgRatings && this.state.showWeightedRating ? _ab : _b} id='both' onClick={this.selectTab}>both</button>
+                        <button type="button" className={!this.state.showAvgRatings && this.state.showWeightedRating ? _ab : _b} id='wgt' onClick={this.selectTab}>wgt only</button>
                     </div>
                     <br/>
                     { this.state.individualStockStartDate || this.state.individualStockEndDate ? <div>
                         <button onClick={this.resetDateRange}>reset date range</button>
                     </div> : null }
                     <br/>
-                    stats for this stock based on these dates will be here:
-                    <br/>
                     {this.state.individualStockStartDate}
                     <br/>
                     {this.state.individualStockEndDate}
                     <br/>
-                    { this.state.selectedStock ? <div>
-                        selected stock:
-                        {this.state.selectedStock}<button onClick={this.clearSelectedStock}>clear</button>
-                    </div> : null}
 
                     { this.state.selectedStock && this.state.individualStockStartDate && this.state.individualStockEndDate ? <div>
                         <br/>
@@ -211,7 +187,10 @@ IndividualStock = React.createClass({
 
                     {this.state.selectedStock ?
                         <div className="container">
-                            <AverageAndWeightedRatings symbol={this.state.selectedStock} />
+                            <AverageAndWeightedRatings
+                                symbol={this.state.selectedStock}
+                                showAvgRatings={this.state.showAvgRatings}
+                                showWeightedRating={this.state.showWeightedRating}/>
                         </div> :
                         null
                     }
