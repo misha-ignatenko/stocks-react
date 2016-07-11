@@ -206,7 +206,7 @@ if (Meteor.isServer) {
                     $lte: endDate
                 }
             }
-        ]});
+        ]}, {sort: {reportDateNextFiscalQuarter: 1, reportSourceFlag: 1}});
 
         return _allEarningsReleases;
     });
