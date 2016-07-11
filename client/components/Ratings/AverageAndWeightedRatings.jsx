@@ -176,7 +176,7 @@ AverageAndWeightedRatings = React.createClass({
         var _that = this;
         return <div className="row allUpDowngrades">
             <br/>
-            {this.data.ratingChanges.length > 0 ? <h1>all existing up/downgrades:</h1> : <p>no analyst upgrades/downgrades</p>}
+            {this.data.ratingChanges.length > 0 ? <h1>all existing up/downgrades (replace this with a table):</h1> : <p>no analyst upgrades/downgrades</p>}
             <ul>
                 {this.data.ratingChanges.map((ratingChange, index) => {
                     let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;

@@ -19,7 +19,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         //todo this should come from settings
         let _limit = 3;
         let _selectedIndex = this.state.selectedSymbolIndex;
-        let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1, _selectedIndex - 1 + _limit);
+        let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1 < 0 ? 0 : _selectedIndex - 1, _selectedIndex - 1 + _limit);
         let _ratingsChangesSubsStatuses = {};
 
         let _currentUser = Meteor.user();
@@ -226,7 +226,10 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                     <br/>
                     {this.renderButtons()}
                     <br/>
-                    <UpcomingEarningsRelease symbol={_symbol} currentUser={this.data.currentUser}/>
+                    <AverageAndWeightedRatings
+                        symbol={_symbol}
+                        showAvgRatings={true}
+                        showWeightedRating={true}/>
                 </div>}
             </div>
         );

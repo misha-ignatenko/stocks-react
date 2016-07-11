@@ -1,6 +1,6 @@
 let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
 
-UpcomingEarningsRelease = React.createClass({
+PreviousEarningsRelease = React.createClass({
 
     mixins: [ReactMeteorData],
 
