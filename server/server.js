@@ -23,6 +23,17 @@ Meteor.methods({
             return _obj._id + '_existing';
         }
     },
+
+    setPricesLoadingTag: function(symbol, bool) {
+        Stocks.update(
+            {_id: symbol},
+            {$set: {
+                pricesBeingPulledRightNow: bool
+            }},
+            {multi: true}
+        );
+    },
+
     getStockPricesNew: function(symbol, startStr, endStr) {
         console.log("in the outer method getStockPrices New");
         var _res;
@@ -75,16 +86,6 @@ Meteor.methods({
             _endUpd = endStr;
         }
 
-        Stocks.update(
-            {_id: symbol},
-            {$set: {
-                minRequestedStartDate: _startUpd,
-                maxRequestedEndDate: _endUpd,
-                pricesBeingPulledRightNow: true
-            }},
-            {multi: true}
-        );
-
         if (_pullNewData && startStr <= endStr) {
             Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
                 if (!error && result) {
@@ -110,8 +111,6 @@ Meteor.methods({
 
                     _res = _getStockPricesFromYahooFinanceResults;
 
-                    Stocks.update({_id: symbol}, {$set: {pricesBeingPulledRightNow: false}});
-
                 } else {
                     _res = error;
                 }
@@ -119,6 +118,16 @@ Meteor.methods({
         } else {
             _res = 'already have all the needed stock prices data';
         }
+
+        Stocks.update(
+            {_id: symbol},
+            {$set: {
+                minRequestedStartDate: _startUpd,
+                maxRequestedEndDate: _endUpd,
+                pricesBeingPulledRightNow: false
+            }},
+            {multi: true}
+        );
 
         return _res;
     },

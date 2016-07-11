@@ -24,6 +24,8 @@ AverageAndWeightedRatings = React.createClass({
         let _data = {};
         let _currentUser = Meteor.user();
         let _settings = Settings.findOne();
+        let _stockInfo = Stocks.findOne({_id: _symbol});
+        _data.stuffIsBeingPulledRn = _stockInfo.pricesBeingPulledRightNow;
 
 
         let _format = "YYYY-MM-DD";
@@ -45,14 +47,21 @@ AverageAndWeightedRatings = React.createClass({
                 moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
         let _endDateRatingChanges = _avgRatingEndDate;
         let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbols", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
-        if (_ratingChangesHandle.ready()) {
+
+        if (_stockInfo.pricesBeingPulledRightNow) {
+
+
+            //IMPORTANT: nothing above can change before pricesBeingPulledRightNow flag is set to false on the server
+            //otherwise getMeteorData will go here once again and endlessly call getStockPricesNew
+
+
+            Meteor.call('getStockPricesNew', _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
+        } else if (_ratingChangesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
 
             let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges();
             let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
-            let _stockInfo = Stocks.findOne({_id: _symbol});
-            _data.stuffIsBeingPulledRn = _stockInfo.pricesBeingPulledRightNow;
 
-            if (_pricesHandle.ready() && _ratingScalesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
+            if (_pricesHandle.ready() && _ratingScalesHandle.ready()) {
                 var _allNewStockPricesArr = NewStockPrices.find().fetch();
 
                 let _allAvailablePricesForSymbol = {
@@ -100,7 +109,8 @@ AverageAndWeightedRatings = React.createClass({
                     _data.ratingScales = RatingScales.find().fetch()
 
                 } else {
-                    Meteor.call('getStockPricesNew', _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
+                    //only set download flag to true
+                    Meteor.call('setPricesLoadingTag', _symbol, true);
                 }
             }
         }
