@@ -86,6 +86,7 @@ EpsEstimateVsActualItem = React.createClass({
         return {
             ratingChanges: RatingChanges.find({symbol: _symbol}).fetch(),
             earningsReleases: _allEarningsReleases
+            , ratingScales: StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges().ready() && RatingScales.find().fetch()
         }
     },
 

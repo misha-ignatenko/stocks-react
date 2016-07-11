@@ -31,7 +31,7 @@ UpcomingEarningsReleases = React.createClass({
                     this.state.endEarningsReleaseDateInteger :
                     parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
             var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription);
-            if (_handle1.ready()) {
+            if (_handle1.ready() && Meteor.subscribe("ratingScales").ready()) {
                 var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
                 data.earningsReleasesSubscriptionReady = true;
                 //this is now done automatically every night

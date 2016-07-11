@@ -46,16 +46,34 @@ AverageAndWeightedRatings = React.createClass({
         let _endDateRatingChanges = _avgRatingEndDate;
         let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbols", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
         if (_ratingChangesHandle.ready()) {
-            let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol]);
-            if (_pricesHandle.ready()) {
-                let _allAvailablePricesForSymbol = StockPrices.findOne({symbol: _symbol});
-                if (
+
+            let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges();
+            let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
+            let _stockInfo = Stocks.findOne({_id: _symbol});
+            _data.stuffIsBeingPulledRn = _stockInfo.pricesBeingPulledRightNow;
+
+            if (_pricesHandle.ready() && _ratingScalesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
+                var _allNewStockPricesArr = NewStockPrices.find().fetch();
+
+                let _allAvailablePricesForSymbol = {
+                    symbol: _symbol,
+                    existingStartDate: _allNewStockPricesArr.length > 0 && _allNewStockPricesArr[0].dateString,
+                    existingEndDate: _allNewStockPricesArr.length > 0 && _allNewStockPricesArr[_allNewStockPricesArr.length - 1].dateString,
+                    historicalData: _allNewStockPricesArr
+                };
+
+                var _alreadyPulledInfoForThisDateRangeBefore = _stockInfo &&
+                    _stockInfo.minRequestedStartDate &&
+                    _stockInfo.maxRequestedEndDate &&
+                    _stockInfo.minRequestedStartDate <= _startDateForRatingChangesSubscription && _stockInfo.maxRequestedEndDate >= _endDateRatingChanges;
+
+                if (_alreadyPulledInfoForThisDateRangeBefore || (
                     _allAvailablePricesForSymbol &&
                     _allAvailablePricesForSymbol.existingStartDate &&
                     _allAvailablePricesForSymbol.existingEndDate &&
                     (moment(_startDateForRatingChangesSubscription).isSame(_allAvailablePricesForSymbol.existingStartDate) || moment(_startDateForRatingChangesSubscription).isAfter(_allAvailablePricesForSymbol.existingStartDate)) &&
                     (moment(_endDateRatingChanges).isSame(_allAvailablePricesForSymbol.existingEndDate) || moment(_endDateRatingChanges).isBefore(_allAvailablePricesForSymbol.existingEndDate))
-                ) {
+                )) {
 
                     let result = this.getPricesBetweenTwoDates(_allAvailablePricesForSymbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
@@ -82,7 +100,7 @@ AverageAndWeightedRatings = React.createClass({
                     _data.ratingScales = RatingScales.find().fetch()
 
                 } else {
-                    Meteor.call('checkHistoricalData', _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
+                    Meteor.call('getStockPricesNew', _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
                 }
             }
         }
@@ -197,16 +215,18 @@ AverageAndWeightedRatings = React.createClass({
         return (
             <div>
                 <br/>
-                {this.data.ratingChangesAndStockPricesSubscriptionsForSymbolReady ?
-                    <div>
-                        <br/>
-                        {this.renderAvgAnalystRatingsGraph()}
-                        <br/><br/><br/><br/>
-                        {this.renderAllExistingUpDowngradesForStock()}
-                        <br/>
-                    </div> :
+                {this.data.stuffIsBeingPulledRn ? 'prices are being loaded from Yahoo Finance right now' : <div>
+                    {this.data.ratingChangesAndStockPricesSubscriptionsForSymbolReady ?
+                        <div>
+                            <br/>
+                            {this.renderAvgAnalystRatingsGraph()}
+                            <br/><br/><br/><br/>
+                            {this.renderAllExistingUpDowngradesForStock()}
+                            <br/>
+                        </div> :
                     "getting ratings changes and prices for " + this.props.symbol
-                }
+                    }
+                </div>}
             </div>
         );
     }

@@ -5,6 +5,7 @@ IndividualStock = React.createClass({
         let _user = Meteor.user();
         return {
             currentUser: _user
+            , allStockNames: Meteor.subscribe("allStockNames").ready() && Stocks.find().fetch()
         }
     },
     getInitialState: function()

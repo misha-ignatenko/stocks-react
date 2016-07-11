@@ -6,12 +6,22 @@ Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD
     return RatingChanges.find({symbol: {$in: symbolsArr}, $and: [{dateString: {$gte: start_YYYY_MM_DD}}, {dateString: {$lte: end_YYYY_MM_DD}}]}, {fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}});
 });
 
-Meteor.publish("stockPricesFor", function(symbolsArr) {
-    return StockPrices.find({symbol: {$in: symbolsArr}});
+Meteor.publish("specificRatingScales", function(ratingScaleIdsArr) {
+    return RatingScales.find({_id: {$in: ratingScaleIdsArr}}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
+});
+
+Meteor.publish("stockPricesFor", function(symbolsArr, startStr, endStr) {
+    return NewStockPrices.find(
+        {
+            symbol: {$in: symbolsArr}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
+        }, {
+            sort: {dateString: 1}
+        }
+    );
 });
 
 Meteor.publish("allStockNames", function() {
-    return Stocks.find({}, {fields: {_id: 1}});
+    return Stocks.find({}, {fields: {_id: 1, minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
 });
 
 Meteor.publish("allNewStockPricesForDate", function(dateStr) {

@@ -41,9 +41,14 @@ Meteor.methods({
 
         var _pullNewData = true;
 
+        var _startUpd;
+        var _endUpd;
+
         if (_existingStartDate && _existingEndDate && _existingStartDate <= startStr && _existingEndDate >= endStr) {
             // this means that all data already exists in the requested date range so no need to pull anything new
             _pullNewData = false;
+            _startUpd = _existingStartDate;
+            _endUpd = _existingEndDate;
         } else if (_existingStartDate && _existingEndDate) {
             // this means that there is SOME data but not everything that we want exists yet
             _pullNewData = true;
@@ -61,10 +66,24 @@ Meteor.methods({
 
             startStr = _minDateStrNoDashes.substring(0,4) + '-' + _minDateStrNoDashes.substring(4,6) + '-' + _minDateStrNoDashes.substring(6,8);
             endStr = _maxDateStrNoDashes.substring(0,4) + '-' + _maxDateStrNoDashes.substring(4,6) + '-' + _maxDateStrNoDashes.substring(6,8);
+            _startUpd = startStr;
+            _endUpd = endStr;
         } else {
             // there is no existing start or end date
             _pullNewData = true;
+            _startUpd = startStr;
+            _endUpd = endStr;
         }
+
+        Stocks.update(
+            {_id: symbol},
+            {$set: {
+                minRequestedStartDate: _startUpd,
+                maxRequestedEndDate: _endUpd,
+                pricesBeingPulledRightNow: true
+            }},
+            {multi: true}
+        );
 
         if (_pullNewData && startStr <= endStr) {
             Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
@@ -90,6 +109,8 @@ Meteor.methods({
                     });
 
                     _res = _getStockPricesFromYahooFinanceResults;
+
+                    Stocks.update({_id: symbol}, {$set: {pricesBeingPulledRightNow: false}});
 
                 } else {
                     _res = error;

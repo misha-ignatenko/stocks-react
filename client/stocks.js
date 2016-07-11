@@ -5,10 +5,7 @@ if (Meteor.isClient) {
 
     Meteor.subscribe("researchCompanies");
     Meteor.subscribe("pickLists");
-    Meteor.subscribe("ratingScales");
     Meteor.subscribe("pickListItems");
-
-    Meteor.subscribe("allStockNames");
 
     Meteor.subscribe("settings");
 
@@ -400,6 +397,14 @@ if (Meteor.isClient) {
 
 
             return _result;
+        }
+        , getRatingScalesHandleFromAvailableRatingChanges: function(optionalRatingChangesArray) {
+            var _shortedRatingChanges = optionalRatingChangesArray || RatingChanges.find({}, {fields: {oldRatingId: 1, newRatingId: 1}}).fetch();
+            var _uniqOldRatingIds = _.uniq(_.pluck(_shortedRatingChanges, 'oldRatingId'));
+            var _uniqNewRatingIds = _.uniq(_.pluck(_shortedRatingChanges, 'newRatingId'));
+            var _allUniqRatingIdsForSubscription = _.union(_uniqOldRatingIds, _uniqNewRatingIds);
+
+            return Meteor.subscribe("specificRatingScales", _allUniqRatingIdsForSubscription);
         }
     };
 
