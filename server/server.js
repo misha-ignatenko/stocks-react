@@ -94,7 +94,8 @@ Meteor.methods({
 
                     var _getStockPricesFromYahooFinanceResults = [];
                     result.forEach(function (priceObj) {
-                        var _dateString = moment.tz(priceObj.date.toISOString(), "America/New_York").format('YYYY-MM-DD');
+                        var _isoDateString = priceObj.date.toISOString();
+                        var _dateString = _isoDateString.substring(0, 10);
 
                         var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
                             dateString: _dateString
@@ -206,7 +207,7 @@ if (Meteor.isServer) {
                     $lte: endDate
                 }
             }
-        ]}, {sort: {reportDateNextFiscalQuarter: 1, reportSourceFlag: 1}});
+        ]}, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
 
         return _allEarningsReleases;
     });
