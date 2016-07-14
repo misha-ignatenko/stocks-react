@@ -99,7 +99,9 @@ Meteor.methods({
 
                         var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
                             dateString: _dateString,
-                            date: new Date(_dateString + "T00:00:00.000+0000")
+                            date: new Date(_dateString + "T00:00:00.000+0000"),
+                            importedBy: Meteor.userId(),
+                            importedOn: new Date().toISOString()
                         });
 
                         Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
