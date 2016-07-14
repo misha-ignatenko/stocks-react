@@ -113,7 +113,7 @@ IndividualStock = React.createClass({
         var _newPassword = React.findDOMNode(this.refs.fromDummyToReal_password).value.trim().toString();
         if (_newUsername && _newPassword) {
             var _that = this;
-            Meteor.call("registerRealAccountFromDummy", this.data.currentUser._id, _newUsername, _newPassword, function(error, result) {
+            Meteor.call("registerRealAccountFromDummy", _newUsername, _newPassword, function(error, result) {
                 //make sure that dummy account was deleted and that you are logged in with the new real account credentials
                 //empty out fields and hide that menu
                 if (!error && result) {
@@ -142,8 +142,8 @@ IndividualStock = React.createClass({
                 { this.data.currentUser ? <div>
                     {this.data.currentUser.registered ? null :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
                     { !this.data.currentUser.registered && this.state.showRegisterNewAccountFields ? <div>
-                        username: <input ref="fromDummyToReal_username"/>
-                        password: <input ref="fromDummyToReal_password"/>
+                        username: <input ref="fromDummyToReal_username" value={this.data.currentUser.username}/>
+                        password: <input ref="fromDummyToReal_password" value={Random.id()}/>
                         <br/>
                         <button onClick={this.registerDummyUser}>register</button>
                         <button onClick={this.hideRegisterAccountFields}>cancel</button>

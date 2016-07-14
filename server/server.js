@@ -98,7 +98,8 @@ Meteor.methods({
                         var _dateString = _isoDateString.substring(0, 10);
 
                         var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
-                            dateString: _dateString
+                            dateString: _dateString,
+                            date: new Date(_dateString + "T00:00:00.000+0000")
                         });
 
                         Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
@@ -304,7 +305,8 @@ if (Meteor.isServer) {
                 RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}}).fetch() :
                 RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1}}).fetch();
         },
-        registerRealAccountFromDummy: function(dummyUserId, newUsername, newPassword) {
+        registerRealAccountFromDummy: function(newUsername, newPassword) {
+            var dummyUserId = Meteor.userId();
             Accounts.setUsername(dummyUserId, newUsername);
             Accounts.setPassword(dummyUserId, newPassword);
             Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
