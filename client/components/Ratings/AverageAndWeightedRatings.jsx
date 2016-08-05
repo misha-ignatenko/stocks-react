@@ -119,9 +119,13 @@ AverageAndWeightedRatings = React.createClass({
                         _data.stocksToGraphObjs = [_objToGraph];
                     }
 
+                    //todo: make sure we are already subscribed to EarningsReleases
+                    let _allEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol, reportDateNextFiscalQuarter: {$exists: true}}).fetch();
+
                     _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
                     _data.ratingChanges = RatingChanges.find({}, {sort: {date: 1}}).fetch();
                     _data.ratingScales = RatingScales.find().fetch()
+                    _data.earningsReleases = _allEarningsReleasesForSymbol;
                     _data.allGraphData = _.extend(result, {
                         avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
                         weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
@@ -240,6 +244,30 @@ AverageAndWeightedRatings = React.createClass({
         });
     },
 
+    renderEpsMeanEstimates() {
+
+        return this.data.earningsReleases.map((release, index) => {
+            let _sourceFlag = release.reportSourceFlag;
+            let _timeOfDayCodeForEarningsRelease = release.reportTimeOfDayCode;
+            let _key = release.symbol + "_" + index;
+            return (
+                <div key={_key}>
+                    <h1>This quarter</h1>
+                    <h1>Next earning release date: {release.reportDateNextFiscalQuarter} ({_sourceFlag === 1 ? "Company confirmed" : _sourceFlag === 2 ? "Estimated based on algorithm" : _sourceFlag === 3 ? "Unknown" : null},&nbsp;
+                        {_timeOfDayCodeForEarningsRelease === 1 ? "After market close" : _timeOfDayCodeForEarningsRelease === 2 ? "Before the open" : _timeOfDayCodeForEarningsRelease === 3 ? "During market trading" : _timeOfDayCodeForEarningsRelease === 4 ? "Unknown" : null})</h1>
+                    <h1>Expected EPS: {release.epsMeanEstimateNextFiscalQuarter}</h1>
+                    <br/>
+                    <h3>Previous quarter EPS: {release.epsActualPreviousFiscalQuarter}</h3>
+                    <h3>EPS a year ago: {release.epsActualOneYearAgoFiscalQuarter}</h3>
+                    <br/>
+                    <h5>Next quarter</h5>
+                    <h5>Report date: {release.reportDateNextNextFiscalQuarter}</h5>
+                </div>
+            )
+
+        })
+    },
+
     render() {
 
         return (
@@ -252,6 +280,8 @@ AverageAndWeightedRatings = React.createClass({
                             {this.renderAvgAnalystRatingsGraph()}
                             <br/><br/><br/><br/>
                             {this.renderAllExistingUpDowngradesForStock()}
+                            <br/>
+                            {this.renderEpsMeanEstimates()}
                             <br/>
                         </div> :
                     "getting ratings changes and prices for " + this.props.symbol

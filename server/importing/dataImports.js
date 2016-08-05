@@ -154,6 +154,14 @@ if (Meteor.isServer) {
                     _destringified.push(JSON.parse(obj))
                 })
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
+
+                Email.send({
+                    to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                    from: Settings.findOne().serverSettings.ratingsChanges.emailFrom,
+                    subject: 'missing rating scales for rating changes import',
+                    text: JSON.stringify(_result)
+                });
+
             } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === "earnings_releases") {
