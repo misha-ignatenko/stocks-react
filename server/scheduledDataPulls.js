@@ -20,6 +20,15 @@ Meteor.startup(function() {
             var _allStockObjects = Stocks.find().fetch();
             var _allStockSymbols = _.pluck(_allStockObjects, "_id");
 
+            Email.send({
+                to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                subject: 'getting earnings releases',
+                text: JSON.stringify({
+                    symbols: _.uniq(_allStockSymbols)
+                })
+            });
+
             Meteor.call("importData", _.uniq(_allStockSymbols), "earnings_releases");
         }
 
@@ -79,6 +88,18 @@ Meteor.methods({
             var _uniqSymbolsFromUpcomingEarnRel = _.uniq(_.pluck(_allEarningsReleases, "symbol"));
             var _startDate = moment(new Date().toISOString().substring(0,10)).subtract(1, "years").format("YYYY-MM-DD");
             var _endDate = moment(new Date().toISOString().substring(0,10)).subtract(1, "days").format("YYYY-MM-DD");
+
+            Email.send({
+                to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                subject: 'getting stock prices for upcoming earnings releases',
+                text: JSON.stringify({
+                    startDate: _startDate,
+                    endDate: _endDate,
+                    symbols: _uniqSymbolsFromUpcomingEarnRel
+                })
+            });
+
             _uniqSymbolsFromUpcomingEarnRel.forEach(function(symbol) {
                 Meteor.call("getStockPricesNew", symbol, _startDate, _endDate);
             })
