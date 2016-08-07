@@ -158,7 +158,7 @@ if (Meteor.isServer) {
                 Email.send({
                     to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                     from: Settings.findOne().serverSettings.ratingsChanges.emailFrom,
-                    subject: 'missing rating scales for rating changes import',
+                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(_.uniq(_.pluck(importData, "dateString"))),
                     text: JSON.stringify(_result)
                 });
 
