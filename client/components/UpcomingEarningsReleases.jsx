@@ -64,7 +64,7 @@ UpcomingEarningsReleases = React.createClass({
         });
         if (_symbols.length > 0) {
             //console.log("GONNA PULL EARNING RELEASES FROM QUANDL FOR: ", _symbols);
-            Meteor.call("importData", _symbols, "earnings_releases");
+            Meteor.call("importData", _symbols, "earnings_releases", false);
         }
     },
     setDatepickerOptions: function() {

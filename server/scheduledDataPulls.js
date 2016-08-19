@@ -29,7 +29,7 @@ Meteor.startup(function() {
                 })
             });
 
-            Meteor.call("importData", _.uniq(_allStockSymbols), "earnings_releases");
+            Meteor.call("importData", _.uniq(_allStockSymbols), "earnings_releases", true);
         }
 
 

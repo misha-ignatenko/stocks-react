@@ -21,7 +21,7 @@ EarningsReleasesJSONDataImport = React.createClass({
         });
         _allStocks = _.uniq(_allStocks);
         this.refs.earningsReleasesTextArea.value = "";
-        Meteor.call('importData', _allStocks, 'earnings_releases');
+        Meteor.call('importData', _allStocks, 'earnings_releases', false);
     },
 
     render() {

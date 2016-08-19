@@ -2,7 +2,7 @@ if (Meteor.isServer) {
     var _totalMaxGradingValue = 120;
 
     Meteor.methods({
-        importData: function(importData, importType) {
+        importData: function(importData, importType, scheduledDataPullFlag) {
             //run all the checks here
 
             if (! Meteor.userId() && importType !== "earnings_releases") {
@@ -143,7 +143,7 @@ if (Meteor.isServer) {
                 });
 
                 if (_checkForEarningsReleasesForTheseSymbols.length > 0) {
-                    Meteor.call("importData", _checkForEarningsReleasesForTheseSymbols, "earnings_releases");
+                    Meteor.call("importData", _checkForEarningsReleasesForTheseSymbols, "earnings_releases", false);
                 }
 
                 _result.upgradesDowngradesImportStats.total = _numToImport;
@@ -166,11 +166,14 @@ if (Meteor.isServer) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === "earnings_releases") {
                 console.log("earnings_releases import function called with: ", importData);
+                var _earningsReleaseSymbolsRequested = [];
+
                 importData.forEach(function(importItem) {
                     var _universalSymbol = _getUniversalSymbolFromEarningsReleaseSymbol(importItem);
                     var _quandlSymbol = _getEarningsReleaseSymbolFromUniversalSymbol(importItem);
 
                     if (_canPullAgainFromQuandl(_universalSymbol)) {
+                        _earningsReleaseSymbolsRequested.push(_universalSymbol);
                         //TODO check if this earnings release already exists -- check for plus minus 5 days around it
                         var _earningRelease = {
                             symbol: _universalSymbol
@@ -239,6 +242,19 @@ if (Meteor.isServer) {
                         });
                     }
                 });
+
+                if (scheduledDataPullFlag) {
+                    Email.send({
+                        to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                        from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                        subject: 'DONE getting earnings releases',
+                        text: JSON.stringify({
+                            symbolsRequestedFromQuandl: _earningsReleaseSymbolsRequested,
+                            timeNow: new Date()
+                        })
+                    });
+                };
+
             } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
