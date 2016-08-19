@@ -96,13 +96,31 @@ Meteor.methods({
                 text: JSON.stringify({
                     startDate: _startDate,
                     endDate: _endDate,
-                    symbols: _uniqSymbolsFromUpcomingEarnRel
+                    symbols: _uniqSymbolsFromUpcomingEarnRel,
+                    timeNow: new Date()
                 })
             });
 
             _uniqSymbolsFromUpcomingEarnRel.forEach(function(symbol) {
                 Meteor.call("getStockPricesNew", symbol, _startDate, _endDate);
-            })
+            });
+
+            var _allPricesForEndDate = NewStockPrices.find({dateString: _endDate}, {fields: {symbol: 1}}).fetch();
+            var _allUniqPrices = _.uniq(_.pluck(_allPricesForEndDate, 'symbol'));
+            var _symbolsMissingPricesForEndDate = _.difference(_uniqSymbolsFromUpcomingEarnRel, _allUniqPrices);
+
+            Email.send({
+                to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                subject: 'DONE getting stock prices for upcoming earnings releases',
+                text: JSON.stringify({
+                    startDate: _startDate,
+                    endDate: _endDate,
+                    symbols: _uniqSymbolsFromUpcomingEarnRel,
+                    timeNow: new Date(),
+                    symbolsMissingPricesForEndDate: _symbolsMissingPricesForEndDate
+                })
+            });
         }
     }
 });
