@@ -435,7 +435,7 @@ if (Meteor.isServer) {
             //great. this means that can pull again based on previous pull history
 
             var _previousErrorDoesNotExist = !_lastErrorDateFromQuandl;
-            var _previousErrorExistsAndItsAboutTimeToRetry = _lastErrorDateFromQuandl && _canPullFromQuandlEveryNDaysIfPreviousPullWasError && parseInt(moment(new Date(_lastErrorDateFromQuandl)).add(_canPullFromQuandlEveryNDaysIfPreviousPullWasError + 1, _days).format(_format)) <= _todaysDateInteger;
+            var _previousErrorExistsAndItsAboutTimeToRetry = _lastErrorDateFromQuandl && parseInt(moment(new Date(_lastErrorDateFromQuandl)).add(_canPullFromQuandlEveryNDaysIfPreviousPullWasError + 1, _days).format(_format)) <= _todaysDateInteger;
             //now make sure that there were no latest error that would prevent us from pulling again
             if (_previousErrorDoesNotExist || _previousErrorExistsAndItsAboutTimeToRetry) {_canPull = true;}
         }
