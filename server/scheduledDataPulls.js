@@ -17,7 +17,7 @@ Meteor.startup(function() {
             _previousServerSettings.quandl.dateOfLastPullFromQuandl = _dateString;
             Settings.update({_id: _previousSettings._id}, {$set: {serverSettings: _previousServerSettings}});
 
-            var _allStockObjects = Stocks.find().fetch();
+            var _allStockObjects = Stocks.find({}, {fields: {_id: 1}}).fetch();
             var _allStockSymbols = _.pluck(_allStockObjects, "_id");
 
             Email.send({
