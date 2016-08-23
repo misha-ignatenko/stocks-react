@@ -30,10 +30,9 @@ Meteor.startup(function() {
             });
 
             Meteor.call("importData", _.uniq(_allStockSymbols), "earnings_releases", true);
+
+            Meteor.call("pullPricesForUpcomingEarningsReleases");
         }
-
-
-        Meteor.call("pullPricesForUpcomingEarningsReleases");
 
 
         _serverSideVarCount++;
@@ -61,8 +60,8 @@ Meteor.methods({
             Settings.update({_id: _previousSettings._id}, {$set: {serverSettings: _previousServerSettings}});
 
             //need to subtract 1 days because date in iso is after midnight
-            var _startDateForEarnRel = parseInt(moment(new Date().toISOString().substring(0,10)).subtract(1, "days").format("YYYYMMDD"));
-            var _endDateForEarnRel = parseInt(moment(new Date().toISOString().substring(0,10)).add(_previousServerSettings.yahooFinance.numOfDaysToConsiderEarnRel - 1 , "days").format("YYYYMMDD"));
+            var _startDateForEarnRel = parseInt(moment(new Date().toISOString().substring(0,10)).subtract(0, "days").format("YYYYMMDD"));
+            var _endDateForEarnRel = parseInt(moment(new Date().toISOString().substring(0,10)).add(_previousServerSettings.yahooFinance.numOfDaysToConsiderEarnRel , "days").format("YYYYMMDD"));
 
 
             var _allEarningsReleases = EarningsReleases.find({
