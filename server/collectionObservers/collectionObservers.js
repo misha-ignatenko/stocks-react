@@ -1,5 +1,5 @@
 //Meteor.startup(function() {
-//    StockPrices.find().observe({
+//    NewStockPrices.find().observe({
 //        added: function(document) {
 //            console.log("new stock prices object added: ", document.symbol);
 //        },

@@ -30,7 +30,6 @@ PickList = React.createClass({
         return {
             pickListItems: PickListItems.find(_pickListsQuery).fetch(),
             pickListItemsCount: PickListItems.find(_pickListsQuery).count(),
-            //stockPrices: StockPrices.find(_stockPricesQuery).fetch()
         }
     },
 

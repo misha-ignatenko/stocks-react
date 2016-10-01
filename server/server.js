@@ -258,45 +258,6 @@ if (Meteor.isServer) {
     })
 
     Meteor.methods({
-        getHistoricalDataAfter: function (_stockPricesObj, symbol, endDate) {
-            var _done = _stockPricesObj;
-            //need to pull new stock info from _stockPricesObj.existingEndDate to _requestedEndDateInUTC
-            //update stockprices entry accordingly
-            //be careful about dates
-            var _startDateForRequest = moment(_stockPricesObj.existingEndDate).add(1, "days").format("YYYY-MM-DD");
-            Meteor.call('getHistoricalData', symbol, _startDateForRequest, endDate, function (error, result) {
-                if (!error && result && result.length > 0) {
-                    var _actualEndDateFromQuery = moment(result[result.length - 1].date).format("YYYY-MM-DD");
-                    var _newHistoricalDataToAddToTheRight = result;
-                    var _previousHistoricalData = _stockPricesObj.historicalData;
-                    _newHistoricalDataToAddToTheRight.forEach(function (obj) {
-                        _previousHistoricalData.push(obj);
-                    });
-                    _done.historicalData = _previousHistoricalData;
-                    _done.existingEndDate = _actualEndDateFromQuery;
-                }
-            });
-            return _done;
-        },
-
-        getHistoricalDataBefore: function (_stockPricesObj, symbol, startDate) {
-            var _done = _stockPricesObj;
-            //need to pull new stock prices info from _requestedStartDateInUTC until _stockPricesObj.existingStartDate
-            var _endDateForRequest = moment(_stockPricesObj.existingStartDate).subtract(1, "days").format("YYYY-MM-DD");
-            Meteor.call('getHistoricalData', symbol, startDate, _endDateForRequest, function (error, result) {
-                if (!error && result && result.length > 0) {
-                    var _actualStartDateFromQuery = moment(result[0].date).format("YYYY-MM-DD");
-                    var _newHistoricalDataToAddToTheLeft = result;
-                    var _previousHistoricalData = _stockPricesObj.historicalData;
-                    _previousHistoricalData.forEach(function (obj) {
-                        _newHistoricalDataToAddToTheLeft.push(obj);
-                    });
-                    _done.historicalData = _newHistoricalDataToAddToTheLeft;
-                    _done.existingStartDate = _actualStartDateFromQuery;
-                }
-            });
-            return _done;
-        },
 
         getRatingChangesFor: function(symbol) {
             var _userId = this.userId;
@@ -383,90 +344,6 @@ if (Meteor.isServer) {
             var _filteredQuote = _.findWhere(_quotes, {symbol: symbol});
             return _filteredQuote.name;
         },
-        checkHistoricalData: function(symbol, startDate, endDate) {
-            console.log("get HistoricalData method being called for: ", symbol, ", start date: ", startDate, ", end date: ", endDate, ".");
-
-            //TODO first need to check if historical stock data exists in stockPrices collection.
-            //TODO if data is not there, then select which data is missing: startDateInCollection minus startDate and endDate minus endDateInCollection
-            //get data from yahoo finance for those two time intervals
-            //if data is already in
-            //update the existingStartDate and existingEndDate after pulling new data
-            var _stockPricesObj = StockPrices.findOne({symbol: symbol});
-            if (_stockPricesObj && _stockPricesObj.historicalData && _stockPricesObj.existingStartDate && _stockPricesObj.existingEndDate) {
-                //this means there IS previously recorded data in the StockPrices object for the selected stock symbol.
-
-
-                if (moment(startDate).isBefore(_stockPricesObj.existingStartDate) &&
-                    moment(endDate).isAfter(_stockPricesObj.existingEndDate)
-                ) {
-                    Meteor.call("getHistoricalDataBefore", _stockPricesObj, symbol, startDate, function(error, result) {
-                        if (!error && result) {
-                            Meteor.call("getHistoricalDataAfter", result, symbol, endDate, function(error2, result2) {
-                                if (!error2 && result2) {
-                                    _stockPricesObj = result2;
-                                }
-                            });
-                        }
-                    });
-                }
-                //two cases
-                //one is when the requested startDate is earlier than what already have
-                else if (moment(startDate).isBefore(_stockPricesObj.existingStartDate)) {
-                    Meteor.call("getHistoricalDataBefore", _stockPricesObj, symbol, startDate, function(error, result) {
-                        _stockPricesObj = result;
-                    });
-                }
-                //two is when the requested endDate is later than what already have
-                else if (moment(endDate).isAfter(_stockPricesObj.existingEndDate)) {
-                    Meteor.call("getHistoricalDataAfter", _stockPricesObj, symbol, endDate, function(error, result) {
-                        _stockPricesObj = result;
-                    });
-                }
-                var _id = _stockPricesObj._id;
-                delete _stockPricesObj._id;
-
-                StockPrices.update({_id: _id}, {$set: _stockPricesObj});
-
-
-            } else {
-                //this means that there is no data at all in the StockPrices array so we need to just pull it from Yahoo Finance
-                //AND update existingStartDate and existingEndDate to startDate and endDate correspondingly.
-                console.log("initializing historical data because stockprices object doesn't exist.");
-                Meteor.call('getHistoricalData', symbol, startDate, endDate, function(error, result) {
-                    if (!error && result && result.length > 0) {
-                        var _actualStartDateFromQuery = moment(result[0].date).format("YYYY-MM-DD");
-                        var _actualEndDateFromQuery = moment(result[result.length - 1].date).format("YYYY-MM-DD");
-                        var _historicalData = result;
-                        StockPrices.insert({
-                            historicalData: _historicalData,
-                            existingStartDate: _actualStartDateFromQuery,
-                            existingEndDate: _actualEndDateFromQuery,
-                            symbol: symbol
-                        });
-                        Meteor.call("insertNewStockSymbols", [symbol]);
-                    }
-                });
-            }
-
-            var _historicalDataBetweenTwoRequestedDates = [];
-            var _stockPricesRecord = StockPrices.findOne({symbol: symbol});
-            if (_stockPricesRecord && _stockPricesRecord.historicalData) {
-                var _allHistoricalData = _stockPricesRecord.historicalData;
-                //push items from _allHistoricalData to _historicalDataBetweenTwoRequestedDates
-                //only where dates are within the requested date range
-                _allHistoricalData.forEach(function(priceObjForDay) {
-                    var _extractedDateStringNoTimezone = moment(new Date(priceObjForDay.date)).format("YYYY-MM-DD");
-                    if ((moment(_extractedDateStringNoTimezone).isSame(startDate) || moment(_extractedDateStringNoTimezone).isAfter(startDate)) &&
-                        (moment(_extractedDateStringNoTimezone).isSame(endDate) || moment(_extractedDateStringNoTimezone).isBefore(endDate))
-                    ) {
-                        _historicalDataBetweenTwoRequestedDates.push(priceObjForDay);
-                    }
-                });
-                //this will limit the historicalData attribute that we are making available to the user
-                _stockPricesRecord.historicalData = _historicalDataBetweenTwoRequestedDates;
-            }
-            return _stockPricesRecord;
-        },
         getHistoricalData: function(symbol, start, end) {
             console.log("requesting from yahoo finance: ", start, end);
             return YahooFinance.historical({
@@ -479,11 +356,7 @@ if (Meteor.isServer) {
             var _blah = "blah";
             return _blah;
         },
-        getDataForSeriesData: function(symbol, start, end) {
-            //todo delete this method if not being used anyhere
-            var _result = StockPrices.findOne({symbol: symbol}).historicalData;
-            return _result;
-        },
+
         insertNewStockSymbols: function(symbolsArray) {
             var _symbolsAllCapsArray = [];
             symbolsArray.forEach(function(symbol) {
