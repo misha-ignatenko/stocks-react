@@ -31,6 +31,8 @@ Meteor.startup(function() {
 
             Meteor.call("importData", _.uniq(_allStockSymbols), "earnings_releases", true);
 
+            Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
+
             Meteor.call("pullPricesForUpcomingEarningsReleases");
         }
 
@@ -121,5 +123,52 @@ Meteor.methods({
                 })
             });
         }
+    }
+    , "sendMissingEarningsReleaseSymbolsEmail": function () {
+        // get all available stocks (symbols are _id attributes in universal format)
+        var _allStockObjects = Stocks.find({}, {fields: {_id: 1}}).fetch();
+        var _allStockSymbols = _.pluck(_allStockObjects, "_id");
+        var _allUniqueStockSymbols = _.uniq(_allStockSymbols);
+
+        // get all available unique earnings release records (symbols are symbol attributes in universal format)
+        var _uniqueEarningsReleaseSymbols = _.uniq(_.pluck(EarningsReleases.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
+
+
+        // figure out which stocks have no earnings releases
+        // _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols)
+
+
+        // check which of these do not have a quote from Yahoo
+        var _symbolsThatHaveBidsOrAsks = [];
+
+
+        _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols).forEach(function(missingSym) {
+            Meteor.call("getFullQuote", [missingSym], function (error, result) {
+                if (!error) {
+                    var _result = result && result[0];
+                    if (_result && (_result.bid || _result.ask) ) {
+                        // console.log("result: ", _result);
+                        _symbolsThatHaveBidsOrAsks.push(_result.symbol);
+                    } else {
+                        // console.log("symbol has no bid and no ask: ", missingSym);
+                    }
+                } else {
+                    // console.log("error: ", error);
+                }
+            });
+        });
+
+
+
+
+        Email.send({
+            to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+            from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+            subject: 'MISSING earnings release symbols',
+            text: JSON.stringify({
+                timeNow: new Date(),
+                missingSymbols: _symbolsThatHaveBidsOrAsks
+            })
+        });
     }
 });
