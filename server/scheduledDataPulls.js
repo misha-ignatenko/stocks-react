@@ -25,6 +25,7 @@ Meteor.startup(function() {
                 from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                 subject: 'getting earnings releases',
                 text: JSON.stringify({
+                    timeNow: new Date(),
                     symbols: _.uniq(_allStockSymbols)
                 })
             });
@@ -95,10 +96,10 @@ Meteor.methods({
                 from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                 subject: 'getting stock prices for upcoming earnings releases',
                 text: JSON.stringify({
+                    timeNow: new Date(),
                     startDate: _startDate,
                     endDate: _endDate,
-                    symbols: _uniqSymbolsFromUpcomingEarnRel,
-                    timeNow: new Date()
+                    symbols: _uniqSymbolsFromUpcomingEarnRel
                 })
             });
 
@@ -115,10 +116,10 @@ Meteor.methods({
                 from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                 subject: 'DONE getting stock prices for upcoming earnings releases',
                 text: JSON.stringify({
+                    timeNow: new Date(),
                     startDate: _startDate,
                     endDate: _endDate,
                     symbols: _uniqSymbolsFromUpcomingEarnRel,
-                    timeNow: new Date(),
                     symbolsMissingPricesForEndDate: _symbolsMissingPricesForEndDate
                 })
             });

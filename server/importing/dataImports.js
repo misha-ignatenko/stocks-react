@@ -159,7 +159,7 @@ if (Meteor.isServer) {
                     to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                     from: Settings.findOne().serverSettings.ratingsChanges.emailFrom,
                     subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(_.uniq(_.pluck(importData, "dateString"))),
-                    text: JSON.stringify(_result)
+                    text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
             } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
@@ -249,8 +249,8 @@ if (Meteor.isServer) {
                         from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                         subject: 'DONE getting earnings releases',
                         text: JSON.stringify({
-                            symbolsRequestedFromQuandl: _earningsReleaseSymbolsRequested,
-                            timeNow: new Date()
+                            timeNow: new Date(),
+                            symbolsRequestedFromQuandl: _earningsReleaseSymbolsRequested
                         })
                     });
                 };
