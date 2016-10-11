@@ -22,6 +22,11 @@ Meteor.methods({
                         timeNow: new Date()
                     })
                 });
+
+                Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
+
+                Meteor.call("pullPricesForUpcomingEarningsReleases");
+                
             };
         }
     },
