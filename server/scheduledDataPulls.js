@@ -30,11 +30,11 @@ Meteor.startup(function() {
                 })
             });
 
-            Meteor.call("importEarningsReleasesRecursively", _.uniq(_allStockSymbols), true);
+            Meteor.call("importEarningsReleasesRecursively", _.uniq(_allStockSymbols), true, function(error, result) {
+                Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
 
-            Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
-
-            Meteor.call("pullPricesForUpcomingEarningsReleases");
+                Meteor.call("pullPricesForUpcomingEarningsReleases");
+            });
         }
 
 
