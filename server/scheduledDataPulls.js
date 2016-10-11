@@ -30,7 +30,7 @@ Meteor.startup(function() {
                 })
             });
 
-            Meteor.call("importData", _.uniq(_allStockSymbols), "earnings_releases", true);
+            Meteor.call("importEarningsReleasesRecursively", _.uniq(_allStockSymbols), true);
 
             Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
 
