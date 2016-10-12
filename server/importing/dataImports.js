@@ -356,6 +356,18 @@ Meteor.methods({
                     }
                 });
 
+                if (scheduledDataPullFlag) {
+                    Email.send({
+                        to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                        from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                        subject: 'DONE getting earnings releases',
+                        text: JSON.stringify({
+                            timeNow: new Date(),
+                            symbolsRequestedFromQuandl: _earningsReleaseSymbolsRequested
+                        })
+                    });
+                };
+
             } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
