@@ -20,7 +20,7 @@ NewPortfolioImport = React.createClass({
         var _obj = {
             name: ReactDOM.findDOMNode(this.refs.newPortfolioName).value.trim(),
             private: this.state.private,
-            firmId: ReactDOM.findDOMNode(this.refs.firmId).value.trim()
+            firmName: ReactDOM.findDOMNode(this.refs.firmName).value.trim()
         };
         Meteor.call("importData", _obj, "portfolio", function(error, result) {
             if (!error && result && result.newPortfolioId) {
@@ -46,7 +46,7 @@ NewPortfolioImport = React.createClass({
             <button type="button" className={!this.state.private ? _ab : _b} onClick={this.toggle}>Public</button>
             <button type="button" className={this.state.private ? _ab : _b} onClick={this.toggle}>Private</button></div>
             <br/>
-            <input type="text" ref="firmId" placeholder="Firm ID (if known)" />
+            <input type="text" ref="firmName" placeholder="Firm name (if known)" />
             <br/>
             <button className={_b} onClick={this.createNewPortfolio}>Submit</button>
         </div>);

@@ -222,9 +222,12 @@ if (Meteor.isServer) {
     Meteor.publish("portfolios", function() {
         if (this.userId) {
             //portfolios that are either public or the user is owner
-            return Portfolios.find({ $or: [ {private: false}, {owner: this.userId} ] }, {fields: {_id: 1, name: 1, firmId: 1, owner: 1, private: 1, ownerName: 1}});
+            return Portfolios.find(
+                { $or: [ {private: false}, {ownerId: this.userId} ] },
+                {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1}}
+                );
         } else {
-            return Portfolios.find({private: false}, {fields: {_id: 1, name: 1, ownerName: 1}});
+            return Portfolios.find({private: false}, {fields: {_id: 1, name: 1}});
         }
     });
 

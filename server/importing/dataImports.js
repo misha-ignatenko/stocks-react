@@ -124,6 +124,7 @@ Meteor.methods({
 
             var _result = {};
 
+            var _user = Meteor.user();
             var _userId = Meteor.userId();
             var _permissions = _userId && Meteor.users.findOne(_userId).permissions;
             var _dataImportingPermissions = _permissions && _permissions.dataImports;
@@ -133,11 +134,26 @@ Meteor.methods({
 
             if (importType === "portfolio" && _portfoliosImportPermission) {
                 if (importData.name) {
-                    importData.owner = _userId;
-                    if (!importData.firmId) {
-                        importData.firmId = null;
+                    importData.ownerId = _userId;
+
+                    if ( !importData.firmName || importData.firmName === "" ) {
+                        importData.researchFirmId = null;
+                    } else {
+                        // figure out researchFirmId
+                        var _researchFirms = ResearchCompanies.find({ name: { $regex: importData.firmName } }).fetch();
+                        if (_researchFirms.length === 1) {
+                            var _researchFirmId = _researchFirms[0]._id;
+                            importData.researchFirmId = _researchFirmId;
+                        } else {
+                            throw new Meteor.Error("Please specify a unique firm name")
+                        }
                     }
-                    importData.ownerName = Meteor.user().username;
+
+                    importData.lastModifiedOn = new Date().toISOString();
+                    importData.lastModifiedBy = _userId;
+                    importData.ownerName = _user.username;
+                    importData = _.omit(importData, "firmName");
+
                     _result.newPortfolioId = Portfolios.insert(importData);
                 } else {
                     throw new Meteor.Error("Please give a name to this portfolio.");
