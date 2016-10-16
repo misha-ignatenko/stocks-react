@@ -3,9 +3,8 @@ if (Meteor.isClient) {
         passwordSignupFields: "USERNAME_ONLY"
     });
 
-    Meteor.subscribe("researchCompanies");
-    Meteor.subscribe("pickLists");
-    Meteor.subscribe("pickListItems");
+    // Meteor.subscribe("pickLists");
+    // Meteor.subscribe("pickListItems");
 
     Meteor.subscribe("settings");
 

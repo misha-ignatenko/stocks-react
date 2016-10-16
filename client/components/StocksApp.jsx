@@ -12,6 +12,8 @@ StocksApp = React.createClass({
     getInitialState() {
         return {
             tabNameToShow: _upcomingEarningsReleasesTabName
+            , selectedPortfolioId: null
+            , showPortfolios: true
         }
     },
 
@@ -20,10 +22,45 @@ StocksApp = React.createClass({
 
         };
 
-        return {
+        let _data = {
             pickLists: PickLists.find(pickListsQuery, {sort: {pickListDate: -1}}).fetch(),
             currentUser: Meteor.user()
+        };
+
+        if (Meteor.subscribe("portfolios").ready()) {
+            let _allPortfs = Portfolios.find().fetch();
+            _data.portfolios = _allPortfs;
         }
+
+        return _data;
+    },
+
+    setSelectedPortf(portId) {
+        this.setState({
+            selectedPortfolioId: portId,
+            showPortfolios: false
+        });
+    },
+
+    renderPortfolios() {
+        return this.data.portfolios.map((portfolio) => {
+            return <button className="btn btn-default btn-lg" key={portfolio._id} onClick={this.setSelectedPortf.bind(this, portfolio._id)}>{portfolio.name}</button>;
+        });
+    },
+
+    renderSelectedPortfolio() {
+        let _pId = this.state.selectedPortfolioId;
+
+        return _pId ? <Portfolio
+            key={_pId}
+            portfolioId={_pId}
+        /> : "PLEASE SELECT A PORTFOLIO";
+    },
+
+    showHidePortfs() {
+        this.setState({
+            showPortfolios: !this.state.showPortfolios
+        });
     },
 
     renderPickLists() {
@@ -91,6 +128,11 @@ StocksApp = React.createClass({
                         }
                         <br/>
                         <br/>
+                        <button className="btn btn-default" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfs" : "show portfs"}</button>
+                        {this.data.portfolios ? <div className="container">
+                            {this.state.showPortfolios ? this.renderPortfolios() : null}
+                            {this.renderSelectedPortfolio()}
+                        </div> : "GETTING PORTFOLIOS"}
                         {this.renderPickLists()}
                         <br/>
                     </div>

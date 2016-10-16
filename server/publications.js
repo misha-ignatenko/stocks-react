@@ -24,6 +24,26 @@ Meteor.publish("allStockNames", function() {
     return Stocks.find({}, {fields: {_id: 1, minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
 });
 
+Meteor.publish("getPortfolioById", function(portfId) {
+    if (this.userId) {
+        //portfolios that are either public or the user is owner
+        return Portfolios.find(
+            { _id: portfId, $or: [ {private: false}, {ownerId: this.userId} ] },
+            {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1}}
+        );
+    } else {
+        return Portfolios.find({_id: portfId, private: false}, {fields: {_id: 1, name: 1}});
+    }
+});
+
+Meteor.publish("portfolioItems", function(portfolioIds, startStr, endStr) {
+    return PortfolioItems.find({
+        portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
+    }, {
+        sort: {dateString: 1}
+    });
+});
+
 Meteor.publish("allNewStockPricesForDate", function(dateStr) {
     return NewStockPrices.find(
         {

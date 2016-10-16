@@ -221,6 +221,7 @@ if (Meteor.isServer) {
 
     Meteor.publish("portfolios", function() {
         if (this.userId) {
+            // TODO: add logic here to also return portfolios that you have either view or edit access in PortfolioPermissions collection
             //portfolios that are either public or the user is owner
             return Portfolios.find(
                 { $or: [ {private: false}, {ownerId: this.userId} ] },
