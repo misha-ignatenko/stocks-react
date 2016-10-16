@@ -3,6 +3,95 @@ var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
+    importPortfolioItems: function(importObj) {
+        var _importedIds = [];
+        var _duplicatesArr = [];
+
+        var _user = Meteor.user();
+        if (!_user) {
+            throw new Meteor.Error("Please log in to import portfolio items.");
+        } else {
+            var _dataImportPermissions = _user.permissions && _user.permissions.dataImports;
+            var _canImportPortfolioItems = _dataImportPermissions && _dataImportPermissions.indexOf("canImportPortfolioItems") > -1;
+            if (!_canImportPortfolioItems) {
+                throw new Meteor.Error("You are not allowed to import portfolio items.");
+            } else {
+                if (!importObj.portfolioName || importObj.portfolioName === "") {
+                    throw new Meteor.Error("Please provide a portfolio name.")
+                } else {
+                    var _portfolios = Portfolios.find({name: {$regex: importObj.portfolioName}}).fetch();
+                    if (_portfolios.length === 0) {
+                        throw new Meteor.Error("There is no portfolio with the name you provided");
+                    } else if (_portfolios.length !== 1) {
+                        throw new Meteor.Error("There is more than 1 portfolio with the name you provided.");
+                    } else {
+                        var _portfolio = _portfolios[0];
+                        var _portfolioId = _portfolio._id;
+
+                        // if you're the owner of the portfolio, or it is public, or you've been granted edit
+                        // access to the portfolio via PortfolioPermissions, then you can proceed
+                        var _canEditPortfolioItemsForPortf =
+                            _user._id === _portfolio.ownerId ||
+                            !_portfolio.private ||
+                            PortfolioPermissions.findOne({userId: _user._id, portfolioId: _portfolioId, view: true});
+                        if (!_canEditPortfolioItemsForPortf) {
+                            throw new Meteor.Error("You go not have permission to edit this portfolio");
+                        } else {
+                            if (!(importObj.dateString && importObj.dateString.length === 10)) {
+                                throw new Meteor.Error("Please provide a date in the YYYY-MM-DD format.");
+                            } else {
+                                var _dateString = importObj.dateString;
+                                if (!importObj.equalWeight) {
+                                    throw new Meteor.Error("Equal weight is the only weight supported so far.")
+                                } else {
+                                    var _portfolioItems = importObj.portfolioItems;
+                                    var _allUniqSymbols = _.uniq(_.pluck(_portfolioItems, "symbol"));
+                                    if (!(_portfolioItems.length === _allUniqSymbols.length)) {
+                                        throw new Meteor.Error("Please make sure there are no duplicate symbols.");
+                                    } else {
+                                        var _existingSymbols = Stocks.find(
+                                            {_id: {$in: _allUniqSymbols}}, {
+                                                fields: { _id: 1 }
+                                            }).fetch();
+                                        var _unknownSymbols = _.difference(_allUniqSymbols, _.pluck(_existingSymbols, "_id"));
+                                        if (_unknownSymbols.length > 0) {
+                                            throw new Meteor.Error("Symbols cannot be recognized: " + JSON.stringify(_unknownSymbols));
+                                        } else {
+                                            var _weight = 1 / _allUniqSymbols.length;
+                                            _.each(_portfolioItems, function(portfolioItem) {
+                                                var _newPortfolioItem = {
+                                                    symbol: portfolioItem.symbol,
+                                                    portfolioId: _portfolioId,
+                                                    dateString: _dateString,
+                                                };
+
+                                                if (!PortfolioItems.findOne(_newPortfolioItem)) {
+                                                    var _newPortfolioItemId = PortfolioItems.insert(_.extend(_newPortfolioItem, {
+                                                        weight: _weight
+                                                    }));
+                                                    _importedIds.push(_newPortfolioItemId);
+                                                } else {
+                                                    _duplicatesArr.push(portfolioItem.symbol);
+                                                }
+                                            });
+
+                                            if (_duplicatesArr.length > 0) {
+                                                throw new Meteor.Error("These symbols already exist in the portfolio for this date: " + JSON.stringify(_duplicatesArr));
+                                            };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return {numberImported: _importedIds.length};
+
+    },
+
     importEarningsReleasesRecursively: function (symbols, scheduledDataPullFlag) {
         console.log("recursive func called with symbols: ", symbols.length);
         if (symbols && symbols.length > 0) {

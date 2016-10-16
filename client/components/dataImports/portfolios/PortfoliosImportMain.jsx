@@ -27,8 +27,8 @@ PortfoliosImport = React.createClass({
 
         return (<div className="container">
             <div className="btn-group" role="group" aria-label="...">
-                <button type="button" className={this.state.newPortfolio ? _ab : _b} onClick={this.selectTab}>New</button>
-                <button type="button" className={!this.state.newPortfolio ? _ab : _b} onClick={this.selectTab}>Existing</button>
+                <button type="button" className={this.state.newPortfolio ? _ab : _b} onClick={this.selectTab}>New portfolio</button>
+                <button type="button" className={!this.state.newPortfolio ? _ab : _b} onClick={this.selectTab}>Portfolio items</button>
             </div>
 
             {this.state.newPortfolio ? <NewPortfolioImport onNewPortfolioCreate={this.newPortfolioCreated} /> : <ExistingPortfolioImport portfolioId={this.state.selectedPortfolioId} />}
