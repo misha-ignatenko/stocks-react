@@ -155,10 +155,26 @@ Portfolio = React.createClass({
     },
 
     shouldComponentUpdate(nextProps, nextState) {
-        return this.props.portfolioId !== nextProps.portfolioId;
+        return this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
     },
 
+    setDateRangeOptions: function() {
+        StocksReact.ui.setDateRangeOptions("input-daterange");
+
+        var _that = this;
+        $('.form-control').on('change', function(event) {
+            var _set = StocksReact.ui.getStateForDateRangeChangeEvent(event);
+            _that.setState(_set);
+        });
+    },
+
+    changingStart: function() {},
+    changingEnd: function() {},
+
     render() {
+        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.startDate);
+        let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.getEndDateForPrices());
+
         return (
             <div className="container">
                 {this.data.portfolio ?
@@ -167,6 +183,11 @@ Portfolio = React.createClass({
                             <div>
                                 {this.data.stockPrices.length}
                                 <h1>{this.data.portfolio.name}</h1>
+                                <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
+                                    <input type="text" className="form-control" id="startDate" value={_startDate} onChange={this.changingStart}/>
+                                    <span className="input-group-addon">to</span>
+                                    <input type="text" className="form-control" id="endDate" value={_endDate} onChange={this.changingEnd}/>
+                                </div>
                                 {this.renderPortfolioPerformance()}
                             </div> :
                             "GETTING STOCK PRICES"
