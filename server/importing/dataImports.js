@@ -88,6 +88,13 @@ Meteor.methods({
             }
         }
 
+        Email.send({
+            to: Settings.findOne().serverSettings.dataImports.portfolioItems.emailTo,
+            from: Settings.findOne().serverSettings.dataImports.portfolioItems.emailFrom,
+            subject: "imported portfolio items for: " + _portfolio.name + ". date: " + _dateString,
+            text: JSON.stringify({ timeNow: new Date(), symbols: _allUniqSymbols })
+        });
+
         return {numberImported: _importedIds.length};
 
     },
