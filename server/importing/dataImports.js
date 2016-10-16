@@ -55,6 +55,9 @@ Meteor.methods({
                                             }).fetch();
                                         var _unknownSymbols = _.difference(_allUniqSymbols, _.pluck(_existingSymbols, "_id"));
                                         if (_unknownSymbols.length > 0) {
+                                            // this will insert unknown symbols if they are in Yahoo Finance
+                                            Meteor.call("insertNewStockSymbols", _unknownSymbols);
+
                                             throw new Meteor.Error("Symbols cannot be recognized: " + JSON.stringify(_unknownSymbols));
                                         } else {
                                             var _weight = 1 / _allUniqSymbols.length;
