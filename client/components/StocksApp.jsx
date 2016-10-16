@@ -54,7 +54,7 @@ StocksApp = React.createClass({
         return _pId ? <Portfolio
             key={_pId}
             portfolioId={_pId}
-        /> : "PLEASE SELECT A PORTFOLIO";
+        /> : <div>PLEASE SELECT A PORTFOLIO</div>;
     },
 
     showHidePortfs() {
@@ -128,7 +128,7 @@ StocksApp = React.createClass({
                         }
                         <br/>
                         <br/>
-                        <button className="btn btn-default" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfs" : "show portfs"}</button>
+                        <button className="btn btn-default" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfolios" : "show portfolios"}</button>
                         {this.data.portfolios ? <div className="container">
                             {this.state.showPortfolios ? this.renderPortfolios() : null}
                             {this.renderSelectedPortfolio()}
