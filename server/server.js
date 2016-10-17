@@ -159,6 +159,9 @@ Meteor.methods({
         } else {
             console.log("wrong key code.");
         }
+    },
+    getDefaultPerformanceDates: function() {
+        return Settings.findOne().clientSettings.portfolios;
     }
 })
 

@@ -4,8 +4,8 @@ Portfolio = React.createClass({
 
     getInitialState: function() {
         return {
-            startDate: "2014-11-28",
-            endDate: "2015-01-05"
+            startDate: "",
+            endDate: ""
         };
     },
 
@@ -18,7 +18,7 @@ Portfolio = React.createClass({
 
         let _data = {};
 
-        if (Meteor.subscribe("getPortfolioById", _portfId).ready()) {
+        if (this.state.startDate !== "" && this.state.endDate !== "" && Meteor.subscribe("getPortfolioById", _portfId).ready()) {
             _data.portfolio = Portfolios.findOne({_id: _portfId});
 
             if (Meteor.subscribe("portfolioItems", [_data.portfolio._id], this.state.startDate, this.state.endDate).ready()) {
@@ -42,6 +42,20 @@ Portfolio = React.createClass({
         let _settings = Settings.findOne();
         var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
         return StocksReact.utilities.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(this.state.endDate + " 17:00:00").tz("America/New_York"));
+    },
+
+    componentWillMount() {
+        let _that = this;
+        Meteor.call("getDefaultPerformanceDates", function (err, res) {
+            if (!err && res) {
+                _that.setState({
+                    startDate: res.performanceDefaultStartDate,
+                    endDate: res.performanceDefaultEndDate
+                });
+            } else {
+                console.log(err.error);
+            }
+        });
     },
 
     renderPortfolioPerformance() {
@@ -173,7 +187,7 @@ Portfolio = React.createClass({
 
     render() {
         let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.startDate);
-        let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.getEndDateForPrices());
+        let _endDate = this.state.endDate !== "" && StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.getEndDateForPrices());
 
         return (
             <div className="container">
