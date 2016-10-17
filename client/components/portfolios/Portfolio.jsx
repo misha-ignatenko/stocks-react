@@ -197,10 +197,12 @@ Portfolio = React.createClass({
                             <div>
                                 {this.data.stockPrices.length}
                                 <h1>{this.data.portfolio.name}</h1>
-                                <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
-                                    <input type="text" className="form-control" id="startDate" value={_startDate} onChange={this.changingStart}/>
-                                    <span className="input-group-addon">to</span>
-                                    <input type="text" className="form-control" id="endDate" value={_endDate} onChange={this.changingEnd}/>
+                                <div className="col-md-8">
+                                    <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
+                                        <input type="text" className="form-control" id="startDate" value={_startDate} onChange={this.changingStart}/>
+                                        <span className="input-group-addon">to</span>
+                                        <input type="text" className="form-control" id="endDate" value={_endDate} onChange={this.changingEnd}/>
+                                    </div>
                                 </div>
                                 {this.renderPortfolioPerformance()}
                             </div> :
