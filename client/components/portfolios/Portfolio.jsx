@@ -29,7 +29,8 @@ Portfolio = React.createClass({
                 _data.uniqPortfItemDates = _uniqPortfItemDates;
 
                 let _endDate = this.getEndDateForPrices();
-                if (Meteor.subscribe("stockPricesFor", _uniqStockSymbols, this.state.startDate, _endDate).ready()) {
+                let _datesForSub = _.union(_uniqPortfItemDates, [_endDate]);
+                if (Meteor.subscribe("stockPricesSpecificDates", _uniqStockSymbols, _datesForSub).ready()) {
                     _data.stockPrices = NewStockPrices.find({symbol: {$in: _uniqStockSymbols}}).fetch();
                 }
             }

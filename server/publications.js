@@ -20,6 +20,16 @@ Meteor.publish("stockPricesFor", function(symbolsArr, startStr, endStr) {
     );
 });
 
+Meteor.publish("stockPricesSpecificDates", function(symbolsArr, strDatesArr) {
+    return NewStockPrices.find(
+        {
+            symbol: {$in: symbolsArr}, dateString: {$in: strDatesArr}
+        }, {
+            sort: {dateString: 1}
+        }
+    );
+});
+
 Meteor.publish("allStockNames", function() {
     return Stocks.find({}, {fields: {_id: 1, minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
 });
