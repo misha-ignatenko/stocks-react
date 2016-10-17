@@ -36,6 +36,7 @@ PortfolioPerformanceGraph = React.createClass({
             },
 
             xAxis: {
+                ordinal: false,
                 type: 'datetime',
                 dateTimeLabelFormats: {
                     second: '%Y-%m-%d<br/>%H:%M:%S',
