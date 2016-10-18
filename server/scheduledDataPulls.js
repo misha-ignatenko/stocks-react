@@ -11,7 +11,10 @@ Meteor.startup(function() {
         var _dateString = _dateRightNowString.substring(0,10);
         var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
 
-        if (_lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
+        var _setting = Settings.findOne();
+        var _dataAutoPullIsOn = _setting && _setting.dataImports && _setting.dataImports.autoDataImportsTurnedOn;
+
+        if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
             var _previousSettings = Settings.findOne();
             var _previousServerSettings = _previousSettings.serverSettings;
             _previousServerSettings.quandl.dateOfLastPullFromQuandl = _dateString;
