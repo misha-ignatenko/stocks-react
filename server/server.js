@@ -389,6 +389,82 @@ if (Meteor.isServer) {
                     }
                 });
             }
+        },
+
+        getLatestPricesForAllSymbols: function(defaultStartDate, _latestDateString) {
+            // defaultStartDate like "2014-01-01"
+
+
+            var _pastDate = defaultStartDate;
+
+// either maxRequestedEndDate does not exist or it is less than latest market close date
+            var _uniqSym = _.uniq(_.pluck(Stocks.find({$or: [  {maxRequestedEndDate: {$exists: false}  }, {   maxRequestedEndDate: {$lt: _latestDateString}  } ]}, {fields: {_id: 1}}).fetch(), "_id"));
+
+            _.each(_uniqSym, function (symbol) {
+                console.log("symbol: ", symbol);
+
+                var _existingEndDate = NewStockPrices.findOne({symbol: symbol}, {sort: {dateString: -1}});
+                if (_existingEndDate) {
+                    _existingEndDate = _existingEndDate.dateString;
+                    console.log("end date: ", _existingEndDate)
+                } else {
+                    console.log("end date does not exist");
+                }
+
+                var startStr = _pastDate;
+                if (_existingEndDate) {
+                    startStr = _existingEndDate;
+                };
+                var endStr = _latestDateString;
+
+                console.log("gonna request from yahoo finance: ", startStr, endStr);
+
+                var _res;
+                Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
+                    if (!error && result) {
+                        console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
+                        // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
+
+                        var _getStockPricesFromYahooFinanceResults = [];
+                        result.forEach(function (priceObj) {
+                            var _isoDateString = priceObj.date.toISOString();
+                            var _dateString = _isoDateString.substring(0, 10);
+
+                            var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
+                                dateString: _dateString,
+                                date: new Date(_dateString + "T00:00:00.000+0000"),
+                                importedBy: null,
+                                importedOn: new Date().toISOString()
+                            });
+
+                            Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
+                                if (error) {
+                                    _getStockPricesFromYahooFinanceResults.push(error);
+                                } else {
+                                    _getStockPricesFromYahooFinanceResults.push(result);
+                                }
+                            })
+                        });
+
+                        _res = _getStockPricesFromYahooFinanceResults;
+
+
+                        Stocks.update(
+                            {_id: symbol},
+                            {$set: {maxRequestedEndDate: endStr}}
+                        );
+
+                        if (!_existingEndDate) {
+                            Stocks.update(
+                                {_id: symbol},
+                                {$set: {minRequestedStartDate: startStr}}
+                            );
+                        }
+                    }
+                });
+
+                console.log("------------------------------------------");
+            });
         }
     });
 }
