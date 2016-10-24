@@ -83,7 +83,7 @@ Meteor.startup(function() {
 
             Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
 
-            Meteor.call("pullPricesForUpcomingEarningsReleases");
+            //Meteor.call("pullPricesForUpcomingEarningsReleases");
         }
 
 
@@ -134,7 +134,7 @@ Meteor.methods({
                         }
                     }
                 ]
-            }, {field: {symbol: 1}}).fetch();
+            }, {fields: {symbol: 1}}).fetch();
 
             var _uniqSymbolsFromUpcomingEarnRel = _.uniq(_.pluck(_allEarningsReleases, "symbol"));
             var _startDate = moment(new Date().toISOString().substring(0,10)).subtract(1, "years").format("YYYY-MM-DD");
