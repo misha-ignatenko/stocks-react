@@ -59,6 +59,17 @@ Portfolio = React.createClass({
         });
     },
 
+    renderPortfolioUpdateEntry() {
+        // get the last date
+        let _lastRebalanceDate = _.last(this.data.portfolioItems).dateString;
+        let _latestPortfolioItems = this.data.portfolioItems.filter(function (obj) {
+            return obj.dateString === _lastRebalanceDate;
+        });
+        // TODO: pass _latestPortfolioItems into a new compoment as properties so that user could edit them and
+        // todo contd: submit an update to portfolio holdings via UI
+        return "";
+    },
+
     renderPortfolioPerformance() {
         // check if there is enough price data in the date range to generate performance
         let _uniqDates = this.data.uniqPortfItemDates;
@@ -206,6 +217,8 @@ Portfolio = React.createClass({
                                     </div>
                                 </div>
                                 {this.renderPortfolioPerformance()}
+                                <br/><br/>
+                                {this.renderPortfolioUpdateEntry()}
                             </div> :
                             "GETTING STOCK PRICES"
                         ) :

@@ -25,6 +25,11 @@ Meteor.publish("stockPricesSpecificDates", function(symbolsArr, strDatesArr) {
         {
             symbol: {$in: symbolsArr}, dateString: {$in: strDatesArr}
         }, {
+            fields: {
+                importedOn: 0,
+                importedBy: 0
+            }
+        }, {
             sort: {dateString: 1}
         }
     );
