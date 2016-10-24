@@ -218,10 +218,6 @@ if (Meteor.isServer) {
         return _allEarningsReleases;
     });
 
-    Meteor.publish("pickLists", function () {
-        return PickLists.find();
-    });
-
     Meteor.publish("portfolios", function() {
         if (this.userId) {
             // TODO: add logic here to also return portfolios that you have either view or edit access in PortfolioPermissions collection
@@ -233,10 +229,6 @@ if (Meteor.isServer) {
         } else {
             return Portfolios.find({private: false}, {fields: {_id: 1, name: 1}});
         }
-    });
-
-    Meteor.publish("pickListItems", function () {
-        return PickListItems.find();
     });
 
     Meteor.publish(null, function() {
