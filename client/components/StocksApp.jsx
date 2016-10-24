@@ -18,12 +18,7 @@ StocksApp = React.createClass({
     },
 
     getMeteorData() {
-        let pickListsQuery = {
-
-        };
-
         let _data = {
-            pickLists: PickLists.find(pickListsQuery, {sort: {pickListDate: -1}}).fetch(),
             currentUser: Meteor.user()
         };
 
@@ -60,18 +55,6 @@ StocksApp = React.createClass({
     showHidePortfs() {
         this.setState({
             showPortfolios: !this.state.showPortfolios
-        });
-    },
-
-    renderPickLists() {
-        return this.data.pickLists.map((pickList) => {
-            const currentUserId = this.data.currentUser && this.data.currentUser._id;
-            const showPrivateButton = pickList.addedBy === currentUserId;
-
-            return <PickList
-                key={pickList._id}
-                pickList={pickList}
-                showPrivateButton={showPrivateButton} />;
         });
     },
 
@@ -128,7 +111,6 @@ StocksApp = React.createClass({
                             {this.state.showPortfolios ? this.renderPortfolios() : null}
                             {this.renderSelectedPortfolio()}
                         </div> : "GETTING PORTFOLIOS"}
-                        {this.renderPickLists()}
                         <br/>
                     </div>
                 ) : null}

@@ -327,9 +327,6 @@ if (Meteor.isServer) {
                 PickListItems.update({_id: pickListItemId}, {$set: {dateRemoved: dateRemoved}})
             }
         },
-        removePickList: function(pickListId) {
-            PickLists.remove(pickListId);
-        },
         removePickListItem: function(pickListItemId) {
             PickListItems.remove(pickListItemId);
         },
