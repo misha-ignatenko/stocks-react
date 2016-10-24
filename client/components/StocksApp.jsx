@@ -11,7 +11,7 @@ StocksApp = React.createClass({
 
     getInitialState() {
         return {
-            tabNameToShow: _upcomingEarningsReleasesTabName
+            tabNameToShow: _mainTabName
             , selectedPortfolioId: null
             , showPortfolios: true
         }
@@ -54,7 +54,7 @@ StocksApp = React.createClass({
         return _pId ? <Portfolio
             key={_pId}
             portfolioId={_pId}
-        /> : <div>PLEASE SELECT A PORTFOLIO</div>;
+        /> : <div>SELECT A PORTFOLIO TO SEE PERFORMANCE</div>;
     },
 
     showHidePortfs() {
@@ -75,19 +75,13 @@ StocksApp = React.createClass({
         });
     },
 
-    handleSubmitPickList(event) {
+    createNewPortfolio(event) {
         event.preventDefault();
-        var pickListName = React.findDOMNode(this.refs.textInput).value.trim();
-        //TODO change new Date() below
-        var pickListDate = new Date();
-        var stocksList = [];
-
-
-        //todo add more stuff here because a pick list is much more than just a name
-        //TODO should be able to add new pick lists manually from client side as well as mass import using data
-
-        Meteor.call("addPickList", pickListName, pickListDate, stocksList);
-        React.findDOMNode(this.refs.textInput).value = "";
+        var _name = this.refs.textInput.value.trim();
+        var _that = this;
+        Meteor.call("createNewPortfolio", _name, function (error, result) {
+            _that.refs.textInput.value = "";
+        });
     },
 
     selectTab(e) {
@@ -119,11 +113,12 @@ StocksApp = React.createClass({
                     <div>
                         <br/>
                         { this.data.currentUser ?
-                            <form className="new-pickList" onSubmit={this.handleSubmitPickList} >
+                            <form className="col-md-4 new-pickList" style={{float: "right"}} onSubmit={this.createNewPortfolio} >
                                 <input
+                                    style={{width: "100%"}}
                                     type="text"
                                     ref="textInput"
-                                    placeholder="Type to add new pick lists" />
+                                    placeholder="Type to add a new portfolio" />
                             </form> : ''
                         }
                         <br/>

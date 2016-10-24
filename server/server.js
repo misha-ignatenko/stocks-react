@@ -293,18 +293,20 @@ if (Meteor.isServer) {
                 Meteor.users.update({_id: userId}, {$set: { individualStocksAccess: [symbol]}});
             }
         },
-        addPickList: function(pickListName, pickListDate, stocksList) {
-            // Make sure the user is logged in before inserting a task
+        createNewPortfolio: function (name) {
+            // Make sure the user is logged in before inserting a portfolio
             if (! Meteor.userId()) {
                 throw new Meteor.Error("not-authorized");
             }
 
-            PickLists.insert({
-                listName: pickListName,
-                pickListDate: pickListDate,
-                stocksList: stocksList,
-                addedBy: Meteor.userId(),
-                addedByUsername: Meteor.user().username
+            Portfolios.insert({
+                name: name,
+                private: false,
+                ownerId: Meteor.userId(),
+                researchFirmId: null,
+                lastModifiedOn: moment().toISOString(),
+                lastModifiedBy: Meteor.userId(),
+                ownerName: Meteor.user().username
             });
         },
         addStockToPickList: function(pickListId, symbol, dateAdded) {
