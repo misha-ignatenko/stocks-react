@@ -40,7 +40,11 @@ Meteor.startup(function() {
                     subject: "pulling prices for the day from Yahoo Finance",
                     text: JSON.stringify({
                         timeNow: new Date(),
-                        nycDate: _dateStringNyc
+                        nycDate: _dateStringNyc,
+                        weekDayNum: _weekdayNyc,
+                        lastPullDate: _lastPullDate,
+                        nycTimeString: _nycTimeString,
+                        dailyPullTimeNyc: _dailyYFpullTime
                     })
                 });
 
@@ -52,7 +56,11 @@ Meteor.startup(function() {
                     subject: "DONE pulling prices for the day from Yahoo Finance",
                     text: JSON.stringify({
                         timeNow: new Date(),
-                        nycDate: _dateStringNyc
+                        nycDate: _dateStringNyc,
+                        weekDayNum: _weekdayNyc,
+                        lastPullDate: _lastPullDate,
+                        nycTimeString: _nycTimeString,
+                        dailyPullTimeNyc: _dailyYFpullTime
                     })
                 });
             }
