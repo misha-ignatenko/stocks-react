@@ -61,7 +61,7 @@ Portfolio = React.createClass({
 
     renderPortfolioUpdateEntry() {
         // get the last date
-        let _lastRebalanceDate = _.last(this.data.portfolioItems).dateString;
+        let _lastRebalanceDate = _.last(_.pluck(this.data.portfolioItems, "dateString"));
         let _latestPortfolioItems = this.data.portfolioItems.filter(function (obj) {
             return obj.dateString === _lastRebalanceDate;
         });
