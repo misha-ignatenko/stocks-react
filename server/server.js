@@ -197,23 +197,11 @@ function _recursiveF(arr, index, startStr, endStr) {
 
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate) {
-        var _allEarningsReleases = EarningsReleases.find({$and: [
-            {
-                reportDateNextFiscalQuarter: {
-                    $exists: true
-                }
-            },
-            {
-                reportDateNextFiscalQuarter: {
-                    $gte: startDate
-                }
-            },
-            {
-                reportDateNextFiscalQuarter: {
-                    $lte: endDate
-                }
+        var _allEarningsReleases = EarningsReleases.find({
+            reportDateNextFiscalQuarter: {
+                $gte: startDate, $lte: endDate,
             }
-        ]}, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
+        }, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
 
         return _allEarningsReleases;
     });
