@@ -8,6 +8,7 @@ UpcomingEarningsReleases = React.createClass({
         let _ratingChangesDateFormat = "YYYY-MM-DD";
 
         return {
+            companyConfirmedEarnRelOnly: true,
             startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
             endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
             startEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).format("YYYYMMDD")),
@@ -30,7 +31,7 @@ UpcomingEarningsReleases = React.createClass({
                 data.currentUser ?
                     this.state.endEarningsReleaseDateInteger :
                     parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
-            var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription);
+            var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription, this.state.companyConfirmedEarnRelOnly);
             if (_handle1.ready() && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("allStockNames").ready()) {
                 var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
                 data.earningsReleasesSubscriptionReady = true;

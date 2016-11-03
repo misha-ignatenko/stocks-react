@@ -196,12 +196,21 @@ function _recursiveF(arr, index, startStr, endStr) {
 };
 
 if (Meteor.isServer) {
-    Meteor.publish("earningsReleases", function (startDate, endDate) {
-        var _allEarningsReleases = EarningsReleases.find({
+    Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
+
+        var _query = {
             reportDateNextFiscalQuarter: {
                 $gte: startDate, $lte: endDate,
             }
-        }, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
+        };
+
+        if (companyConfirmedOnly) {
+            _query = _.extend(_query, {
+                reportSourceFlag: 1
+            });
+        };
+
+        var _allEarningsReleases = EarningsReleases.find(_query, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
 
         return _allEarningsReleases;
     });
