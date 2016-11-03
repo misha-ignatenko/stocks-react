@@ -98,7 +98,14 @@ UpcomingEarningsReleases = React.createClass({
 
     },
 
+    toggleCompanyConfirmedOnly() {
+        this.setState({
+            companyConfirmedEarnRelOnly: !this.state.companyConfirmedEarnRelOnly
+        });
+    },
+
     render() {
+        let _compOnlyBtnClass = "btn btn-default" + (this.state.companyConfirmedEarnRelOnly ? " active" : "");
 
         return (
             <div className="container">
@@ -113,7 +120,7 @@ UpcomingEarningsReleases = React.createClass({
                                 end date:
                                 <input className="datepickerInput2" id="endEarningsReleaseDateInteger" />
                             </div>
-                            <br/>
+                            <button className={ _compOnlyBtnClass } onClick={this.toggleCompanyConfirmedOnly}>Company Confirmed Only</button>
                             <br/>
                             <br/>
                         </div>
