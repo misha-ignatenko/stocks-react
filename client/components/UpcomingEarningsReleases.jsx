@@ -33,41 +33,13 @@ UpcomingEarningsReleases = React.createClass({
                     parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
             var _handle1 = Meteor.subscribe("earningsReleases", this.state.startEarningsReleaseDateInteger, _endDateForEarningsReleasesSubscription, this.state.companyConfirmedEarnRelOnly);
             if (_handle1.ready() && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("allStockNames").ready()) {
-                var _uniqSymbols = _.uniq(_.pluck(EarningsReleases.find().fetch(), "symbol"));
                 data.earningsReleasesSubscriptionReady = true;
-                //this is now done automatically every night
-                //this.pullDataFromQuandl(_uniqSymbols);
             }
         }
 
         return data;
     },
 
-    pullDataFromQuandl: function(uniqueSymbols) {
-        let _symbols = [];
-        let _todaysDate = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
-        uniqueSymbols.forEach(function(symbol) {
-            let _earningsReleasesForSymbol = _.filter(EarningsReleases.find().fetch(), function(obj) {
-                return obj.symbol === symbol;
-            });
-            let _sorted = _.sortBy(_earningsReleasesForSymbol, function (obj) {
-                let _date = new Date(obj["lastModified"]).toISOString();
-                return _date;
-            });
-            if (_sorted && _sorted.length > 0) {
-                let _latestDate = _sorted[_sorted.length - 1]["asOf"];
-                let _nextUpdateAllowedOn_NUM = parseInt(moment(new Date(_latestDate)).add(_allowQuandlPullEveryNdaysFromPreviousForThatStock + 1, 'days').format("YYYYMMDD"));
-
-                if (_nextUpdateAllowedOn_NUM <= _todaysDate) {
-                    _symbols.push(symbol);
-                }
-            }
-        });
-        if (_symbols.length > 0) {
-            //console.log("GONNA PULL EARNING RELEASES FROM QUANDL FOR: ", _symbols);
-            Meteor.call("importData", _symbols, "earnings_releases", false);
-        }
-    },
     setDatepickerOptions: function() {
         let _datepickerOptions = {
             autoclose: true,
