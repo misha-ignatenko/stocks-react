@@ -65,6 +65,7 @@ AverageAndWeightedRatings = React.createClass({
 
             if (_pricesHandle.ready() && _ratingScalesHandle.ready()) {
                 var _allNewStockPricesArr = NewStockPrices.find().fetch();
+                _data.stockPrices = _allNewStockPricesArr;
 
                 let _allAvailablePricesForSymbol = {
                     symbol: _symbol,
@@ -116,14 +117,14 @@ AverageAndWeightedRatings = React.createClass({
                             })
                         }
 
-                        _data.stocksToGraphObjs = [_objToGraph];
+                        _data.stocksToGraphObjs = [JSON.parse(JSON.stringify(_objToGraph))];
                     }
 
                     //todo: make sure we are already subscribed to EarningsReleases
                     let _allEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol, reportDateNextFiscalQuarter: {$exists: true}}).fetch();
 
                     _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
-                    _data.ratingChanges = RatingChanges.find({}, {sort: {date: 1}}).fetch();
+                    _data.ratingChanges = RatingChanges.find().fetch();
                     _data.ratingScales = RatingScales.find().fetch()
                     _data.earningsReleases = _allEarningsReleasesForSymbol;
                     _data.allGraphData = _.extend(result, {
@@ -176,24 +177,172 @@ AverageAndWeightedRatings = React.createClass({
         return false;
     },
 
+    getIndividualRatingsEveryDay(prices, ratingChanges, ratingScales) {
+        let _res = [];
+        let _uniqFirmIds = _.uniq(_.pluck(ratingChanges, "researchFirmId"));
+        let _that = this;
+
+        _.each(prices, function (priceObj) {
+            let _ratingsMap = {};
+            _.each(_uniqFirmIds, function (firmId) {
+                let _ratingScaleId = _that.getScaleIdForFirmAndDate(firmId, priceObj.dateString, ratingChanges);
+                let _univVal = ratingScales.filter(function (obj) {
+                    return obj._id === _ratingScaleId
+                })[0].universalScaleValue;
+                _ratingsMap[firmId] = _univVal;
+            });
+
+            _res.push(_.extend(priceObj, {companyRatingsByResearchFirm: _ratingsMap}));
+        });
+
+        return _res;
+    },
+
+    getScaleIdForFirmAndDate(firmId, dateString, allRatingChanges) {
+        let _scaleId;
+        let ratingChanges = allRatingChanges.filter(function (obj) {
+            return obj.researchFirmId === firmId;
+        });
+
+        _.each(ratingChanges, function (ratingChange) {
+            if (_scaleId) {
+                // if value is already set, check if it should be reset to something newer
+                if (ratingChange.dateString <= dateString) {
+                    _scaleId = ratingChange.newRatingId;
+                }
+            } else {
+                // initialize the value. if date of rating change is less or equal to the date string, then grab the new value. otherwise grab
+                if (ratingChange.dateString <= dateString) {
+                    _scaleId = ratingChange.newRatingId;
+                } else {
+                    _scaleId = ratingChange.oldRatingId;
+                }
+            }
+        });
+
+        return _scaleId;
+    },
+
+    // source 1: http://stackoverflow.com/questions/11849308/generate-colors-between-red-and-green-for-an-input-range
+    // source 2: http://jsfiddle.net/xgJ2e/2/
+    hsv2rgb(h, s, v) {
+        // adapted from http://schinckel.net/2012/01/10/hsv-to-rgb-in-javascript/
+        var rgb, i, data = [];
+        if (s === 0) {
+            rgb = [v,v,v];
+        } else {
+            h = h / 60;
+            i = Math.floor(h);
+            data = [v*(1-s), v*(1-s*(h-i)), v*(1-s*(1-(h-i)))];
+            switch(i) {
+                case 0:
+                    rgb = [v, data[2], data[0]];
+                    break;
+                case 1:
+                    rgb = [data[1], v, data[0]];
+                    break;
+                case 2:
+                    rgb = [data[0], v, data[2]];
+                    break;
+                case 3:
+                    rgb = [data[0], data[1], v];
+                    break;
+                case 4:
+                    rgb = [data[2], data[0], v];
+                    break;
+                default:
+                    rgb = [v, data[0], data[1]];
+                    break;
+            }
+        }
+        return '#' + rgb.map(function(x){
+                return ("0" + Math.round(x*255).toString(16)).slice(-2);
+            }).join('');
+    },
+
+    renderHistoricalRatingChangesByCompany() {
+        let _ratingChanges = this.data.ratingChanges;
+        let _uniqueFirmIds = _.uniq(_.pluck(_ratingChanges, "researchFirmId"));
+        let _dateAndUniqFirmIds = ["date"].concat(_uniqueFirmIds);
+        let _firmIdx = ["date"].concat(_.range(_uniqueFirmIds.length));
+        let _prices = this.data.stockPrices;
+        let _individualRatingsEveryDay = this.getIndividualRatingsEveryDay(_prices, _ratingChanges, this.data.ratingScales);
+        let hsv2rgb = this.hsv2rgb;
+
+        return <div>
+            <table>
+                <thead>
+                    <tr>
+                        {_dateAndUniqFirmIds.map((firm, index) => {
+                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-default" key={firm}>{index}</button> : firm}</th>;
+                        })}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {_individualRatingsEveryDay.reverse().map((row) => {
+                        let _rowKey = row["dateString"];
+
+                        return <tr key={_rowKey}>{_dateAndUniqFirmIds.map((firm) => {
+                            let _val = row["companyRatingsByResearchFirm"][firm];
+                            let _style = {
+                                textAlign: "center"
+                            };
+                            if (parseInt(_val)) {
+                                {/*let r = 255;*/}
+                                {/*let g = Math.floor((100 - _val) / 50 * 255);*/}
+                                {/*let b = Math.floor((100 - _val) / 50 * 255);*/}
+
+                                let n = _val / 120 * 100;
+
+                                {/*let r = Math.floor((255 * n) / 100);*/}
+                                {/*let g = Math.floor((255 * (100 - n)) / 100);*/}
+                                {/*let b = 0;*/}
+
+                                {/*_style = _.extend(_style, {*/}
+                                    {/*backgroundColor: "rgb(" + r + "," + g + "," + b + ")"*/}
+                                {/*});*/}
+
+                                {/*var h= Math.floor((100 - n) * 120 / 100);*/}
+                                var h= Math.floor((n) * 120 / 100);
+                                var s = Math.abs(n - 50)/50;
+                                var v = 1;
+                                _style = _.extend(_style, {
+                                    backgroundColor: hsv2rgb(h, s, 1)
+                                });
+                            }
+                            let _cellKey = _rowKey + firm;
+                            let _strVal = firm === "date" ? (<span style={{margin: "30px"}}>{row["dateString"]}</span>) : (parseInt(_val) || "");
+
+                            return <td style={_style} key={_cellKey}>
+                                {_strVal}
+                                </td>;
+                        })}</tr>;
+                    })}
+                </tbody>
+            </table>
+        </div>;
+    },
+
     renderAllExistingUpDowngradesForStock: function() {
         var _that = this;
         return <div className="row allUpDowngrades">
             <br/>
-            {this.data.ratingChanges.length > 0 ? <h1>all existing up/downgrades (replace this with a table):</h1> : <p>no analyst upgrades/downgrades</p>}
+            {this.data.ratingChanges.length > 0 ? <h3>historic analyst ratings (firm ids are column headers):</h3> : <p>no analyst upgrades/downgrades</p>}
+            {this.renderHistoricalRatingChangesByCompany()}
             <ul>
-                {this.data.ratingChanges.map((ratingChange, index) => {
-                    let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;
-                    let _newRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.newRatingId}).universalScaleValue;
-                    return(<li key={index}>
-                        <div>
-                            Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>
-                            New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>
-                            As of: {ratingChange.date.substring(0,16)}<br/>
-                            Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}
-                        </div>
-                    </li>);
-                })}
+                {/*{this.data.ratingChanges.map((ratingChange, index) => {*/}
+                    {/*let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;*/}
+                    {/*let _newRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.newRatingId}).universalScaleValue;*/}
+                    {/*return(<li key={index}>*/}
+                        {/*<div>*/}
+                            {/*Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>*/}
+                            {/*New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>*/}
+                            {/*As of: {ratingChange.date.substring(0,16)}<br/>*/}
+                            {/*Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}*/}
+                        {/*</div>*/}
+                    {/*</li>);*/}
+                {/*})}*/}
             </ul>
         </div>
     },

@@ -165,15 +165,15 @@ IndividualStock = React.createClass({
                         <button type="button" className={this.state.showAvgRatings && this.state.showWeightedRating ? _ab : _b} id='both' onClick={this.selectTab}>both</button>
                         <button type="button" className={!this.state.showAvgRatings && this.state.showWeightedRating ? _ab : _b} id='wgt' onClick={this.selectTab}>wgt only</button>
                     </div>
-                    <br/>
+                    {/*<br/>*/}
                     { this.state.individualStockStartDate || this.state.individualStockEndDate ? <div>
                         <button onClick={this.resetDateRange}>reset date range</button>
                     </div> : null }
-                    <br/>
+                    {/*<br/>*/}
                     {this.state.individualStockStartDate}
-                    <br/>
+                    {/*<br/>*/}
                     {this.state.individualStockEndDate}
-                    <br/>
+                    {/*<br/>*/}
 
                     { this.state.selectedStock && this.state.individualStockStartDate && this.state.individualStockEndDate ? <div>
                         <br/>
