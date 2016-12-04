@@ -255,15 +255,6 @@ if (Meteor.isServer) {
 
     Meteor.methods({
 
-        getRatingChangesFor: function(symbol) {
-            var _userId = this.userId;
-            var _user = Meteor.users.findOne({_id: _userId});
-            //show researchFirmString ONLY if user is premium
-
-            return _user.premium ?
-                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}}).fetch() :
-                RatingChanges.find({symbol: symbol}, {fields: {_id: 1, symbol: 1, date: 1, oldRatingId: 1, newRatingId: 1}}).fetch();
-        },
         registerRealAccountFromDummy: function(newUsername, newPassword) {
             var dummyUserId = Meteor.userId();
             Accounts.setUsername(dummyUserId, newUsername);
