@@ -336,7 +336,8 @@ Meteor.methods({
                                 oldRatingId: _ratingScaleObjectForOld._id,
                                 private: true,
                                 addedBy: Meteor.userId(),
-                                addedOn: new Date().toUTCString()
+                                addedOn: new Date().toUTCString(),
+                                source: importItem.source
                             };
                             if (_originalOldRatingString || _originalNewRatingString) {
                                 _ratingChange.originalRatingStrings = {

@@ -10,6 +10,8 @@ UpDownGradesJSONDataImport = React.createClass({
 
     getInitialState() {
         return {
+            sourceChoices: ["fidelity", "briefing", "schwab"],
+            selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,
             cellValues: []
@@ -92,6 +94,10 @@ UpDownGradesJSONDataImport = React.createClass({
         //    textAreaValue: ""
         //});
         var _parsed = this.state.cellValues;
+        let _source = this.state.selectedSource;
+        _parsed = _.map(_parsed, function (importItem) {
+            return _.extend(importItem, {"source": _source});
+        });
         this.clearCells();
         Meteor.call('importData', _parsed, 'upgrades_downgrades', function(error, result) {
             if (!error && result) {
@@ -169,19 +175,33 @@ UpDownGradesJSONDataImport = React.createClass({
     },
     clearCells: function() {
         this.setState({
+            selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,
             cellValues: []
         });
     },
 
+    selectSourceChoice (source) {
+        this.setState({
+            selectedSource: source
+        })
+    },
+
     render() {
         var textAreaValue = this.state.textAreaValue;
+        var _selectedSource = this.state.selectedSource;
         return (
             <div className="container">
                 { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Up/downgrades entry page:</h1>
                     {/*<h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>*/}
+                    Source: <div className="btn-group" role="group" aria-label="...">
+                        {this.state.sourceChoices.map((choice) => {
+                            let _btnClass = ("btn btn-default") + (choice === _selectedSource ? " active" : "");
+                            return <button className={_btnClass} key={choice} onClick={this.selectSourceChoice.bind(this, choice)}>{choice}</button>
+                        })}
+                    </div>
                     {!this.state.splitIntoCells ?
                         <div className="textAreaEntryDiv">
                             <textarea rows="20" cols="100"
@@ -191,8 +211,10 @@ UpDownGradesJSONDataImport = React.createClass({
                         <div>
                             {this.renderCells()}
                             <br/>
-                            <button
-                                onClick={this.verifyAndImportUpDownGradesJSONData}>import</button>
+                            {this.state.sourceChoices.indexOf(this.state.selectedSource) === -1 ?
+                                "please select a source" :
+                                <button
+                                    onClick={this.verifyAndImportUpDownGradesJSONData}>import</button> }
                             <br/>
                             <button className="btn btn-default" onClick={this.clearCells}>clear</button>
                         </div>
