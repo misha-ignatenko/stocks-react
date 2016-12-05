@@ -124,7 +124,7 @@ AverageAndWeightedRatings = React.createClass({
                     let _allEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol, reportDateNextFiscalQuarter: {$exists: true}}).fetch();
 
                     _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
-                    _data.ratingChanges = RatingChanges.find().fetch();
+                    _data.ratingChanges = RatingChanges.find({symbol: _symbol}).fetch();
                     _data.ratingScales = RatingScales.find().fetch()
                     _data.earningsReleases = _allEarningsReleasesForSymbol;
                     _data.allGraphData = _.extend(result, {
