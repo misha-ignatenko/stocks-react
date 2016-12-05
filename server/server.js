@@ -162,6 +162,33 @@ Meteor.methods({
     },
     getDefaultPerformanceDates: function() {
         return Settings.findOne().clientSettings.portfolios;
+    },
+
+    ensureRatingChangesSymbolsDefinedInStocksCollection: function () {
+        var _uniqRatingChangesSymbols = _.uniq(_.pluck(RatingChanges.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
+
+        // make sure that all these unique symbols in RatingChanges collection exist in Stocks collection
+        var _uniqStocks = _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), "_id"));
+
+        var _symbolsNotInStocksCollection = _.difference(_uniqRatingChangesSymbols, _uniqStocks);
+
+        var _thisArrShouldBeEmpty = [];
+        _.each(_symbolsNotInStocksCollection, function (symbol) {
+            // look up each symbol in symbol mapping collection. if it's not there with "rating_changes" flag, then
+            // push to _thisArrShouldBeEmpty
+
+            var _symbolMapping = SymbolMappings.findOne({
+                "symbolStr" : symbol,
+                "from" : "rating_change"
+            });
+            if (_symbolMapping) {
+                // do nothing
+            } else {
+                _thisArrShouldBeEmpty.push(symbol);
+            }
+        });
+
+        return _thisArrShouldBeEmpty;
     }
 })
 
