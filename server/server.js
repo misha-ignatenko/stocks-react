@@ -184,7 +184,10 @@ Meteor.methods({
             if (_symbolMapping) {
                 // do nothing
             } else {
-                _thisArrShouldBeEmpty.push(symbol);
+                _thisArrShouldBeEmpty.push({
+                    symbol: symbol,
+                    ratingChangesDates: _.pluck(RatingChanges.find({symbol: symbol}, {fields: {dateString: 1}}).fetch(), "dateString")
+                });
             }
         });
 
