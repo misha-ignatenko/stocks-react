@@ -15,6 +15,8 @@ AverageAndWeightedRatings = React.createClass({
         let _avgRatingEndDate = StocksReact.utilities.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
 
         return {
+            pctDownPerDay: 0.5,
+            pctUpPerDay: 1.0,
             avgRatingStartDate: _avgRatingStartDate,
             avgRatingEndDate: _avgRatingEndDate,
             priceReactionDelayDays: 0
@@ -99,7 +101,7 @@ AverageAndWeightedRatings = React.createClass({
                     if (result && result.historicalData) {
                         var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                         var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
-                        var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", 0.5, 1.0);
+                        var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay);
 
                         var _objToGraph = result;
                         if (this.props.showAvgRatings && this.props.showWeightedRating) {
@@ -167,6 +169,7 @@ AverageAndWeightedRatings = React.createClass({
         //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
         //because it takes a few seconds after new symbol prop is set to get new data to graph
         if (this.props.symbol !== nextProps.symbol ||
+            this.state.pctDownPerDay !== nextState.pctDownPerDay || this.state.pctUpPerDay !== nextState.pctUpPerDay ||
             this.state.avgRatingStartDate !== nextState.avgRatingStartDate ||
             this.state.avgRatingEndDate !== nextState.avgRatingEndDate || this.state.priceReactionDelayDays !== nextState.priceReactionDelayDays
             || this.props.showAvgRatings !== nextProps.showAvgRatings || this.props.showWeightedRating !== nextProps.showWeightedRating
@@ -361,14 +364,24 @@ AverageAndWeightedRatings = React.createClass({
         });
     },
 
+    refreshRegr: function (event) {
+        var _newState = {};
+        _newState[event.target.id] = parseFloat(event.target.value);
+        this.setState(_newState);
+    },
+    changePct: function (event) {
+        $("#" + event.target.id).val(event.target.value);
+    },
+
     renderAvgAnalystRatingsGraph: function() {
         let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingStartDate);
         let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingEndDate);
         return (this.data.ratingChanges.length > 0 ? <div>
-            <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays} </span>
-            <button type="button" className="btn btn-default" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
-            <button type="button" className="btn btn-default" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
-
+                <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays} </span>
+                <button type="button" className="btn btn-default" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
+                <button type="button" className="btn btn-default" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
+                <input type="text" className="pctDownPerDay" ref="pctDownPerDay" id="pctDownPerDay" placeholder="0.5" onBlur={this.refreshRegr} onChange={this.changePct}/>
+                <input type="text" className="pctUpPerDay" ref="pctUpPerDay" id="pctUpPerDay" placeholder="1.0" onBlur={this.refreshRegr} onChange={this.changePct}/>
 
             <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
                 <input type="text" className="form-control" id="avgRatingStartDate" value={_startDate} onChange={this.changingStart}/>
