@@ -46,7 +46,7 @@ if (Meteor.isClient) {
 
             return _result;
         },
-        generateWeightedAnalystRatingsTimeSeriesEveryDay: function(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, historicalData, priceReactionDelayDays, priceType) {
+        generateWeightedAnalystRatingsTimeSeriesEveryDay: function(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, historicalData, priceReactionDelayDays, priceType, _pctGoDownPerDayAtMinRating, _pctGoUpPerDayAtMaxRating) {
             var _result = [];
 
 
@@ -66,8 +66,6 @@ if (Meteor.isClient) {
             var _initialWeights = JSON.stringify(_data.initialWeights);
             if (_featureMatrix && _actualOutput && _initialWeights) {
 
-                var _pctGoUpPerDayAtMaxRating = 1;
-                var _pctGoDownPerDayAtMinRating = 0.5;
                 var _maxRatingValue = 120;
                 var _minRatingValue = 0;
                 //the cutoff value is the value at which we consider rating to be positive or negative

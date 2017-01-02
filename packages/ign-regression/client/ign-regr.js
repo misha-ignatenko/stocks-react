@@ -12,18 +12,18 @@ IgnRegression.functions = {
             var _predictions = IgnRegression.utilities.get_dot_product_arrayOfArrays_and_array(featureMartix, _weights);
             var _errors = IgnRegression.utilities.subtract_arrays(_predictions, actualOutput);
 
-            var _gradientSumSquates = 0;
+            var _gradientSumSquares = 0;
             _weights.forEach(function(weight, featureIndex) {
                 var _derivative = 2 * IgnRegression.utilities.get_dot_product_two_arrays(
                         _errors,
                         IgnRegression.utilities.get_column_from_array_of_arrays(featureMartix, featureIndex)
                     );
-                _gradientSumSquates += _derivative * _derivative;
+                _gradientSumSquares += _derivative * _derivative;
 
                 _weights[featureIndex] -= stepSize * _derivative;
             });
 
-            var _gradientMagnitude = Math.sqrt(_gradientSumSquates);
+            var _gradientMagnitude = Math.sqrt(_gradientSumSquares);
             if (_gradientMagnitude < tolerance || _iter > maxIter) {
                 _converged = true;
             }
@@ -80,12 +80,12 @@ IgnRegression.functions = {
 
             var _errors = IgnRegression.utilities.subtract_arrays(_alternativePredictions, actualOutput);
 
-            var _gradientSumSquates = 0;
+            var _gradientSumSquares = 0;
             _weights.forEach(function(weight, featureIndex) {
                 var _derivative = 2 * IgnRegression.utilities.get_dot_product_two_arrays(
                         _errors, IgnRegression.utilities.get_column_from_array_of_arrays(featureMartix, featureIndex)
                     );
-                _gradientSumSquates += _derivative * _derivative;
+                _gradientSumSquares += _derivative * _derivative;
 
                 _weights[featureIndex] -= stepSize * _derivative;
 
@@ -95,7 +95,7 @@ IgnRegression.functions = {
                 }
             });
 
-            var _gradientMagnitude = Math.sqrt(_gradientSumSquates);
+            var _gradientMagnitude = Math.sqrt(_gradientSumSquares);
             if (_gradientMagnitude < tolerance || _iter > maxIter) {
                 _converged = true;
             }

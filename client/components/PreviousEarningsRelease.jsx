@@ -262,7 +262,7 @@ PreviousEarningsRelease = React.createClass({
                 if (result && result.historicalData) {
                     var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                     var _priceReactionDelayInDays = 5;
-                    var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose");
+                    var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", 0.5, 1.0);
                     _that.setState({
                         stocksToGraphObjs: [_.extend(result, {
                             //avgAnalystRatings: _averageAnalystRatingSeries,
