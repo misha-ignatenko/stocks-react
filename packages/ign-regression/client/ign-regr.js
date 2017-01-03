@@ -70,7 +70,7 @@ IgnRegression.functions = {
                         _dayIncrease = _fractionOfMaxGoUp * goUpPerDayAtMaxRating;
                     } else {
                         _fractionOfMaxGoDown = (cutoffValue - _weightedAvgRatingForDay) / (cutoffValue - minRatingValue);
-                        _dayIncrease = _fractionOfMaxGoDown * goDownPerDayAtMinRating;
+                        _dayIncrease = - _fractionOfMaxGoDown * goDownPerDayAtMinRating;
                     }
                     var _priceFromPreviousDay = _alternativePredictions[index - 1];
                     var _newPrice = _priceFromPreviousDay * (1 + _dayIncrease);
