@@ -102,20 +102,30 @@ AverageAndWeightedRatings = React.createClass({
                         var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                         var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
                         var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay);
+                        var _predictionsBasedOnAvgRatings = StocksReact.functions.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+                            return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
+                        }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
+                        var _predictionsBasedOnWeightedRatings = StocksReact.functions.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+                            return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
+                        }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
 
                         var _objToGraph = result;
                         if (this.props.showAvgRatings && this.props.showWeightedRating) {
                             _objToGraph = _.extend(_objToGraph, {
                                 avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
-                                weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                                weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
+                                predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings,
+                                predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
                             })
                         } else if (this.props.showAvgRatings) {
                             _objToGraph = _.extend(_objToGraph, {
-                                avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay
+                                avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                                predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
                             })
                         } else if (this.props.showWeightedRating) {
                             _objToGraph = _.extend(_objToGraph, {
-                                weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+                                weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
+                                predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings
                             })
                         }
 

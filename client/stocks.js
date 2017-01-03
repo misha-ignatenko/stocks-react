@@ -100,6 +100,55 @@ if (Meteor.isClient) {
 
             return _result;
         },
+        predictionsBasedOnRatings: function(_datesAndRatings,
+                                            pricesArr,
+                                            priceTypeStr,
+                                            _minRatingValue,
+                                            _maxRatingValue,
+                                            _cutoffValue,
+                                            pctDownPerDay,
+                                            pctUpPerDay) {
+            var _result = [];
+
+            var datesAndRatingsObj = {};
+            _.each(_datesAndRatings, function (obj) {
+                datesAndRatingsObj[obj.dateString] = obj.rating;
+            });
+
+            // generate result. initial price is price at the beginning of the series
+            _result.push({
+                dateString: pricesArr[0].dateString,
+                price: pricesArr[0][priceTypeStr],
+                date: pricesArr[0].date
+            })
+            _.each(pricesArr, function (obj, index) {
+                if (index > 0) {
+                    var _previousPrice = _result[index - 1].price;
+                    var _rating = datesAndRatingsObj[obj.dateString];
+                    var _dayIncrease;
+                    var _fractionOfMaxGoUp;
+                    var _fractionOfMaxGoDown;
+                    var goUpPerDayAtMaxRating = pctUpPerDay / 100;
+                    var goDownPerDayAtMinRating = pctDownPerDay / 100;
+                    if (_rating >= _cutoffValue) {
+                        _fractionOfMaxGoUp = (_rating - _cutoffValue) / (_maxRatingValue - _cutoffValue);
+                        _dayIncrease = _fractionOfMaxGoUp * goUpPerDayAtMaxRating;
+                    } else {
+                        _fractionOfMaxGoDown = (_cutoffValue - _rating) / (_cutoffValue - _minRatingValue);
+                        _dayIncrease = - _fractionOfMaxGoDown * goDownPerDayAtMinRating;
+                    }
+                    var _predictedPrice = _previousPrice * (1 + _dayIncrease);
+
+                    _result.push({
+                        dateString: obj.dateString,
+                        date: obj.date,
+                        price: _predictedPrice
+                    });
+                }
+            })
+
+            return _result;
+        },
 
         prepareArrayOfWeightedRatingsForGraph: function(uniqueResearchFirmIds, ratingFirmsWeights, avgRatingsEveryDay) {
             var _result = [];

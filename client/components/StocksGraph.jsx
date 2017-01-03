@@ -38,6 +38,35 @@ StocksGraph = React.createClass({
                     },
                     id : 'dataseries'
                 });
+
+
+
+
+                if (obj.predictionsBasedOnAvgRatings && obj.predictionsBasedOnAvgRatings.length > 2) {
+                    seriesModel.push({
+                        name: "predicted on avg",
+                        data: _.map(obj.predictionsBasedOnAvgRatings, function (obj) {
+                            return [new Date(obj.date).valueOf(), obj.price];
+                        }),
+                        tooltip : {
+                            valueDecimals : 2
+                        },
+                        id : 'dataseries'
+                    });
+                }
+                if (obj.predictionsBasedOnWeightedRatings && obj.predictionsBasedOnWeightedRatings.length > 2) {
+                    seriesModel.push({
+                        name: "predicted on weighted",
+                        data: _.map(obj.predictionsBasedOnWeightedRatings, function (obj) {
+                            return [new Date(obj.date).valueOf(), obj.price];
+                        }),
+                        tooltip : {
+                            valueDecimals : 2
+                        },
+                        id : 'dataseries'
+                    });
+                }
+
             }
             var _rangeOfPrices = _maxPrice - _minPrice;
 
