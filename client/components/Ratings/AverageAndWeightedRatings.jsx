@@ -66,7 +66,7 @@ AverageAndWeightedRatings = React.createClass({
             let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
             if (_pricesHandle.ready() && _ratingScalesHandle.ready()) {
-                var _allNewStockPricesArr = NewStockPrices.find().fetch();
+                var _allNewStockPricesArr = NewStockPrices.find({}, {sort: {dateString: 1}}).fetch();
                 _data.stockPrices = _allNewStockPricesArr;
 
                 let _allAvailablePricesForSymbol = {
