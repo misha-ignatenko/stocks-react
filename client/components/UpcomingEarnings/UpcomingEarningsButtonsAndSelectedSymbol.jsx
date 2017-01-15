@@ -63,14 +63,38 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
     }
 
     , renderButtons() {
-        //console.log("gonna render buttons");
+        let _earnRel = this.data.earningReleases;
+        let _symbols = _.map(this.data.uniqueSymbols, function (symbolStr) {
+            let _earnRelPerSymbol = _earnRel.filter(function (obj) {
+                return obj.symbol === symbolStr;
+            })
 
-        let _symbols = this.data.uniqueSymbols;
+            var _oneEarnRel;
+            if (_earnRelPerSymbol.length > 1) {
+                // if more than 1, then grab the latest (asOf attribute)
+                _earnRelPerSymbol = _.sortBy(_earnRelPerSymbol, "asOf");
+                _oneEarnRel = _earnRelPerSymbol[_earnRelPerSymbol.length - 1];
+            } else {
+                _oneEarnRel = _earnRelPerSymbol[0];
+            }
+            return {
+                symbol: symbolStr,
+                reportDateNextFiscalQuarter: _oneEarnRel.reportDateNextFiscalQuarter,
+                reportTimeOfDayCode: _oneEarnRel.reportTimeOfDayCode
+            };
+        });
+
+        // now sort by reportTimeOfDayCode
+        // multiply date by 10 and then add 1, 2, 3, or 4 depending on reportTimeOfDayCode
+        _symbols = _.sortBy(_symbols, function (obj) {
+            return obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 )
+        })
+
         let _ratingChangesSymbols = _.pluck(this.data.ratingChanges, "symbol");
 
 
-        console.log("symbols from rating changes: ", _ratingChangesSymbols);
-        return _symbols.map((symbol, index) => {
+        return _symbols.map((symbolObj, index) => {
+            let symbol = symbolObj.symbol;
             let _btnClass = "btn btn-default" + (index === this.state.selectedSymbolIndex ? " active" : "");
             let _key = symbol + "_" + index;
             let _count = _.countBy(_ratingChangesSymbols, function(symb) {
@@ -98,24 +122,17 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                 let _ratingChangesForSymbolAndResearchFirm = _.filter(_ratingChangesForSymbol, function(ratingChange) {
                     return ratingChange.researchFirmId === researchFirmId;
                 })
-                console.log("ratingChangesForSymbolAndFirm: ", _ratingChangesForSymbolAndResearchFirm);
                 let _sorted = _.sortBy(_ratingChangesForSymbolAndResearchFirm, function(obj) {
-                    let _date = new Date(obj["date"]).toISOString();
-                    return _date;
+                    return obj.dateString;
                 });
-                console.log("MAKE SURE THIS IS ACTUALLY THE LATEST DATE");
-                console.log("sorted: ", _sorted);
                 //pick the first item in _sorted
                 //find the corresponding ratingScale for newRatingId
                 //check if the universal value of that rating scale is a number
                 //if yes, then push to number of total latest analyst ratings
                 let _latestRatingForStockByFirm = _sorted.length > 0 ? _sorted[_sorted.length - 1] : null;
-                console.log("latest: ", _latestRatingForStockByFirm);
                 if (_latestRatingForStockByFirm) {
                     let _ratingScale = RatingScales.findOne(_latestRatingForStockByFirm.newRatingId);
-                    console.log("LATEST RATING SCALE: ", _ratingScale);
                     if (_ratingScale && _ratingScale.universalScaleValue && !isNaN(_ratingScale.universalScaleValue)) {
-                        console.log("yay the latest universalScaleValue is a number");
                         _latestRatingScaleIdsForUniqueFirms.push(_ratingScale._id);
                     }
                 }
@@ -128,6 +145,10 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             let _numberOfLatestReports = _latestRatingScaleIdsForUniqueFirms.length;
 
             let nextAmt = this.data.uniqueSymbols.length - (1 + this.nextSymbolIndex(this.state.selectedSymbolIndex));
+            let _firstDay = index === 0;
+            let _newDay = index !== 0 && symbolObj.reportDateNextFiscalQuarter !== _symbols[index - 1].reportDateNextFiscalQuarter;
+            let _newTimeOfDay = index !== 0 && symbolObj.reportTimeOfDayCode !== _symbols[index - 1].reportTimeOfDayCode;
+            let _dateStmt = symbolObj.reportDateNextFiscalQuarter.toString() + ", " + (symbolObj.reportTimeOfDayCode === 2 ? "before market open" : symbolObj.reportTimeOfDayCode === 3 ? "during market open" : symbolObj.reportTimeOfDayCode === 1 ? "after market close" : "unknown time of day" );
 
             return index === this.state.selectedSymbolIndex ?
                 <button key={_key} className={_btnClass}>{symbol} ({_numberOfLatestReports})</button> :
@@ -142,7 +163,13 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
                             <br/>{symbol} ({_numberOfLatestReports})
                         </button> :
                         this.state.showAllButtons ?
-                            <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button> :
+                            _firstDay ?
+                                <span key={_key}>{_dateStmt}<br/><button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button></span> :
+                                _newDay ?
+                                    <span key={_key}><br/><br/><br/>{_dateStmt}<br/><button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button></span> :
+                                    _newTimeOfDay ?
+                                        <span key={_key}><br/>{_dateStmt}<br/><button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button></span> :
+                                        <button key={_key} className={_btnClass} onClick={this.setNewSelectedSymbol.bind(this, symbol, index)}>{symbol} ({_numberOfLatestReports})</button> :
                             null;
         })
     }
