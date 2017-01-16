@@ -16,7 +16,9 @@ AverageAndWeightedRatings = React.createClass({
 
         return {
             pctDownPerDay: 0.5,
-            pctUpPerDay: 1.0,
+            pctUpPerDay: 0.5,
+            stepSizePow: -7,
+            regrIterNum: 30,
             avgRatingStartDate: _avgRatingStartDate,
             avgRatingEndDate: _avgRatingEndDate,
             priceReactionDelayDays: 0
@@ -101,7 +103,7 @@ AverageAndWeightedRatings = React.createClass({
                     if (result && result.historicalData) {
                         var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                         var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
-                        var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay);
+                        var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay, Math.pow(10, this.state.stepSizePow), this.state.regrIterNum);
                         var _predictionsBasedOnAvgRatings = StocksReact.functions.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                             return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
                         }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
@@ -179,6 +181,8 @@ AverageAndWeightedRatings = React.createClass({
         //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
         //because it takes a few seconds after new symbol prop is set to get new data to graph
         if (this.props.symbol !== nextProps.symbol ||
+            this.state.regrIterNum !== nextState.regrIterNum ||
+            this.state.stepSizePow !== nextState.stepSizePow ||
             this.state.pctDownPerDay !== nextState.pctDownPerDay || this.state.pctUpPerDay !== nextState.pctUpPerDay ||
             this.state.avgRatingStartDate !== nextState.avgRatingStartDate ||
             this.state.avgRatingEndDate !== nextState.avgRatingEndDate || this.state.priceReactionDelayDays !== nextState.priceReactionDelayDays
@@ -374,6 +378,15 @@ AverageAndWeightedRatings = React.createClass({
         });
     },
 
+    changeRegrNum: function (event) {
+        this.refs.regrNumInput.value = event.target.value;
+    },
+    refreshRegrIterNum: function (event) {
+        this.setState({
+            regrIterNum: parseInt(event.target.value)
+        })
+    },
+
     refreshRegr: function (event) {
         var _newState = {};
         _newState[event.target.id] = parseFloat(event.target.value);
@@ -382,16 +395,32 @@ AverageAndWeightedRatings = React.createClass({
     changePct: function (event) {
         $("#" + event.target.id).val(event.target.value);
     },
+    increaseStepSize: function () {
+        this.setState({
+            stepSizePow: this.state.stepSizePow + 1
+        })
+    },
+    decreaseStepSize: function () {
+        this.setState({
+            stepSizePow: this.state.stepSizePow - 1
+        })
+    },
+
 
     renderAvgAnalystRatingsGraph: function() {
         let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingStartDate);
         let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingEndDate);
+        let _stepSize = Math.pow(10, this.state.stepSizePow);
         return (this.data.ratingChanges.length > 0 ? <div>
                 <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays} </span>
                 <button type="button" className="btn btn-default" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
                 <button type="button" className="btn btn-default" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
-                <input type="text" className="pctDownPerDay" ref="pctDownPerDay" id="pctDownPerDay" placeholder="0.5" onBlur={this.refreshRegr} onChange={this.changePct}/>
-                <input type="text" className="pctUpPerDay" ref="pctUpPerDay" id="pctUpPerDay" placeholder="1.0" onBlur={this.refreshRegr} onChange={this.changePct}/>
+                <input type="text" className="pctDownPerDay" ref="pctDownPerDay" id="pctDownPerDay" placeholder={this.state.pctDownPerDay} onBlur={this.refreshRegr} onChange={this.changePct}/>
+                <input type="text" className="pctUpPerDay" ref="pctUpPerDay" id="pctUpPerDay" placeholder={this.state.pctUpPerDay} onBlur={this.refreshRegr} onChange={this.changePct}/>
+                <br/>
+                increase/decrease step size: {_stepSize} <button className="btn btn-default" onClick={this.decreaseStepSize}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
+                <button className="btn btn-default" onClick={this.increaseStepSize}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
+                # of regression iter: <input type="text" ref="regrNumInput" placeholder={this.state.regrIterNum} onChange={this.changeRegrNum} onBlur={this.refreshRegrIterNum}/>
 
             <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
                 <input type="text" className="form-control" id="avgRatingStartDate" value={_startDate} onChange={this.changingStart}/>
