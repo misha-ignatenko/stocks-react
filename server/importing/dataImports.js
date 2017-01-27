@@ -462,7 +462,7 @@ Meteor.methods({
                             } else {
                                 console.log("error while getting a response from Quandl. Symbol: ", _universalSymbol);
                                 var _err = {
-                                    message: (error.response.data && error.response.data.quandl_error.message) || 'no error response',
+                                    message: (error.response.data && error.response.data.quandl_error.message) || (error.response.content && JSON.parse(error.response.content).quandl_error.message) || 'no error response',
                                     asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"),
                                     symbol: _universalSymbol
                                 };
