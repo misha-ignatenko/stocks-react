@@ -20,12 +20,16 @@ Portfolio = React.createClass({
 
         if (this.state.startDate !== "" && this.state.endDate !== "" && Meteor.subscribe("getPortfolioById", _portfId).ready()) {
             _data.portfolio = Portfolios.findOne({_id: _portfId});
+            let _isRolling = _data.portfolio.rolling;
+            let _businessDayLookback = _data.portfolio.lookback;
+            let _lookback = _businessDayLookback / 5 * 7;
+            let _startDate = _isRolling ? this.shiftStartDateBack2X(this.state.startDate, _lookback) : this.state.startDate;
 
-            if (Meteor.subscribe("portfolioItems", [_data.portfolio._id], this.state.startDate, this.state.endDate).ready()) {
+            if (Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready()) {
                 let _portfItems = PortfolioItems.find({portfolioId: _data.portfolio._id}).fetch();
-                _data.portfolioItems = _portfItems;
-                let _uniqStockSymbols = _.uniq(_.pluck(_portfItems, "symbol"));
-                let _uniqPortfItemDates = _.uniq(_.pluck(_portfItems, "dateString"));
+                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_portfItems, this.state.startDate, _lookback) : _portfItems;
+                let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
+                let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
                 _data.uniqPortfItemDates = _uniqPortfItemDates;
 
                 let _endDate = this.getEndDateForPrices();
@@ -37,6 +41,46 @@ Portfolio = React.createClass({
         }
 
         return _data;
+    },
+
+    shiftStartDateBack2X(startDate, lookback) {
+        return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
+    },
+
+    processRollingPortfolioItems(portfolioItems, startDate, lookback) {
+        // note: there will be portfolio items prior to start date because need to generate rolling weights with lookback
+        let _result = [];
+        // step 1. Get all unique dates of portfolio items starting from startDate.
+        let _itemsSinceStartDate = _.filter(portfolioItems, function (item) {
+            return item.dateString >= startDate;
+        });
+        let _uniqDates = _.uniq(_.pluck(_itemsSinceStartDate, "dateString"));
+
+        // step 2. For each unique date, generate an array of symbols with appropriate lookback.
+        let _map = {};
+        let _that = this;
+        _.each(_uniqDates, function (dateStr) {
+            let _startDate = _that.shiftStartDateBack2X(dateStr, lookback);
+            let _endDate = dateStr;
+            let _itemsOfInterest = _.filter(portfolioItems, function (item) {
+                return item.dateString >= _startDate && item.dateString <= _endDate;
+            })
+            _map[dateStr] = _.pluck(_itemsOfInterest, "symbol");
+        })
+
+        _.each(Object.keys(_map), function (dateStr) {
+            let _sym = _map[dateStr];
+            let _wt = 1 / _sym.length;
+            _.each(_sym, function (symbol) {
+                _result.push({
+                    symbol: symbol,
+                    dateString: dateStr,
+                    weight: _wt
+                })
+            })
+        })
+
+        return _result;
     },
 
     getEndDateForPrices() {
