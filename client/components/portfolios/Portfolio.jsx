@@ -160,7 +160,7 @@ Portfolio = React.createClass({
 
         if (!_missingData) {
             // assume bought at adj close and sold at open
-            let _purchaseAtType = "adjClose";
+            let _purchaseAtType = "close";
             let _sellAtType = "open";
 
             _.each(_uniqDates, function(date, index) {
