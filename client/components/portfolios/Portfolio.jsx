@@ -121,7 +121,10 @@ Portfolio = React.createClass({
                 _that.setState({
                     newItemShort: false
                 })
-                ReactDOM.findDOMNode(_that.refs.newItemSymbolStr).value = "";
+                var _domNode = ReactDOM.findDOMNode(_that.refs.newItemSymbolStr);
+                if (_domNode) {
+                    ReactDOM.findDOMNode(_that.refs.newItemSymbolStr).value = "";
+                }
                 console.log("errror: ", error);
                 console.log(result);
             });
@@ -224,10 +227,10 @@ Portfolio = React.createClass({
                     let _pItems = _items.filter(function (pItem) {
                         return pItem.dateString === _startDate;
                     });
-                    let _symbols = _.pluck(_pItems, "symbol");
 
                     let _weightedTotalChange = 0.0;
-                    _.each(_symbols, function (symbol) {
+                    _.each(_pItems, function (pItem) {
+                        let symbol = pItem.symbol;
                         let _purchasePricesForSymbol = _prices.filter(function (obj) {
                             return obj.symbol === symbol && obj.dateString === _startDate;
                         });
@@ -238,19 +241,9 @@ Portfolio = React.createClass({
                             let _purchasePrice = _purchasePricesForSymbol[0][_purchaseAtType];
                             let _sellPrice = _sellPricesForSymbol[0][_sellAtType];
                             let _change = (_sellPrice - _purchasePrice) / _purchasePrice;
-                            let _wgts = _pItems.filter(function (pItem) {return pItem.symbol === symbol;});
 
-                            // calculate this because in some cases you can add the same symbol to a portfolio for
-                            // two consecutive days, which should aggregate the total weight in a rolling portfolio.
-                            var _weightsForSymbolForDay = _.pluck(_wgts, "weight");
-                            var _totalWeightForSymbolForDay = _.reduce(_weightsForSymbolForDay, function(memo, num){ return memo + num; }, 0);
-
-                            // if (_wgts.length === 1) {
-                                let _weightedChange = _totalWeightForSymbolForDay * _change;
-                                _weightedTotalChange += _weightedChange;
-                            // } else {
-                            //     console.log("ERRRRRRRRRRR");
-                            // }
+                            let _weightedChange = pItem.weight * _change;
+                            _weightedTotalChange += _weightedChange;
                         } else {
                             console.log("ERRRRRRRRRRR");
                         }
