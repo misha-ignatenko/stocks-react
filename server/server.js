@@ -193,6 +193,35 @@ Meteor.methods({
 
         return _thisArrShouldBeEmpty;
     }
+    
+    , insertNewRollingPortfolioItem: function (obj) {
+        // check that the symbol exists
+        var _p = Portfolios.findOne(obj.portfolioId);
+        if (!_p || !_p.rolling) {
+            throw new Meteor.Error("portfolio does not exist or it is not rolling!");
+        }
+
+        if (!Stocks.findOne(obj.symbol)) {
+            throw new Meteor.Error("symbol does not exist!");
+        } else {
+            // check if such portfolio item already exists for that date and symbol
+            var _existingPortfolioItem = PortfolioItems.findOne({symbol: obj.symbol, portfolioId: obj.portfolioId, dateString: obj.dateString});
+            if (_existingPortfolioItem) {
+                throw new Meteor.Error("portfolio item already exists!");
+            } else {
+                if (isNaN((new Date(obj.dateString)).valueOf())) {
+                    throw new Meteor.Error("date is not valid!");
+                } else {
+                    PortfolioItems.insert({
+                        symbol: obj.symbol,
+                        portfolioId: obj.portfolioId,
+                        dateString: obj.dateString,
+                        short: obj.short
+                    })
+                }
+            }
+        }
+    }
 })
 
 

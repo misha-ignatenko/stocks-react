@@ -4,6 +4,7 @@ Portfolio = React.createClass({
 
     getInitialState: function() {
         return {
+            newItemShort: false,
             startDate: "",
             endDate: ""
         };
@@ -102,8 +103,33 @@ Portfolio = React.createClass({
             }
         });
     },
+    toggle(event) {
+        this.setState({
+            newItemShort: !this.state.newItemShort
+        })
+    },
+    submitNewItem() {
+        let _obj = {
+            portfolioId: this.data.portfolio._id,
+            symbol: ReactDOM.findDOMNode(this.refs.newItemSymbolStr).value.trim(),
+            dateString: ReactDOM.findDOMNode(this.refs.newItemDateStr).value.trim(),
+            short: this.state.newItemShort
+        };
+        if (_obj.symbol !== "" && _obj.dateString.length === 10) {
+            let _that = this;
+            Meteor.call("insertNewRollingPortfolioItem", _obj, function (error, result) {
+                _that.setState({
+                    newItemShort: false
+                })
+                ReactDOM.findDOMNode(_that.refs.newItemSymbolStr).value = "";
+                console.log("errror: ", error);
+                console.log(result);
+            });
+        }
+    },
 
     renderPortfolioUpdateEntry() {
+        let _startDate = this.data.portfolio.rolling ? this.shiftStartDateBack2X(this.state.startDate, this.data.portfolio.lookback / 5 * 7) : this.state.startDate;
         // get the last date
         let _lastRebalanceDate = _.last(_.pluck(this.data.portfolioItems, "dateString"));
         let _latestPortfolioItems = this.data.portfolioItems.filter(function (obj) {
@@ -111,7 +137,28 @@ Portfolio = React.createClass({
         });
         // TODO: pass _latestPortfolioItems into a new compoment as properties so that user could edit them and
         // todo contd: submit an update to portfolio holdings via UI
-        return "";
+        let _b = "btn btn-default";
+        let _ab = "btn btn-default active";
+        let _that = this;
+        return <div>
+            add a new item:
+            <input type="text" ref="newItemDateStr" placeholder="Date" />
+            <input type="text" ref="newItemSymbolStr" placeholder="Symbol" />
+            <div className="btn-group" role="group" aria-label="...">
+                <button type="button" className={!_that.state.newItemShort ? _ab : _b} onClick={_that.toggle}>Long</button>
+                <button type="button" className={_that.state.newItemShort ? _ab : _b} onClick={_that.toggle}>Short</button>
+            </div>
+            <button className="btn btn-default btn-lg" onClick={_that.submitNewItem}>submit</button>
+            <br/>
+            <br/>
+            {_startDate}
+            <br/>
+            {this.state.endDate}
+            <br/>
+            {PortfolioItems.find({portfolioId: this.data.portfolio._id}).fetch().reverse().map((obj, index) => {
+                return <div key={index}>{obj.dateString}: {obj.symbol}{obj.short ? ", short" : ", long"}</div>
+            })}
+        </div>;
     },
 
     renderPortfolioPerformance() {
@@ -228,7 +275,7 @@ Portfolio = React.createClass({
     },
 
     shouldComponentUpdate(nextProps, nextState) {
-        return this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
+        return this.state.newItemShort !== nextState.newItemShort || this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
     },
 
     setDateRangeOptions: function() {
