@@ -160,8 +160,11 @@ Portfolio = React.createClass({
 
         if (!_missingData) {
             // assume bought at adj close and sold at open
-            let _purchaseAtType = "close";
-            let _sellAtType = "open";
+            // let _purchaseAtType = "close";
+            // let _sellAtType = "open";
+            // only look at adjClose because there is weirdness with open/close (example: SBUX around Nov 2014)
+            let _purchaseAtType = "adjClose";
+            let _sellAtType = "adjClose";
 
             _.each(_uniqDates, function(date, index) {
                 //todo: step 1. calculate the total weight-adjusted growth based on the previous date (index >=1)
