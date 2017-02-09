@@ -65,17 +65,17 @@ Portfolio = React.createClass({
             let _itemsOfInterest = _.filter(portfolioItems, function (item) {
                 return item.dateString >= _startDate && item.dateString <= _endDate;
             })
-            _map[dateStr] = _.pluck(_itemsOfInterest, "symbol");
+            _map[dateStr] = _itemsOfInterest;
         })
 
         _.each(Object.keys(_map), function (dateStr) {
             let _sym = _map[dateStr];
             let _wt = 1 / _sym.length;
-            _.each(_sym, function (symbol) {
+            _.each(_sym, function (obj) {
                 _result.push({
-                    symbol: symbol,
+                    symbol: obj.symbol,
                     dateString: dateStr,
-                    weight: _wt
+                    weight: obj.short ? -_wt : _wt
                 })
             })
         })

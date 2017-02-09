@@ -70,6 +70,12 @@ PortfolioPerformanceGraph = React.createClass({
         this.initializeChart(this.props.graphData);
     },
 
+    shouldComponentUpdate: function (nextProps, nextState) {
+        this.initializeChart(nextProps.graphData);
+
+        return true;
+    },
+
     render: function() {
         return (
             <div className="container">
