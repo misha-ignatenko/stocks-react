@@ -239,12 +239,18 @@ Portfolio = React.createClass({
                             let _sellPrice = _sellPricesForSymbol[0][_sellAtType];
                             let _change = (_sellPrice - _purchasePrice) / _purchasePrice;
                             let _wgts = _pItems.filter(function (pItem) {return pItem.symbol === symbol;});
-                            if (_wgts.length === 1) {
-                                let _weightedChange = _wgts[0].weight * _change;
+
+                            // calculate this because in some cases you can add the same symbol to a portfolio for
+                            // two consecutive days, which should aggregate the total weight in a rolling portfolio.
+                            var _weightsForSymbolForDay = _.pluck(_wgts, "weight");
+                            var _totalWeightForSymbolForDay = _.reduce(_weightsForSymbolForDay, function(memo, num){ return memo + num; }, 0);
+
+                            // if (_wgts.length === 1) {
+                                let _weightedChange = _totalWeightForSymbolForDay * _change;
                                 _weightedTotalChange += _weightedChange;
-                            } else {
-                                console.log("ERRRRRRRRRRR");
-                            }
+                            // } else {
+                            //     console.log("ERRRRRRRRRRR");
+                            // }
                         } else {
                             console.log("ERRRRRRRRRRR");
                         }
