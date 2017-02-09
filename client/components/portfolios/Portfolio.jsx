@@ -229,8 +229,10 @@ Portfolio = React.createClass({
                     });
 
                     let _weightedTotalChange = 0.0;
+                    let _totalAbsWgt = 0.0;
                     _.each(_pItems, function (pItem) {
                         let symbol = pItem.symbol;
+                        _totalAbsWgt += Math.abs(pItem.weight);
                         let _purchasePricesForSymbol = _prices.filter(function (obj) {
                             return obj.symbol === symbol && obj.dateString === _startDate;
                         });
@@ -248,6 +250,9 @@ Portfolio = React.createClass({
                             console.log("ERRRRRRRRRRR");
                         }
                     });
+                    if (_totalAbsWgt < .9) {
+                        console.log("this number should be 1: ", _totalAbsWgt);
+                    }
 
                     _growthRates.push([date, _weightedTotalChange]);
                 }
