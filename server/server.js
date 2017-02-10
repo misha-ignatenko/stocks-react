@@ -160,8 +160,20 @@ Meteor.methods({
             console.log("wrong key code.");
         }
     },
-    getDefaultPerformanceDates: function() {
-        return Settings.findOne().clientSettings.portfolios;
+    getDefaultPerformanceDatesFor: function(portfolioId) {
+        var _p = Portfolios.findOne(portfolioId);
+        var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});
+        var _minDateStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: 1}}).dateString : "";
+        var _maxDatrStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: -1}}).dateString : "";
+
+        if (_p.rolling && pItemsExist) {
+            _minDateStr = moment(_minDateStr).tz("America/New_York").add(_p.lookback / 5 * 7, "days").format("YYYY-MM-DD");
+        }
+
+        return {
+            startDate: _minDateStr,
+            endDate: _maxDatrStr
+        };
     },
 
     ensureRatingChangesSymbolsDefinedInStocksCollection: function () {

@@ -44,6 +44,12 @@ Portfolio = React.createClass({
         return _data;
     },
 
+    componentWillReceiveProps(nextProps) {
+        if (!this.state.previouslyLoadedPortfolioId || this.state.previouslyLoadedPortfolioId !== nextProps.portfolioId) {
+            this.setUpStartEndDates(nextProps.portfolioId);
+        }
+    },
+
     shiftStartDateBack2X(startDate, lookback) {
         return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
     },
@@ -89,19 +95,29 @@ Portfolio = React.createClass({
         var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
         return StocksReact.utilities.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(this.state.endDate + " 17:00:00").tz("America/New_York"));
     },
+    setUpStartEndDates(portfolioId) {
+        let _newState = {
+            previouslyLoadedPortfolioId: portfolioId,
+            startDate: "",
+            endDate: ""
+        };
+        this.setState(_newState);
 
-    componentWillMount() {
         let _that = this;
-        Meteor.call("getDefaultPerformanceDates", function (err, res) {
+        Meteor.call("getDefaultPerformanceDatesFor", portfolioId, function (err, res) {
             if (!err && res) {
                 _that.setState({
-                    startDate: res.performanceDefaultStartDate,
-                    endDate: res.performanceDefaultEndDate
+                    startDate: res.startDate,
+                    endDate: res.endDate
                 });
             } else {
                 console.log(err.error);
             }
         });
+    },
+
+    componentWillMount() {
+        this.setUpStartEndDates(this.props.portfolioId);
     },
     toggle(event) {
         this.setState({
