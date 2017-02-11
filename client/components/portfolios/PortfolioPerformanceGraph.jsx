@@ -1,11 +1,11 @@
 PortfolioPerformanceGraph = React.createClass({
 
     propTypes: {
-        graphData: React.PropTypes.array.isRequired
+        graphData: React.PropTypes.object.isRequired
     },
 
-    initializeChart: function(graphData) {
-        if (graphData.length === 0) {
+    initializeChart: function(obj) {
+        if (obj.portfolio.length === 0) {
             $(this.refs.performanceChart).hide();
         } else {
             $(this.refs.performanceChart).show();
@@ -13,12 +13,12 @@ PortfolioPerformanceGraph = React.createClass({
 
         var seriesModel = [];
 
-        let _perfSeries = _.map(graphData, function (tuple) {
+        let _perfSeries = _.map(obj.portfolio, function (tuple) {
             return [new Date(tuple[0]).valueOf(), tuple[1]];
         });
 
         seriesModel.push({
-            name: "performance",
+            name: "portfolio",
             data: _perfSeries,
             tooltip : {
                 valueDecimals : 4
@@ -26,14 +26,18 @@ PortfolioPerformanceGraph = React.createClass({
             id : 'dataseries'
         });
 
-        $(this.refs.performanceChart).highcharts('StockChart', {
-
-            tooltip: {
-                formatter: function() {
-                    return '<b>' + moment(this.x).utc().format("YYYY-MM-DD") + '</b><br/>' +
-                        "performance: " + this.y.toFixed(4);
-                }
+        seriesModel.push({
+            name: "S&P 500",
+            data: _.map(obj.sp500, function (tuple) {
+                return [new Date(tuple[0]).valueOf(), tuple[1]];
+            }),
+            tooltip : {
+                valueDecimals : 4
             },
+            id : 'dataseries'
+        });
+
+        $(this.refs.performanceChart).highcharts('StockChart', {
 
             xAxis: {
                 ordinal: false,

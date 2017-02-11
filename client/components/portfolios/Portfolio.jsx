@@ -30,6 +30,7 @@ Portfolio = React.createClass({
                 _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
                 _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _data.rawPortfolioItems;
                 let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
+                _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));
                 let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
                 _data.uniqPortfItemDates = _uniqPortfItemDates;
 
@@ -276,21 +277,33 @@ Portfolio = React.createClass({
         }
 
         let _cumulativeGrowthRates = [];
+        let _sp500GrowthRates = [];
+        let _initialSP500Price;
         _.each(_growthRates, function (data, index) {
             if (index === 0) {
                 _cumulativeGrowthRates.push([data[0], 1]);
+                _initialSP500Price = _.findWhere(_prices, {dateString: data[0], symbol: "SPY"})["adjClose"];
+                _sp500GrowthRates.push([data[0], 1]);
             } else {
                 _cumulativeGrowthRates.push([
                     data[0],
                     (_cumulativeGrowthRates[index-1][1]) * (data[1] + 1)
                 ]);
+                _sp500GrowthRates.push([
+                    data[0],
+                    _.findWhere(_prices, {dateString: data[0], symbol: "SPY"})["adjClose"] / _initialSP500Price
+                ]);
             }
         });
+        let _graphData = {
+            portfolio: _cumulativeGrowthRates,
+            sp500: _sp500GrowthRates
+        }
 
         return _missingData ?
             <div className="container">not enough price history</div> :
             _cumulativeGrowthRates.length > 1 ?
-                <PortfolioPerformanceGraph graphData={_cumulativeGrowthRates} /> :
+                <PortfolioPerformanceGraph graphData={_graphData} /> :
                 "NOT ENOUGH PERFORMANCE DATA"
     },
 
