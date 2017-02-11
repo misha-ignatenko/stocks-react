@@ -224,6 +224,17 @@ Meteor.methods({
                 if (isNaN((new Date(obj.dateString)).valueOf())) {
                     throw new Meteor.Error("date is not valid!");
                 } else {
+                    var _user = Meteor.user();
+                    if (!_user) {
+                        throw new Meteor.Error("Please log in to import portfolio items.");
+                    } else {
+                        var _dataImportPermissions = _user.permissions && _user.permissions.dataImports;
+                        var _canImportPortfolioItems = _dataImportPermissions && _dataImportPermissions.indexOf("canImportPortfolioItems") > -1;
+                        if (!_canImportPortfolioItems) {
+                            throw new Meteor.Error("You do not have permission to import portfolio items.");
+                        }
+                    }
+
                     PortfolioItems.insert({
                         symbol: obj.symbol,
                         portfolioId: obj.portfolioId,
