@@ -27,8 +27,8 @@ Portfolio = React.createClass({
             let _startDate = _isRolling ? this.shiftStartDateBack2X(this.state.startDate, _lookback) : this.state.startDate;
 
             if (Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready()) {
-                let _portfItems = PortfolioItems.find({portfolioId: _data.portfolio._id}).fetch();
-                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_portfItems, this.state.startDate, _lookback) : _portfItems;
+                _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
+                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _data.rawPortfolioItems;
                 let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
                 let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
                 _data.uniqPortfItemDates = _uniqPortfItemDates;
@@ -174,7 +174,7 @@ Portfolio = React.createClass({
             <br/>
             {this.state.endDate}
             <br/>
-            {PortfolioItems.find({portfolioId: this.data.portfolio._id}).fetch().reverse().map((obj, index) => {
+            {this.data.rawPortfolioItems.reverse().map((obj, index) => {
                 return <div key={index}>{obj.dateString}: {obj.symbol}{obj.short ? ", short" : ", long"}</div>
             })}
         </div>;
