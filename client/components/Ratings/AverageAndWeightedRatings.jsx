@@ -54,15 +54,7 @@ AverageAndWeightedRatings = React.createClass({
         let _endDateRatingChanges = _avgRatingEndDate;
         let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbols", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
-        if (_stockInfo.pricesBeingPulledRightNow) {
-
-
-            //IMPORTANT: nothing above can change before pricesBeingPulledRightNow flag is set to false on the server
-            //otherwise getMeteorData will go here once again and endlessly call getStockPricesNew
-
-
-            Meteor.call('getStockPricesNew', _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
-        } else if (_ratingChangesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
+        if (_ratingChangesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
 
             let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges();
             let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
