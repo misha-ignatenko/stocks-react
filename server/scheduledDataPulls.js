@@ -48,7 +48,8 @@ Meteor.startup(function() {
                     })
                 });
 
-                Meteor.call("getLatestPricesForAllSymbols", "2014-01-01", _dateStringNyc);
+                // Meteor.call("getLatestPricesForAllSymbols", "2014-01-01", _dateStringNyc);
+                Meteor.call("getQuandlPricesForDate", _dateStringNyc);
 
                 Email.send({
                     to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
