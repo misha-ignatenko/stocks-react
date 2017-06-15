@@ -16,10 +16,10 @@ Meteor.methods({
         var _obj = NewStockPrices.findOne({symbol: _symbol, dateString: _dateString});
 
         if (!_obj) {
-            console.log("did not find an obj so gonna insert");
+            console.log("did not find an obj so gonna insert: ", _dateString, _symbol);
             return NewStockPrices.insert(stockPriceObj)
         } else {
-            console.log("object already exists in db");
+            console.log("object already exists in db: ", _dateString, _symbol);
             return _obj._id + '_existing';
         }
     },
@@ -450,6 +450,59 @@ if (Meteor.isServer) {
                     }
                 });
             }
+        },
+
+        getQuandlPricesForDate: function (dateStrYYYY_MM_DD) {
+            var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
+                dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
+                Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+
+            var _res;
+            HTTP.get(_url, function (err, res) {
+                if (!err && res) {
+                    var _data = res.data.datatable.data;
+                    var _columnDefs = res.data.datatable.columns;
+
+                    var _getStockPricesFromYahooFinanceResults = [];
+                    _.each(_data, function (item, itemIdx) {
+                            var _priceObj = {};
+                            _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
+                                var _val = item[columnDefItemIndex];
+                                _priceObj[columnDefObj["name"]] = _val;
+                            })
+
+                            var _formattedPriceObj = {
+                                "date" : new Date(_priceObj.date + "T00:00:00.000+0000"),
+                                "open" : _priceObj.open,
+                                "high" : _priceObj.high,
+                                "low" : _priceObj.low,
+                                "close" : _priceObj.close,
+                                "volume" : _priceObj.volume,
+                                "exDividend": _priceObj["ex-dividend"],
+                                splitRatio: _priceObj.split_ratio,
+                                adjOpen: _priceObj.adj_open,
+                                adjHigh: _priceObj.adj_high,
+                                adjLow: _priceObj.adj_low,
+                                "adjClose" : _priceObj.adj_close,
+                                adjVolume: _priceObj.adj_volume,
+                                "symbol" : _priceObj.ticker,
+                                "dateString" : _priceObj.date,
+                                importedBy: null,
+                                importedOn: new Date().toISOString()
+                            };
+
+                            Meteor.call("stockPriceInsertAttempt", _formattedPriceObj, function (error, result) {
+                                if (error) {
+                                    _getStockPricesFromYahooFinanceResults.push(error);
+                                } else {
+                                    _getStockPricesFromYahooFinanceResults.push(result);
+                                }
+                            })
+                    })
+
+                    _res = _getStockPricesFromYahooFinanceResults;
+                }
+            })
         },
 
         getLatestPricesForAllSymbols: function(defaultStartDate, _latestDateString) {

@@ -16,7 +16,7 @@ Meteor.startup(function() {
 
 
 
-        // pull prices for the day from Yahoo Finance
+        // pull prices for the day from Quandl Finance
         var _nycDateTime = moment().tz("America/New_York");
         var _nycDateTimeString = _nycDateTime.format();
         var _nycTimeString = _nycDateTimeString.substring(11, _nycDateTimeString.length - 1 - 5) + ".000";
@@ -27,12 +27,12 @@ Meteor.startup(function() {
         if (_weekdayNyc === 6 || _weekdayNyc === 7) {
             // do nothing
         } else {
-            var _lastPullDate = _setting && _setting.dataImports && _setting.dataImports.yahooFinance.lastYahooFinancePullDate &&
-                _setting.dataImports.yahooFinance.lastYahooFinancePullDate;
-            var _dailyYFpullTime = _setting.dataImports.yahooFinance.dailyPullTimeNyc;
+            var _lastPullDate = _setting && _setting.dataImports && _setting.dataImports.quandlPrices.lastPullDate &&
+                _setting.dataImports.quandlPrices.lastPullDate;
+            var _dailyYFpullTime = _setting.dataImports.quandlPrices.dailyPullTimeNyc;
 
             if (_dataAutoPullIsOn && _lastPullDate !== _dateStringNyc && _nycTimeString >= _dailyYFpullTime) {
-                Settings.update({_id: _setting._id}, {$set: {"dataImports.yahooFinance.lastYahooFinancePullDate": _dateStringNyc}});
+                Settings.update({_id: _setting._id}, {$set: {"dataImports.quandlPrices.lastPullDate": _dateStringNyc}});
 
                 Email.send({
                     to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
