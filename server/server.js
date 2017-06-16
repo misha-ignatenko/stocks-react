@@ -9,6 +9,60 @@ Meteor.methods({
             to: endDate
         });
     },
+
+    getNASDAQquandlStockPrices: function (symbol, startDate, endDate) {
+        var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?api_key=" +
+            Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
+
+        try {
+            var result = HTTP.get(_url);
+            var _data = result.data.dataset.data;
+            var _columnNames = _.map(result.data.dataset.column_names, function (rawColName) {
+                return rawColName.replace(/ /g, "_");
+            });
+
+            var _formattedData = [];
+            _.each(_data, function (obj, idx) {
+
+                // check that all column names are present
+                if (_columnNames.length === obj.length && _columnNames.length === 8) {
+                    var _processedItem = {};
+                    _.each(_columnNames, function (colName, colNameIdx) {
+                        _processedItem[colName] = obj[colNameIdx];
+                    });
+
+                    // only care about items whose date falls into the requested date range
+                    if (_processedItem.Date >= startDate && _processedItem.Date <= endDate) {
+                        var _convertedObj = {
+                            "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
+                            "open": _processedItem.Open,
+                            "high": _processedItem.High,
+                            "low": _processedItem.Low,
+                            "close": _processedItem.Close,
+                            "volume": _processedItem.Volume,
+                            "symbol": symbol,
+                            "dateString": _processedItem.Date,
+                            "importedBy": Meteor.userId(),
+                            "importedOn": new Date().toISOString(),
+
+
+                            adjFactor: _processedItem.Adjustment_Factor,
+                            adjType: _processedItem.Adjustment_Type
+                        };
+
+                        _formattedData.push(_convertedObj);
+                    }
+                } else {
+                    throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
+                }
+            })
+
+            return _formattedData;
+        } catch (e) {
+            throw new Meteor.Error(e.response.content);
+        }
+    },
+
     stockPriceInsertAttempt: function (stockPriceObj) {
         var _symbol = stockPriceObj.symbol;
         var _dateString = stockPriceObj.dateString;
@@ -87,24 +141,15 @@ Meteor.methods({
         }
 
         if (_pullNewData && startStr <= endStr) {
-            Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
+            Meteor.call("getNASDAQquandlStockPrices", symbol, startStr, endStr, function (error, result) {
                 if (!error && result) {
                     console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
                     // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
 
                     var _getStockPricesFromYahooFinanceResults = [];
                     result.forEach(function (priceObj) {
-                        var _isoDateString = priceObj.date.toISOString();
-                        var _dateString = _isoDateString.substring(0, 10);
 
-                        var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
-                            dateString: _dateString,
-                            date: new Date(_dateString + "T00:00:00.000+0000"),
-                            importedBy: Meteor.userId(),
-                            importedOn: new Date().toISOString()
-                        });
-
-                        Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
+                        Meteor.call('stockPriceInsertAttempt', priceObj, function (error, result) {
                             if (error) {
                                 _getStockPricesFromYahooFinanceResults.push(error);
                             } else {
