@@ -579,24 +579,15 @@ if (Meteor.isServer) {
                 console.log("gonna request from yahoo finance: ", startStr, endStr);
 
                 var _res;
-                Meteor.call('getStockPricesFromYahooFinance', symbol, startStr, endStr, function (error, result) {
+                Meteor.call("getNASDAQquandlStockPrices", symbol, startStr, endStr, function (error, result) {
                     if (!error && result) {
                         console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
                         // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
 
                         var _getStockPricesFromYahooFinanceResults = [];
                         result.forEach(function (priceObj) {
-                            var _isoDateString = priceObj.date.toISOString();
-                            var _dateString = _isoDateString.substring(0, 10);
 
-                            var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
-                                dateString: _dateString,
-                                date: new Date(_dateString + "T00:00:00.000+0000"),
-                                importedBy: null,
-                                importedOn: new Date().toISOString()
-                            });
-
-                            Meteor.call('stockPriceInsertAttempt', _stockPriceObjToAttemptInsering, function (error, result) {
+                            Meteor.call('stockPriceInsertAttempt', priceObj, function (error, result) {
                                 if (error) {
                                     _getStockPricesFromYahooFinanceResults.push(error);
                                 } else {
