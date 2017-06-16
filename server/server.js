@@ -11,8 +11,10 @@ Meteor.methods({
     },
 
     getNASDAQquandlStockPrices: function (symbol, startDate, endDate) {
-        var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?api_key=" +
-            Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
+        var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
+            (startDate ? ("start_date=" + startDate + "&") : "") +
+            (endDate ? ("end_date=" + endDate + "&") : "") +
+            "api_key=" + Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
 
         try {
             var result = HTTP.get(_url);
@@ -31,27 +33,24 @@ Meteor.methods({
                         _processedItem[colName] = obj[colNameIdx];
                     });
 
-                    // only care about items whose date falls into the requested date range
-                    if (_processedItem.Date >= startDate && _processedItem.Date <= endDate) {
-                        var _convertedObj = {
-                            "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
-                            "open": _processedItem.Open,
-                            "high": _processedItem.High,
-                            "low": _processedItem.Low,
-                            "close": _processedItem.Close,
-                            "volume": _processedItem.Volume,
-                            "symbol": symbol,
-                            "dateString": _processedItem.Date,
-                            "importedBy": Meteor.userId(),
-                            "importedOn": new Date().toISOString(),
+                    var _convertedObj = {
+                        "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
+                        "open": _processedItem.Open,
+                        "high": _processedItem.High,
+                        "low": _processedItem.Low,
+                        "close": _processedItem.Close,
+                        "volume": _processedItem.Volume,
+                        "symbol": symbol,
+                        "dateString": _processedItem.Date,
+                        "importedBy": Meteor.userId(),
+                        "importedOn": new Date().toISOString(),
 
 
-                            adjFactor: _processedItem.Adjustment_Factor,
-                            adjType: _processedItem.Adjustment_Type
-                        };
+                        adjFactor: _processedItem.Adjustment_Factor,
+                        adjType: _processedItem.Adjustment_Type
+                    };
 
-                        _formattedData.push(_convertedObj);
-                    }
+                    _formattedData.push(_convertedObj);
                 } else {
                     throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
                 }
