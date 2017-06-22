@@ -549,6 +549,58 @@ if (Meteor.isServer) {
             })
         },
 
+        processSplits: function (symbolsArr) {
+            console.log(symbolsArr.length);
+
+            _.each(symbolsArr, function (symbol) {
+                try {
+                    var _res = Meteor.call("getNASDAQquandlStockPrices", symbol);
+                    console.log("the length of result: ", _res.length, symbol);
+                    var _sortedDates = _.sortBy(_.pluck(_res, "dateString"), function (dateStr) { return dateStr; });
+                    var _maxResultDate = _sortedDates[_sortedDates.length - 1];
+                    var _minResultDate = _sortedDates[0];
+
+
+                    var _filteredRes = _.filter(_res, function (obj) {
+                        // exclude cash dividends adjType -- code is 17
+                        return (!_.isNull(obj.adjFactor) || !_.isNull(obj.adjType)) && !_.contains([17], obj.adjType)
+                    })
+                    if (_filteredRes.length === 0) {
+                        console.log("no splits found for ", symbol);
+                        console.log("min and max dates available from result: ", _minResultDate, _maxResultDate);
+                        var _pricesWithMissingAdjClose = NewStockPrices.find({
+                            symbol: symbol,
+                            adjClose: {$exists: false},
+                            $and: [
+                                {dateString: {$gte: _minResultDate}},
+                                {dateString: {$lte: _maxResultDate}}
+                            ]
+                        }).fetch();
+                        console.log("length of prices with missing adjClose param: ", _pricesWithMissingAdjClose.length);
+                        _.each(_pricesWithMissingAdjClose, function (missingAdjClosePriceObj) {
+                            var _id = missingAdjClosePriceObj._id;
+                            var _close = missingAdjClosePriceObj.close;
+                            console.log(_id, _close);
+                            NewStockPrices.update({ _id: _id }, { $set: { adjClose: _close } })
+                        })
+                    } else {
+                        console.log("there are splits for: ", symbol)
+                    }
+
+
+                } catch (e) {
+
+                }
+                console.log("--------------");
+            });
+            console.log("gonna return response");
+
+            return "done";
+        },
+        // getAllUniqSymbols: function () {
+        //     return _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), "_id"));
+        // },
+
         getLatestPricesForAllSymbols: function(defaultStartDate, _latestDateString) {
             // defaultStartDate like "2014-01-01"
 

@@ -259,6 +259,9 @@ Portfolio = React.createClass({
                         if (_purchasePricesForSymbol.length === 1 && _sellPricesForSymbol.length === 1) {
                             let _purchasePrice = _purchasePricesForSymbol[0][_purchaseAtType];
                             let _sellPrice = _sellPricesForSymbol[0][_sellAtType];
+                            if (!_purchasePrice || !_sellPrice) {
+                                console.log("missing price data: ", _purchasePricesForSymbol[0].symbol, _purchasePricesForSymbol[0].dateString, _purchasePrice, _sellPricesForSymbol[0].dateString, _sellPrice);
+                            }
                             let _change = (_sellPrice - _purchasePrice) / _purchasePrice;
 
                             let _weightedChange = pItem.weight * _change;
