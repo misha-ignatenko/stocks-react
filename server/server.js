@@ -565,15 +565,39 @@ if (Meteor.isServer) {
                         // exclude cash dividends adjType -- code is 17
                         return (!_.isNull(obj.adjFactor) || !_.isNull(obj.adjType)) && !_.contains([17], obj.adjType)
                     })
-                    if (_filteredRes.length === 0) {
-                        console.log("no splits found for ", symbol);
+
+
+                    var _secondOption = false;
+                    if (_filteredRes.length === 1) {
+                        var _split = _filteredRes[0];
+                        // add 1 year to recorded split date because it takes time for the split to take effect
+                        var _splitDate = moment(_split.dateString).add(1, "years").format("YYYY-MM-DD");
+                        console.log("only one split found for: ", symbol, _splitDate);
+
+                        // make sure the split happened before any prices in the db
+                        var _pricesBeforeSplit = NewStockPrices.find({
+                            symbol: symbol, dateString: { $lte: _splitDate }
+                        }).fetch();
+                        if (_pricesBeforeSplit.length === 0) {
+                            console.log("all db prices are AFTER the split");
+                            _secondOption = true;
+                        } else {
+                            console.log("there are some db prices BEFORE the split");
+                        }
+                    }
+
+
+                    if (_filteredRes.length === 0 || _secondOption) {
+                        console.log("no splits OR an irrelevant split found for ", symbol);
                         console.log("min and max dates available from result: ", _minResultDate, _maxResultDate);
                         var _pricesWithMissingAdjClose = NewStockPrices.find({
                             symbol: symbol,
                             adjClose: {$exists: false},
                             $and: [
                                 {dateString: {$gte: _minResultDate}},
-                                {dateString: {$lte: _maxResultDate}}
+                                {dateString: {$lte: _maxResultDate}},
+                                {adjFactor: {$exists: true}},
+                                {adjType: {$exists: true}}
                             ]
                         }).fetch();
                         console.log("length of prices with missing adjClose param: ", _pricesWithMissingAdjClose.length);
