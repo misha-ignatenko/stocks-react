@@ -232,6 +232,7 @@ Portfolio = React.createClass({
             // only look at adjClose because there is weirdness with open/close (example: SBUX around Nov 2014)
             let _purchaseAtType = "adjClose";
             let _sellAtType = "adjClose";
+            let _symbolsToCheckSplitsFor = [];
 
             _.each(_uniqDates, function(date, index) {
                 //todo: step 1. calculate the total weight-adjusted growth based on the previous date (index >=1)
@@ -261,6 +262,7 @@ Portfolio = React.createClass({
                             let _sellPrice = _sellPricesForSymbol[0][_sellAtType];
                             if (!_purchasePrice || !_sellPrice) {
                                 console.log("missing price data: ", _purchasePricesForSymbol[0].symbol, _purchasePricesForSymbol[0].dateString, _purchasePrice, _sellPricesForSymbol[0].dateString, _sellPrice);
+                                _symbolsToCheckSplitsFor.push(symbol)
                             }
                             let _change = (_sellPrice - _purchasePrice) / _purchasePrice;
 
@@ -277,6 +279,7 @@ Portfolio = React.createClass({
                     _growthRates.push([date, _weightedTotalChange]);
                 }
             });
+            console.log("check these symbols: ", JSON.stringify(_.uniq(_symbolsToCheckSplitsFor)));
         }
 
         let _cumulativeGrowthRates = [];
