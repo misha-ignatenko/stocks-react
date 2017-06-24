@@ -36,7 +36,26 @@ Portfolio = React.createClass({
 
                 let _endDate = this.getEndDateForPrices();
                 let _datesForSub = _.union(_uniqPortfItemDates, [_endDate]);
-                if (Meteor.subscribe("stockPricesSpecificDates", _uniqStockSymbols, _datesForSub).ready()) {
+
+
+                // generate a map for prices subscription
+                let _pricesSubscrMap = {};
+                let _datesForSubSorted = _.sortBy(_datesForSub);
+                _.each(_datesForSubSorted, function (dateStr, idx) {
+                    let _relevantPortfolioItems = _.filter(_data.portfolioItems, function (obj) {
+                        if (idx > 0) {
+                            // if it's not the first date, include symbols from the previous date
+                            return obj.dateString === dateStr || obj.dateString === _datesForSubSorted[idx - 1]
+                        } else {
+                            return obj.dateString === dateStr;
+                        }
+                    });
+                    let _relevantSymbols = _.uniq(_.pluck(_relevantPortfolioItems, "symbol"));
+                    _pricesSubscrMap[dateStr] = _relevantSymbols;
+                });
+
+
+                if (Meteor.subscribe("stockPricesSpecificDates", _pricesSubscrMap).ready()) {
                     _data.stockPrices = NewStockPrices.find({symbol: {$in: _uniqStockSymbols}}).fetch();
                 }
             }

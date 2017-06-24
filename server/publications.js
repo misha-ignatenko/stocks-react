@@ -28,10 +28,18 @@ Meteor.publish("stockPricesFor", function(symbolsArr, startStr, endStr) {
     );
 });
 
-Meteor.publish("stockPricesSpecificDates", function(symbolsArr, strDatesArr) {
+Meteor.publish("stockPricesSpecificDates", function(mapObj) {
+    // this mapping will generate an array of OR conditions for a specific date and an array of symbols of interest for that date
+    let _orStmt = _.map(mapObj, function (value, key) {
+        return {
+            dateString: key,
+            symbol: { $in: value }
+        };
+    });
+
     return NewStockPrices.find(
         {
-            symbol: {$in: symbolsArr}, dateString: {$in: strDatesArr}
+            $or: _orStmt
         }, {
             fields: {
                 _id: 1,
