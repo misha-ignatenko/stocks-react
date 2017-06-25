@@ -508,8 +508,8 @@ if (Meteor.isServer) {
             }
 
             var _res;
-            HTTP.get(_url, function (err, res) {
-                if (!err && res) {
+            var res = HTTP.get(_url);
+                if (res) {
                     var _data = res.data.datatable.data;
                     var _columnDefs = res.data.datatable.columns;
 
@@ -560,7 +560,6 @@ if (Meteor.isServer) {
 
                     _res = _getStockPricesFromYahooFinanceResults;
                 }
-            })
         },
 
         processSplits: function (symbolsArr) {

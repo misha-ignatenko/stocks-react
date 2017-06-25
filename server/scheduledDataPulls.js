@@ -48,6 +48,10 @@ Meteor.startup(function() {
                     })
                 });
 
+                // first, get stock prices from the free Quandl (Wiki)
+                Meteor.call("getQuandlPricesForDate", _dateStringNyc, false, false);
+
+                // second, pull prices from the paid Quandl (NASDAQ)
                 Meteor.call("getLatestPricesForAllSymbols", "2014-01-01", _dateStringNyc);
 
                 Email.send({
