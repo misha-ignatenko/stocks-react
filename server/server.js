@@ -44,6 +44,7 @@ Meteor.methods({
                         "dateString": _processedItem.Date,
                         "importedBy": Meteor.userId(),
                         "importedOn": new Date().toISOString(),
+                        source: "quandl_paid",
 
 
                         adjFactor: _processedItem.Adjustment_Factor,
@@ -537,6 +538,7 @@ if (Meteor.isServer) {
                                 adjVolume: _priceObj.adj_volume,
                                 "symbol" : _priceObj.ticker,
                                 "dateString" : _priceObj.date,
+                                source: "quandl_free",
                                 importedBy: Meteor.userId(),
                                 importedOn: new Date().toISOString()
                             };
