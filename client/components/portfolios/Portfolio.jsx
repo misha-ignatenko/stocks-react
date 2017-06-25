@@ -51,7 +51,7 @@ Portfolio = React.createClass({
                         }
                     });
                     let _relevantSymbols = _.uniq(_.pluck(_relevantPortfolioItems, "symbol"));
-                    _pricesSubscrMap[dateStr] = _relevantSymbols;
+                    _pricesSubscrMap[dateStr] = _relevantSymbols.concat(["SPY"]);
                 });
 
 
@@ -288,7 +288,7 @@ Portfolio = React.createClass({
                             let _weightedChange = pItem.weight * _change;
                             _weightedTotalChange += _weightedChange;
                         } else {
-                            console.log("ERRRRRRRRRRR");
+                            console.log("ERRRRRRRRRRR", _purchasePricesForSymbol[0].symbol);
                         }
                     });
                     if (_totalAbsWgt < .9) {

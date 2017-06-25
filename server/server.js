@@ -496,10 +496,16 @@ if (Meteor.isServer) {
             }
         },
 
-        getQuandlPricesForDate: function (dateStrYYYY_MM_DD) {
-            var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
-                dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
-                Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+        getQuandlPricesForDate: function (dateStrYYYY_MM_DD, optionalSymbolsArr, optionalOverWriteFlag) {
+            if (optionalSymbolsArr) {
+                var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
+                    dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
+                    Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+            } else {
+                var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
+                    dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
+                    Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+            }
 
             var _res;
             HTTP.get(_url, function (err, res) {
@@ -531,8 +537,16 @@ if (Meteor.isServer) {
                                 adjVolume: _priceObj.adj_volume,
                                 "symbol" : _priceObj.ticker,
                                 "dateString" : _priceObj.date,
-                                importedBy: null,
+                                importedBy: Meteor.userId(),
                                 importedOn: new Date().toISOString()
+                            };
+                            if (optionalOverWriteFlag) {
+                                // delete the existing object if it exists
+                                var _obj = NewStockPrices.findOne({symbol: _formattedPriceObj.symbol, dateString: _formattedPriceObj.dateString});
+                                if (_obj) {
+                                    console.log("removing this price obj _id: ", _obj._id);
+                                    NewStockPrices.remove({_id: _obj._id});
+                                }
                             };
 
                             Meteor.call("stockPriceInsertAttempt", _formattedPriceObj, function (error, result) {
