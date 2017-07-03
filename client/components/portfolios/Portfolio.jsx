@@ -21,12 +21,22 @@ Portfolio = React.createClass({
 
         if (this.state.startDate !== "" && this.state.endDate !== "" && Meteor.subscribe("getPortfolioById", _portfId).ready()) {
             _data.portfolio = Portfolios.findOne({_id: _portfId});
+
+            // check if portfolio is an intersection based on rating changes
+            let _hasCriteria = _data.portfolio.criteria ? true : false;
+
             let _isRolling = _data.portfolio.rolling;
             let _businessDayLookback = _data.portfolio.lookback;
             let _lookback = _businessDayLookback / 5 * 7;
             let _startDate = _isRolling ? this.shiftStartDateBack2X(this.state.startDate, _lookback) : this.state.startDate;
 
-            if (Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready()) {
+            // 2 cases:
+            //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
+            //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
+            if (
+                (_hasCriteria && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("ratingChangesForPortfolioCriteria", _data.portfolio._id, this.state.startDate, this.state.endDate).ready()) ||
+                (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready())
+            ) {
                 _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
                 _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _data.rawPortfolioItems;
                 let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));

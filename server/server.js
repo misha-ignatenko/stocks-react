@@ -377,10 +377,6 @@ if (Meteor.isServer) {
         return _user;
     });
 
-    Meteor.publish("ratingScales", function() {
-        return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
-    })
-
     Accounts.onCreateUser(function(options, user) {
         var _createdUser;
         if (options.registered === undefined) {

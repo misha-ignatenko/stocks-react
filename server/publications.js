@@ -2,6 +2,8 @@ Meteor.publish("settings", function () {
     return Settings.find({type: "main"}, {fields: {_id: 1, clientSettings: 1}});
 });
 
+
+// RatingChanges publications
 Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD, end_YYYY_MM_DD) {
     return RatingChanges.find({
         symbol: {$in: symbolsArr}, $and: [{dateString: {$gte: start_YYYY_MM_DD}}, {dateString: {$lte: end_YYYY_MM_DD}}]
@@ -11,10 +13,33 @@ Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD
         sort: {dateString: 1}
     });
 });
+Meteor.publish("ratingChangesForPortfolioCriteria", function (portfolioId, startDate, endDate) {
+    console.log("inside ratingChangesForPortfolioCriteria, portfolioid: ", portfolioId, startDate, endDate);
+    var _criteria = Portfolios.findOne(portfolioId).criteria;
+    var _ratingScaleIds = [];
+    _.each(_criteria, function (criterion) {
+        var _cr = JSON.parse(criterion);
+        _ratingScaleIds = _ratingScaleIds.concat(_.pluck(RatingScales.find(_cr).fetch(), "_id"));
+    })
+    var _uniqRatingScaleIds = _.uniq(_ratingScaleIds);
 
+    return RatingChanges.find({
+        newRatingId: {$in: _uniqRatingScaleIds}, $and: [{dateString: {$gte: startDate}}, {dateString: {$lte: endDate}}]
+    }, {
+        fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}
+    }, {
+        sort: {dateString: 1}
+    });
+})
+
+
+// RatingScales publications
 Meteor.publish("specificRatingScales", function(ratingScaleIdsArr) {
     return RatingScales.find({_id: {$in: ratingScaleIdsArr}}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
 });
+Meteor.publish("ratingScales", function() {
+    return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
+})
 
 Meteor.publish("stockPricesFor", function(symbolsArr, startStr, endStr) {
     return NewStockPrices.find(
