@@ -214,6 +214,23 @@ Meteor.methods({
         if (_p.rolling && pItemsExist) {
             _minDateStr = moment(_minDateStr).tz("America/New_York").add(_p.lookback / 5 * 7, "days").format("YYYY-MM-DD");
         }
+        
+        // a case for combined portfolios (i.e., portfolios consisting of a screen by multiple criteria)
+        if (_p.criteria) {
+            _.each(_p.criteria, function (criterion) {
+                var _query = JSON.parse(criterion);
+                var _ratingScales = RatingScales.find(_query).fetch();
+
+                _.each(_.pluck(_ratingScales, "_id"), function (ratingScaleId) {
+                    var _ratingChangesExist = RatingChanges.findOne({newRatingId: ratingScaleId});
+                    var _newMin = _ratingChangesExist ? RatingChanges.findOne({newRatingId: ratingScaleId}, {limit: 1, sort: {dateString: 1}}).dateString : "";
+                    var _newMax = _ratingChangesExist ? RatingChanges.findOne({newRatingId: ratingScaleId}, {limit: 1, sort: {dateString: -1}}).dateString : "";
+
+                    _minDateStr = (_minDateStr === "" ? _newMin : _newMin < _minDateStr ? _newMin : _minDateStr);
+                    _maxDatrStr = (_maxDatrStr === "" ? _newMax : _newMax > _maxDatrStr ? _newMax : _maxDatrStr);
+                })
+            });
+        }
 
         return {
             startDate: _minDateStr,

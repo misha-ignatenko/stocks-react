@@ -62,7 +62,7 @@ Meteor.publish("getPortfolioById", function(portfId) {
         //portfolios that are either public or the user is owner
         return Portfolios.find(
             { _id: portfId, $or: [ {private: false}, {ownerId: this.userId} ] },
-            {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1, rolling: 1, lookback: 1}}
+            {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1, rolling: 1, lookback: 1, criteria: 1}}
         );
     } else {
         return Portfolios.find({_id: portfId, private: false}, {fields: {_id: 1, name: 1}});
