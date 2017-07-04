@@ -217,19 +217,49 @@ Meteor.methods({
         
         // a case for combined portfolios (i.e., portfolios consisting of a screen by multiple criteria)
         if (_p.criteria) {
+            var _ratingScaleIds = [];
+            var _researchFirms = [];
+            var _criteriaRatingScales = [];
+
+            // the purpose of this for loop is to figure out the widest date range where RatingChanges match portfolio's criteria
             _.each(_p.criteria, function (criterion) {
                 var _query = JSON.parse(criterion);
                 var _ratingScales = RatingScales.find(_query).fetch();
+                _criteriaRatingScales.push(_ratingScales);
 
-                _.each(_.pluck(_ratingScales, "_id"), function (ratingScaleId) {
-                    var _ratingChangesExist = RatingChanges.findOne({newRatingId: ratingScaleId});
-                    var _newMin = _ratingChangesExist ? RatingChanges.findOne({newRatingId: ratingScaleId}, {limit: 1, sort: {dateString: 1}}).dateString : "";
-                    var _newMax = _ratingChangesExist ? RatingChanges.findOne({newRatingId: ratingScaleId}, {limit: 1, sort: {dateString: -1}}).dateString : "";
+                _.each(_ratingScales, function (ratingScaleObj) {
+                    var ratingScaleId = ratingScaleObj._id;
+                    _ratingScaleIds.push(ratingScaleId);
+                    _researchFirms.push(ratingScaleObj.researchFirmId);
+
+                    // check if a rating change with either that newRatingId or oldRatingId exists
+                    var _rChDatesQry = {$or: [{newRatingId: ratingScaleId}, {oldRatingId: ratingScaleId}]};
+                    var _ratingChangesExist = RatingChanges.findOne(_rChDatesQry);
+
+                    var _newMin = _ratingChangesExist ? RatingChanges.findOne(_rChDatesQry, {limit: 1, sort: {dateString: 1}}).dateString : "";
+                    var _newMax = _ratingChangesExist ? RatingChanges.findOne(_rChDatesQry, {limit: 1, sort: {dateString: -1}}).dateString : "";
 
                     _minDateStr = (_minDateStr === "" ? _newMin : _newMin < _minDateStr ? _newMin : _minDateStr);
                     _maxDatrStr = (_maxDatrStr === "" ? _newMax : _newMax > _maxDatrStr ? _newMax : _maxDatrStr);
                 })
             });
+
+            // final RatingChanges are where dateString is between the calculated min and max dates and
+            // either newRatingId or oldRatingId is in the list of RatingScales of interest (based on
+            // portfolio's criteria) -- meaning that some symbol's rating changed TO a rating scale of interest or
+            // it changed FROM a rating scale of interest.
+            var _finalRatingChanges = RatingChanges.find({
+                $and: [{$or: [{newRatingId: {$in: _.uniq(_ratingScaleIds)}}, {oldRatingId: {$in: _.uniq(_ratingScaleIds)}}]}, {dateString: {$gte: _minDateStr}}, {dateString: {$lte: _maxDatrStr}}]
+            }, {
+                fields: {symbol: 1, dateString: 1, oldRatingId: 1, newRatingId: 1}
+            }).fetch();
+
+            return {
+                criteriaRatingScales: _criteriaRatingScales,
+                startDate: _minDateStr,
+                endDate: _maxDatrStr,
+                ratingChanges: _finalRatingChanges
+            };
         }
 
         return {
@@ -266,6 +296,22 @@ Meteor.methods({
         });
 
         return _thisArrShouldBeEmpty;
+    }
+
+    , getRatingChangeHistoryForSymbolAndFirm(symbol, firmName) {
+        var _firm = ResearchCompanies.find({name: firmName}).fetch();
+        if (_firm.length === 1) {
+            var _firmId = _firm[0]._id;
+            var _ratingChanges = RatingChanges.find({symbol: symbol, researchFirmId: _firmId}, {sort: {dateString: 1}}).fetch();
+            _.each(_ratingChanges, function (rCh) {
+                console.log("date: ", rCh.dateString);
+                console.log("old: ", RatingScales.findOne(rCh.oldRatingId).universalScaleValue);
+                console.log("new: ", RatingScales.findOne(rCh.newRatingId).universalScaleValue);
+                console.log("--------------------------------------");
+            })
+        } else {
+            console.log("cannot find the needed firm: ", _firm);
+        }
     }
     
     , insertNewRollingPortfolioItem: function (obj) {

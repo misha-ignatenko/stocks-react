@@ -13,24 +13,6 @@ Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD
         sort: {dateString: 1}
     });
 });
-Meteor.publish("ratingChangesForPortfolioCriteria", function (portfolioId, startDate, endDate) {
-    console.log("inside ratingChangesForPortfolioCriteria, portfolioid: ", portfolioId, startDate, endDate);
-    var _criteria = Portfolios.findOne(portfolioId).criteria;
-    var _ratingScaleIds = [];
-    _.each(_criteria, function (criterion) {
-        var _cr = JSON.parse(criterion);
-        _ratingScaleIds = _ratingScaleIds.concat(_.pluck(RatingScales.find(_cr).fetch(), "_id"));
-    })
-    var _uniqRatingScaleIds = _.uniq(_ratingScaleIds);
-
-    return RatingChanges.find({
-        newRatingId: {$in: _uniqRatingScaleIds}, $and: [{dateString: {$gte: startDate}}, {dateString: {$lte: endDate}}]
-    }, {
-        fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}
-    }, {
-        sort: {dateString: 1}
-    });
-})
 
 
 // RatingScales publications
@@ -87,7 +69,7 @@ Meteor.publish("getPortfolioById", function(portfId) {
         //portfolios that are either public or the user is owner
         return Portfolios.find(
             { _id: portfId, $or: [ {private: false}, {ownerId: this.userId} ] },
-            {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1, rolling: 1, lookback: 1, criteria: 1}}
+            {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1, rolling: 1, lookback: 1, criteria: 1, criteriaType: 1}}
         );
     } else {
         return Portfolios.find({_id: portfId, private: false}, {fields: {_id: 1, name: 1}});

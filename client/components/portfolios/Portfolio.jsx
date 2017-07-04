@@ -34,11 +34,11 @@ Portfolio = React.createClass({
             //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
             //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
             if (
-                (_hasCriteria && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("ratingChangesForPortfolioCriteria", _data.portfolio._id, this.state.startDate, this.state.endDate).ready()) ||
+                (_hasCriteria && Meteor.subscribe("ratingScales").ready() && this.data.ratingChanges) ||
                 (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready())
             ) {
                 _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
-                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _data.rawPortfolioItems;
+                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _hasCriteria ? this.processRatingChangesFromCriteriaPortfolio(RatingScales.find().fetch(), this.data.ratingChanges, this.state.startDate, this.state.endDate) : _data.rawPortfolioItems;
                 let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
                 _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));
                 let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
@@ -82,6 +82,120 @@ Portfolio = React.createClass({
 
     shiftStartDateBack2X(startDate, lookback) {
         return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
+    },
+
+    processRatingChangesFromCriteriaPortfolio(ratingScales, rCh, startDate, endDate) {
+        var ratingScalesOfInterest = _.map(this.data.criteriaRatingScales, function (arr) { return _.pluck(arr, "_id") });
+        var ratingChanges = _.filter(rCh, function (obj) {
+            return obj.dateString >= startDate && obj.dateString <= endDate;
+        })
+
+
+        var _portfolioItems = [];
+        var _holdingsMapPerStrategy = _.map(ratingScalesOfInterest, function (arr) { return {} });
+        var _initialDeletionsPerStrategyMap = _.map(ratingScalesOfInterest, function (arr) { return {} });;
+
+        var _uniqDates = _.sortBy(_.uniq(_.pluck(ratingChanges, "dateString")));
+        _.each(_uniqDates, function (dateStr, idx) {
+            _.each(ratingScalesOfInterest, function (rScaleIdsArr, criteriaIdx) {
+                var _additionsPerCriteria = _.filter(ratingChanges, function (rc) {return rc.dateString === dateStr && _.contains(rScaleIdsArr, rc.newRatingId) && !_.contains(rScaleIdsArr, rc.oldRatingId); })
+                var _deletionsPerCriteria = _.filter(ratingChanges, function (rc) {return rc.dateString === dateStr && _.contains(rScaleIdsArr, rc.oldRatingId) && !_.contains(rScaleIdsArr, rc.newRatingId); })
+                // console.log(dateStr, rScaleIdsArr);
+                // console.log("strategy index: ", criteriaIdx);
+                // console.log("additions: ", _.pluck(_additionsPerCriteria, "symbol"));
+                // console.log("deletions: ", _.pluck(_deletionsPerCriteria, "symbol"));
+
+                // get an array of symbols per date
+                var _previousDatesSymbols = (idx === 0 ? [] : _holdingsMapPerStrategy[criteriaIdx][_uniqDates[idx - 1]]);
+                var _additions = _.pluck(_additionsPerCriteria, "symbol");
+                var _deletions = _.pluck(_deletionsPerCriteria, "symbol");
+                var _previousPlusAdditions = _.union(_previousDatesSymbols, _additions);
+                var _currentDateSymbols = _.difference(_previousPlusAdditions, _deletions);
+                // console.log("_currentDateSymbols: ", _currentDateSymbols);
+
+                // assign
+                _holdingsMapPerStrategy[criteriaIdx][dateStr] = _currentDateSymbols;
+
+                // check for potential backfills
+                var _figureOutWhenAdded = _.difference(_deletions, _previousPlusAdditions);
+                if (_figureOutWhenAdded.length > 0) {
+                    console.log("figure out when these were added: ", _figureOutWhenAdded);
+                    _.each(_figureOutWhenAdded, function (problemSymbol) {
+                        if (!_initialDeletionsPerStrategyMap[criteriaIdx][problemSymbol]) {
+                            _initialDeletionsPerStrategyMap[criteriaIdx][problemSymbol] = dateStr;
+                        }
+                    })
+                }
+
+                // console.log("-----------------------------------------------------------------");
+            })
+
+        })
+        console.log("INITIAL DELETIONS MAP: ", _initialDeletionsPerStrategyMap);
+
+        // backfill holdings based on _initialDeletionsPerStrategyMap.
+        // These "initial deletions" may happen when a symbol's oldRatingId is among those of interest but no
+        // prior newRatingId was detected on the date range.
+        _.each(_initialDeletionsPerStrategyMap, function (obj, strategyIdx) {
+            _.each(Object.keys(obj), function (symbol) {
+                var _firstDeletionDate = obj[symbol];
+                var _datesToAddSymbolHoldingTo = _.filter(_uniqDates, function (d) {return d < _firstDeletionDate; })
+                _.each(_datesToAddSymbolHoldingTo, function (d) {
+                    var _existingHoldings = _holdingsMapPerStrategy[strategyIdx][d];
+                    if (_.contains(_existingHoldings, symbol)) {
+                        console.log("_firstDeletionDate: ", symbol, _firstDeletionDate);
+                        console.log("ERRRRRRRRRRRRRRRRRRR -- already contains", symbol, d, strategyIdx);
+                    } else {
+                        _holdingsMapPerStrategy[strategyIdx][d].push(symbol);
+                    }
+                })
+            })
+        })
+
+
+        console.log("_holdingsMapPerStrategy: ", _holdingsMapPerStrategy);
+
+        // generate combined holdings map
+        var _RESULT = {};
+        var _p = this.data.portfolio;
+        _.each(_uniqDates, function (d) {
+            // get an array of holdings from each strategy
+            var _stratHoldingsArrForDay = [];
+            _.each(_holdingsMapPerStrategy, function (obj) {
+                _stratHoldingsArrForDay.push(obj[d]);
+            })
+
+
+            var _combinedForDay = [];
+            _.each(_stratHoldingsArrForDay, function (arr, idx) {
+                if (_p.criteriaType === "intersection") {
+                    _combinedForDay = _.intersection(idx === 0 ? arr : _combinedForDay, arr);
+                } else if (_p.criteriaType === "union") {
+                    _combinedForDay = _.union(_combinedForDay, arr)
+                } else if (_p.criteriaType === "weighted_union") {
+                    console.log("need logic here");
+                }
+            })
+            _RESULT[d] = _combinedForDay;
+        })
+        _.each(Object.keys(_RESULT), function (d) {
+            var _symbols = _RESULT[d];
+            var _wgt = 1 / _symbols.length;
+            if (_symbols.length === 0) {
+                console.log("look into this");
+            }
+            _.each(_symbols, function (symbol) {
+                _portfolioItems.push({
+                    dateString: d,
+                    symbol: symbol,
+                    weight: _wgt
+                })
+            })
+        })
+        console.log("RESULT: ", _RESULT);
+        console.log("_portfolioItems: ", _portfolioItems);
+
+        return _portfolioItems;
     },
 
     processRollingPortfolioItems(portfolioItems, startDate, lookback) {
@@ -136,6 +250,10 @@ Portfolio = React.createClass({
         let _that = this;
         Meteor.call("getDefaultPerformanceDatesFor", portfolioId, function (err, res) {
             if (!err && res) {
+                if (res.ratingChanges) {
+                    _that.data.ratingChanges = res.ratingChanges;
+                    _that.data.criteriaRatingScales = res.criteriaRatingScales;
+                }
                 _that.setState({
                     startDate: res.startDate,
                     endDate: res.endDate
