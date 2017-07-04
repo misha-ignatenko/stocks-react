@@ -62,6 +62,10 @@ AverageAndWeightedRatings = React.createClass({
             if (_pricesHandle.ready() && _ratingScalesHandle.ready()) {
                 var _allNewStockPricesArr = NewStockPrices.find({}, {sort: {dateString: 1}}).fetch();
                 _data.stockPrices = _allNewStockPricesArr;
+                var _pricesWithNoAdjClose = _.filter(_data.stockPrices, function (price) { return !price["adjClose"];})
+                if (_pricesWithNoAdjClose.length > 0) {
+                    console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
+                }
 
                 let _allAvailablePricesForSymbol = {
                     symbol: _symbol,

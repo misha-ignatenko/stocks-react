@@ -557,13 +557,17 @@ if (Meteor.isServer) {
         },
 
         getQuandlPricesForDate: function (dateStrYYYY_MM_DD, optionalSymbolsArr, optionalOverWriteFlag) {
-            if (optionalSymbolsArr) {
+            if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
                 var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
                     dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
                     Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
-            } else {
+            } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
                 var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
                     dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
+                    Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+            } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
+                var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?" +
+                    "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
                     Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
             }
 
