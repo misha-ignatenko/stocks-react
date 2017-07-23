@@ -173,6 +173,7 @@ Meteor.methods({
                 var _numToImport = importData.length;
                 var _newlyImportedNum = 0;
                 var _alreadyExistingNum = 0;
+                var _toLookIntoNum = 0;
                 var _checkForEarningsReleasesForTheseSymbols = [];
                 if (!Meteor.serverConstants.pullFromQuandEveryNDays) {
                     _result.serverConstantsNotOk = {
@@ -264,9 +265,9 @@ Meteor.methods({
                             // _ratingChange.newRatingId matches _prevRatingChange.newRatingId (exact duplicate of previous rating change)
 
                             var _insertNewRating = true;
+                            var _reason = "";
                             if (_prevRatingChange) {
                                 // check case 2. if true, reassign oldRatingId of _ratingChange
-                                var _reason = "";
                                 if (_ratingChange.oldRatingId !== _prevRatingChange.newRatingId) {
                                     _reason += "current old does not match previous new. ";
                                     _ratingChange.oldRatingId = _prevRatingChange.newRatingId;
@@ -291,7 +292,8 @@ Meteor.methods({
                                 // so only check case 1.
                                 if (_ratingChange.oldRatingId === _ratingChange.newRatingId) {
                                     _insertNewRating = false;
-                                    _result.toLookInto.push(_.extend({reason: "previous rating change does NOT exist, oldRatingId === newRatingId"}, _.pick(_ratingChange, "symbol", "dateString", "researchFirmId", "oldRatingId", "newRatingId")));
+                                    _reason = "previous rating change does NOT exist, oldRatingId === newRatingId";
+                                    _result.toLookInto.push(_.extend({reason: _reason}, _.pick(_ratingChange, "symbol", "dateString", "researchFirmId", "oldRatingId", "newRatingId")));
                                 }
                             }
                             // -----------------------------------------------------------------------------
@@ -303,12 +305,18 @@ Meteor.methods({
                                     new: _originalNewRatingString
                                 };
                             }
-                            if (_insertNewRating) {
-                                console.log("adding rating change for universal symbol: ", _universalSymbol);
-                                RatingChanges.insert(_ratingChange);
-                                Meteor.call("insertNewStockSymbols", [_universalSymbol]);
-                                _newlyImportedNum++;
+
+                            // _toLookIntoNum is the number of rating changes with "_deleted" appended to symbol and a reason.
+                            if (!_insertNewRating) {
+                                _toLookIntoNum++;
+                                _ratingChange.symbol = (_ratingChange.symbol + "_deleted");
+                                _ratingChange.reason = _reason;
                             }
+
+                            console.log("adding rating change for universal symbol: ", _universalSymbol);
+                            RatingChanges.insert(_ratingChange);
+                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
+                            _newlyImportedNum++;
                         }
                     } else {
                         //add to error object to let user know these rating scales need to be added
@@ -338,7 +346,7 @@ Meteor.methods({
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
                 _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
-                _result.upgradesDowngradesImportStats.toLookIntoNum = _result.toLookInto.length;
+                _result.upgradesDowngradesImportStats.toLookIntoNum = _toLookIntoNum;
                 var _destringified = [];
                 _result.couldNotFindGradingScalesForTheseUpDowngrades.forEach(function(obj) {
                     _destringified.push(JSON.parse(obj))

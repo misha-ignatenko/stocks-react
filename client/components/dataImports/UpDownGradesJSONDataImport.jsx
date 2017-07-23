@@ -109,14 +109,17 @@ UpDownGradesJSONDataImport = React.createClass({
                         delay: 10000000
                     });
                 } else if (result.couldNotFindGradingScalesForTheseUpDowngrades.length > 0) {
-                    $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
+                    var _res = _.omit(result, "toLookInto");
+                    $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(_res), {
                         type: 'danger',
                         align: 'center',
                         width: 800,
                         delay: 10000000
                     });
                 } else if (result.upgradesDowngradesImportStats) {
-                    $.bootstrapGrowl("imported stats<br>new: " + result.upgradesDowngradesImportStats.new + "<br>duplicates: " + result.upgradesDowngradesImportStats.duplicates + "<br>out of: " + result.upgradesDowngradesImportStats.total, {
+                    var _importStats = result.upgradesDowngradesImportStats;
+                    $.bootstrapGrowl("imported stats<br>new: " + _importStats.new + "<br>duplicates: " + _importStats.duplicates +
+                        "<br>to look into: " + _importStats.toLookIntoNum + "<br>out of: " + _importStats.total, {
                         type: 'success',
                         align: 'center',
                         width: 250,
