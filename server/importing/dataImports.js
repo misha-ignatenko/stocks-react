@@ -168,6 +168,7 @@ Meteor.methods({
                 throw new Meteor.Error("You do not have permission to import portfolios.");
             } else if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
+                _result.toLookInto = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
                 var _newlyImportedNum = 0;
@@ -230,8 +231,7 @@ Meteor.methods({
                         });
                         if (_existingRatingChange) {
                             _alreadyExistingNum++;
-                        }
-                        if (!_existingRatingChange && _universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
+                        } else if (_universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
                             // can insert
                             var _ratingChange = {
                                 date: new Date(importItem.dateString).toUTCString(),
@@ -246,16 +246,69 @@ Meteor.methods({
                                 addedOn: new Date().toUTCString(),
                                 source: importItem.source
                             };
+
+                            // -----------------------------------------------------------------------------
+                            // Determine if there are any irregularities.
+                            var _prevRatingChange = RatingChanges.findOne(
+                                {symbol: _universalSymbol, researchFirmId: _researchCompanyId, dateString: {$lte: importItem.dateString}},
+                                {sort: {dateString: -1}}
+                            );
+                            // console.log("existing r ch: ", _existingRatingChange);
+                            // console.log("_prevRatingChange: ", _prevRatingChange);
+
+                            // three cases:
+                            // 1) _ratingChange.oldRatingId is the same as _ratingChange.newRatingId
+                            // 2) _ratingChange.oldRatingId is different from _prevRatingChange.newRatingId
+                            //      special case: after setting the new ratingChange's oldRatingId the 1st or 3rd case becomes true
+                            // 3) _ratingChange.oldRatingId matches _prevRatingChange.oldRatingId and
+                            // _ratingChange.newRatingId matches _prevRatingChange.newRatingId (exact duplicate of previous rating change)
+
+                            var _insertNewRating = true;
+                            if (_prevRatingChange) {
+                                // check case 2. if true, reassign oldRatingId of _ratingChange
+                                var _reason = "";
+                                if (_ratingChange.oldRatingId !== _prevRatingChange.newRatingId) {
+                                    _reason += "current old does not match previous new. ";
+                                    _ratingChange.oldRatingId = _prevRatingChange.newRatingId;
+                                }
+
+                                // check case 1.
+                                if (_ratingChange.oldRatingId === _ratingChange.newRatingId) {
+                                    _insertNewRating = false;
+                                    _reason += "oldRatingId === newRatingId.";
+                                }
+                                // check case 3.
+                                if (_ratingChange.oldRatingId === _prevRatingChange.oldRatingId && _ratingChange.newRatingId === _prevRatingChange.newRatingId) {
+                                    _insertNewRating = false;
+                                    _reason += "this is a duplicate rating change of the previous one.";
+                                }
+
+                                if (_reason !== "") {
+                                    _result.toLookInto.push(_.extend({reason: _reason}, _.pick(_ratingChange, "symbol", "dateString", "researchFirmId", "oldRatingId", "newRatingId")));
+                                }
+                            } else {
+                                // there is no prior rating change entry for this symbol and research firm
+                                // so only check case 1.
+                                if (_ratingChange.oldRatingId === _ratingChange.newRatingId) {
+                                    _insertNewRating = false;
+                                    _result.toLookInto.push(_.extend({reason: "previous rating change does NOT exist, oldRatingId === newRatingId"}, _.pick(_ratingChange, "symbol", "dateString", "researchFirmId", "oldRatingId", "newRatingId")));
+                                }
+                            }
+                            // -----------------------------------------------------------------------------
+
+
                             if (_originalOldRatingString || _originalNewRatingString) {
                                 _ratingChange.originalRatingStrings = {
                                     old: _originalOldRatingString,
                                     new: _originalNewRatingString
                                 };
                             }
-                            console.log("adding rating change for universal symbol: ", _universalSymbol);
-                            RatingChanges.insert(_ratingChange);
-                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
-                            _newlyImportedNum++;
+                            if (_insertNewRating) {
+                                console.log("adding rating change for universal symbol: ", _universalSymbol);
+                                RatingChanges.insert(_ratingChange);
+                                Meteor.call("insertNewStockSymbols", [_universalSymbol]);
+                                _newlyImportedNum++;
+                            }
                         }
                     } else {
                         //add to error object to let user know these rating scales need to be added
@@ -285,6 +338,7 @@ Meteor.methods({
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
                 _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
+                _result.upgradesDowngradesImportStats.toLookIntoNum = _result.toLookInto.length;
                 var _destringified = [];
                 _result.couldNotFindGradingScalesForTheseUpDowngrades.forEach(function(obj) {
                     _destringified.push(JSON.parse(obj))
