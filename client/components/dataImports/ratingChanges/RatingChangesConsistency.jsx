@@ -14,7 +14,7 @@ RatingChangesConsistency = React.createClass({
             currentUser: Meteor.user()
         };
         if (this.state.selectedSymbol && Meteor.subscribe("allRatingChangesForSymbol", this.state.selectedSymbol).ready() && Meteor.subscribe("ratingScales").ready()) {
-            _data.allRatingChanges = RatingChanges.find({symbol: this.state.selectedSymbol}).fetch();
+            _data.allRatingChanges = RatingChanges.find({symbol: this.state.selectedSymbol}, {sort: {dateString: 1}}).fetch();
             _data.uniqFirmIds = _.uniq(_.pluck(_data.allRatingChanges, "researchFirmId"));
             _data.ratingScales = RatingScales.find().fetch();
             var _firmId = this.state.selectedFirmId;
@@ -30,6 +30,8 @@ RatingChangesConsistency = React.createClass({
         var _trimmed = this.refs.sym.value.trim();
         if (_trimmed.length > 0) {
             this.setState({
+                selectedFirmId: undefined,
+                showFirms: true,
                 selectedSymbol: _trimmed
             })
             this.refs.sym.value = "";

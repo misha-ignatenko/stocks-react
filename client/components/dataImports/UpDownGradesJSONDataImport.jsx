@@ -109,8 +109,7 @@ UpDownGradesJSONDataImport = React.createClass({
                         delay: 10000000
                     });
                 } else if (result.couldNotFindGradingScalesForTheseUpDowngrades.length > 0) {
-                    var _res = _.omit(result, "toLookInto");
-                    $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(_res), {
+                    $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
                         type: 'danger',
                         align: 'center',
                         width: 800,
@@ -119,7 +118,7 @@ UpDownGradesJSONDataImport = React.createClass({
                 } else if (result.upgradesDowngradesImportStats) {
                     var _importStats = result.upgradesDowngradesImportStats;
                     $.bootstrapGrowl("imported stats<br>new: " + _importStats.new + "<br>duplicates: " + _importStats.duplicates +
-                        "<br>to look into: " + _importStats.toLookIntoNum + "<br>out of: " + _importStats.total, {
+                        "<br>out of: " + _importStats.total, {
                         type: 'success',
                         align: 'center',
                         width: 250,

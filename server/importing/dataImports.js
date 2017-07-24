@@ -168,12 +168,10 @@ Meteor.methods({
                 throw new Meteor.Error("You do not have permission to import portfolios.");
             } else if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
-                _result.toLookInto = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
                 var _newlyImportedNum = 0;
                 var _alreadyExistingNum = 0;
-                var _toLookIntoNum = 0;
                 var _checkForEarningsReleasesForTheseSymbols = [];
                 if (!Meteor.serverConstants.pullFromQuandEveryNDays) {
                     _result.serverConstantsNotOk = {
@@ -250,10 +248,6 @@ Meteor.methods({
 
                             // -----------------------------------------------------------------------------
                             // Determine if there are any irregularities.
-                            var _prevRatingChange = RatingChanges.findOne(
-                                {symbol: _universalSymbol, researchFirmId: _researchCompanyId, dateString: {$lte: importItem.dateString}},
-                                {sort: {dateString: -1}}
-                            );
                             // console.log("existing r ch: ", _existingRatingChange);
                             // console.log("_prevRatingChange: ", _prevRatingChange);
 
@@ -264,38 +258,6 @@ Meteor.methods({
                             // 3) _ratingChange.oldRatingId matches _prevRatingChange.oldRatingId and
                             // _ratingChange.newRatingId matches _prevRatingChange.newRatingId (exact duplicate of previous rating change)
 
-                            var _insertNewRating = true;
-                            var _reason = "";
-                            if (_prevRatingChange) {
-                                // check case 2. if true, reassign oldRatingId of _ratingChange
-                                if (_ratingChange.oldRatingId !== _prevRatingChange.newRatingId) {
-                                    _reason += "current old does not match previous new. ";
-                                    _ratingChange.oldRatingId = _prevRatingChange.newRatingId;
-                                }
-
-                                // check case 1.
-                                if (_ratingChange.oldRatingId === _ratingChange.newRatingId) {
-                                    _insertNewRating = false;
-                                    _reason += "oldRatingId === newRatingId.";
-                                }
-                                // check case 3.
-                                if (_ratingChange.oldRatingId === _prevRatingChange.oldRatingId && _ratingChange.newRatingId === _prevRatingChange.newRatingId) {
-                                    _insertNewRating = false;
-                                    _reason += "this is a duplicate rating change of the previous one.";
-                                }
-
-                                if (_reason !== "") {
-                                    _result.toLookInto.push(_.extend({reason: _reason}, _.pick(_ratingChange, "symbol", "dateString", "researchFirmId", "oldRatingId", "newRatingId")));
-                                }
-                            } else {
-                                // there is no prior rating change entry for this symbol and research firm
-                                // so only check case 1.
-                                if (_ratingChange.oldRatingId === _ratingChange.newRatingId) {
-                                    _insertNewRating = false;
-                                    _reason = "previous rating change does NOT exist, oldRatingId === newRatingId";
-                                    _result.toLookInto.push(_.extend({reason: _reason}, _.pick(_ratingChange, "symbol", "dateString", "researchFirmId", "oldRatingId", "newRatingId")));
-                                }
-                            }
                             // -----------------------------------------------------------------------------
 
 
@@ -304,13 +266,6 @@ Meteor.methods({
                                     old: _originalOldRatingString,
                                     new: _originalNewRatingString
                                 };
-                            }
-
-                            // _toLookIntoNum is the number of rating changes with "_deleted" appended to symbol and a reason.
-                            if (!_insertNewRating) {
-                                _toLookIntoNum++;
-                                _ratingChange.symbol = (_ratingChange.symbol + "_deleted");
-                                _ratingChange.reason = _reason;
                             }
 
                             console.log("adding rating change for universal symbol: ", _universalSymbol);
@@ -346,7 +301,6 @@ Meteor.methods({
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
                 _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
-                _result.upgradesDowngradesImportStats.toLookIntoNum = _toLookIntoNum;
                 var _destringified = [];
                 _result.couldNotFindGradingScalesForTheseUpDowngrades.forEach(function(obj) {
                     _destringified.push(JSON.parse(obj))
