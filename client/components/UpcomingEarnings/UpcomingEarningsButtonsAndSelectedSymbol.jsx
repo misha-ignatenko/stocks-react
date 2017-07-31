@@ -14,7 +14,10 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
 
     , getMeteorData() {
         let _earningReleases = EarningsReleases.find().fetch();
-        let _earningsReleasesSorted = _.sortBy(_earningReleases, "reportDateNextFiscalQuarter");
+        let _earningsReleasesSorted = _.sortBy(_earningReleases, function (obj) {
+            var _composite = obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 );
+            return _composite;
+        });
         let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
         //todo this should come from settings
         let _limit = 3;
