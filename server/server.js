@@ -10,6 +10,23 @@ Meteor.methods({
         });
     },
 
+    fixMissingPricesFor: function (symbols) {
+
+        // step 1. check quandl_free: no date specified (false), each symbol in the symbols array, overwrite flag (true).
+        Meteor.call("getQuandlPricesForDate", false, symbols, true);
+
+        // step 2. check quandl_paid.
+        var _nycDateTime = moment().tz("America/New_York");
+        var _nycDateTimeString = _nycDateTime.format();
+        var _latestDayDoneInNyc = _nycDateTimeString.slice(11, 19) > "21:00:00" ? _nycDateTimeString.slice(0, 10) : _nycDateTime.subtract(1, "days").format("YYYY-MM-DD");
+        _.each(symbols, function (s) {
+            Meteor.call("getStockPricesNew", s, "2014-01-01", _latestDayDoneInNyc);
+        });
+
+        // step 3. processSplits (only if there are any stock prices with missing adjClose).
+        Meteor.call("processSplits", symbols);
+    },
+
     getNASDAQquandlStockPrices: function (symbol, startDate, endDate) {
         var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
             (startDate ? ("start_date=" + startDate + "&") : "") +
@@ -557,18 +574,20 @@ if (Meteor.isServer) {
         },
 
         getQuandlPricesForDate: function (dateStrYYYY_MM_DD, optionalSymbolsArr, optionalOverWriteFlag) {
+            var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
+            var _apiKey = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
             if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
+                var _url = _quandlFreeBaseUrl + "?date=" +
                     dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+                    _apiKey;
             } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
-                var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?date=" +
+                var _url = _quandlFreeBaseUrl + "?date=" +
                     dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
-                    Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+                    _apiKey;
             } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json?" +
+                var _url = _quandlFreeBaseUrl + "?" +
                     "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+                    _apiKey;
             }
 
             var _res;
@@ -606,8 +625,9 @@ if (Meteor.isServer) {
                                 importedOn: new Date().toISOString()
                             };
                             if (optionalOverWriteFlag) {
-                                // delete the existing object if it exists
-                                var _obj = NewStockPrices.findOne({symbol: _formattedPriceObj.symbol, dateString: _formattedPriceObj.dateString});
+                                // remove existing object if there's already a price for that date and symbol from
+                                // quandl_paid, even if there's an adjClose that came from processSplits
+                                var _obj = NewStockPrices.findOne({source: "quandl_paid", symbol: _formattedPriceObj.symbol, dateString: _formattedPriceObj.dateString});
                                 if (_obj) {
                                     console.log("removing this price obj _id: ", _obj._id);
                                     NewStockPrices.remove({_id: _obj._id});
