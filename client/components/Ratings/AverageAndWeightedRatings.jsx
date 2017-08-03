@@ -60,7 +60,9 @@ AverageAndWeightedRatings = React.createClass({
             let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
             if (_pricesHandle.ready() && _ratingScalesHandle.ready()) {
-                var _allNewStockPricesArr = NewStockPrices.find({}, {sort: {dateString: 1}}).fetch();
+                // TODO: holiday calendar should be here
+                var _holidayDates = ["2017-07-04"];
+                var _allNewStockPricesArr = NewStockPrices.find({dateString: {$nin: _holidayDates}}, {sort: {dateString: 1}}).fetch();
                 _data.stockPrices = _allNewStockPricesArr;
                 var _pricesWithNoAdjClose = _.filter(_data.stockPrices, function (price) { return !price["adjClose"];})
                 if (_pricesWithNoAdjClose.length > 0) {
