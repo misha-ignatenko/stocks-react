@@ -273,6 +273,10 @@ AverageAndWeightedRatings = React.createClass({
             }).join('');
     },
 
+    toggleFirm(event) {
+        console.log(event.target.value);
+    },
+
     renderHistoricalRatingChangesByCompany() {
         let _ratingChanges = this.data.ratingChanges;
         let _uniqueFirmIds = _.uniq(_.pluck(_ratingChanges, "researchFirmId"));
@@ -287,7 +291,7 @@ AverageAndWeightedRatings = React.createClass({
                 <thead>
                     <tr>
                         {_dateAndUniqFirmIds.map((firm, index) => {
-                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-default" key={firm}>{index}</button> : firm}</th>;
+                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-default" key={firm} value={firm} onClick={this.toggleFirm}>{index}</button> : firm}</th>;
                         })}
                     </tr>
                 </thead>

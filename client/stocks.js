@@ -88,8 +88,12 @@ if (Meteor.isClient) {
                     _minPossibleWeight,
                     _maxPossibleWeight
                 );
-                console.log("final weights: ", _resultFromGradientDescent2.weights);
-                console.log("unique firm ids: ", _data.uniqueResearchFirmIds);
+                console.log("sqrt rss: ", _resultFromGradientDescent2.sqrtRss);
+                var _firmsAndWeights = {};
+                _.each(_data.uniqueResearchFirmIds, function (firmId, idx) {
+                    _firmsAndWeights[firmId] = _resultFromGradientDescent2.weights[idx];
+                })
+                console.log("firms and weights: ", _firmsAndWeights);
                 console.log("total iterations: ", _resultFromGradientDescent2.iter);
 
                 var _preparedArrayOfWeightedRatings = StocksReact.functions.prepareArrayOfWeightedRatingsForGraph(_data.uniqueResearchFirmIds, _resultFromGradientDescent2.weights, _avgRatingsSeriesEveryDay);

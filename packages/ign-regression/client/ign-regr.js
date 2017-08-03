@@ -82,18 +82,31 @@ IgnRegression.functions = {
 
             var _gradientSumSquares = 0;
             _weights.forEach(function(weight, featureIndex) {
+
+                var _new = _.map(IgnRegression.utilities.get_column_from_array_of_arrays(featureMartix, featureIndex), function (r) {
+                    return r - cutoffValue;
+                });
+
                 var _derivative = 2 * IgnRegression.utilities.get_dot_product_two_arrays(
-                        _errors, IgnRegression.utilities.get_column_from_array_of_arrays(featureMartix, featureIndex)
+                        _errors, _new
                     );
                 _gradientSumSquares += _derivative * _derivative;
 
                 _weights[featureIndex] -= stepSize * _derivative;
+                if (_weights[featureIndex] < 0) {
+                    _weights[featureIndex] = 0;
+                }
 
                 //break out of method before reaching positive or negative infinities
                 if (_weights[featureIndex] < minPossibleWeight || _weights[featureIndex] > maxPossibleWeight) {
                     _converged = true;
                 }
             });
+
+            var _totalWeight = _.reduce(_weights, function(memo, num){ return memo + num; }, 0);
+            _weights = _.map(_weights, function (oldWt) {
+                return oldWt / _totalWeight;
+            })
 
             var _gradientMagnitude = Math.sqrt(_gradientSumSquares);
             if (_gradientMagnitude < tolerance || _iter > maxIter) {
@@ -102,6 +115,7 @@ IgnRegression.functions = {
         }
 
         return {
+            sqrtRss: _gradientMagnitude,
             weights: _weights,
             iter: _iter
         };
