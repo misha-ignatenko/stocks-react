@@ -47,7 +47,7 @@ if (Meteor.isClient) {
             return _result;
         },
         generateWeightedAnalystRatingsTimeSeriesEveryDay: function(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, historicalData, priceReactionDelayDays, priceType, _pctGoDownPerDayAtMinRating, _pctGoUpPerDayAtMaxRating, _stepSize2, _maxIter2) {
-            var _result = [];
+            var _result = {};
 
 
 
@@ -97,7 +97,7 @@ if (Meteor.isClient) {
                 console.log("total iterations: ", _resultFromGradientDescent2.iter);
 
                 var _preparedArrayOfWeightedRatings = StocksReact.functions.prepareArrayOfWeightedRatingsForGraph(_data.uniqueResearchFirmIds, _resultFromGradientDescent2.weights, _avgRatingsSeriesEveryDay);
-                _result = _preparedArrayOfWeightedRatings;
+                _result = {ratings: _preparedArrayOfWeightedRatings, weights: _firmsAndWeights};
             }
 
             return _result;
@@ -309,7 +309,7 @@ if (Meteor.isClient) {
 
 
 
-            console.log("all rating changes of interest: ", _ratingChangesOfInterest);
+            // console.log("all rating changes of interest: ", _ratingChangesOfInterest);
             var _uniqDates = [new Date(startDate).toUTCString()];
             var _uniqDatesAddition = _.uniq(_.pluck(_ratingChangesOfInterest, "date"));
             _uniqDates = _uniqDates.concat(_.pluck(_ratingChangesOfInterest, "date"));
@@ -324,7 +324,7 @@ if (Meteor.isClient) {
             }
             _uniqDates.push(_dateForFinalSeries);
             _uniqDates = _.uniq(_uniqDates);
-            console.log("unique dates: ", _uniqDates);
+            // console.log("unique dates: ", _uniqDates);
 
             _uniqDates.forEach(function(uniqDate) {
                 var __arrayOfConnectedRatingChanges = [];

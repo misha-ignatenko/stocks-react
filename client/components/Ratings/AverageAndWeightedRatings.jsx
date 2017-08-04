@@ -102,6 +102,8 @@ AverageAndWeightedRatings = React.createClass({
                         var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                         var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
                         var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay, Math.pow(10, this.state.stepSizePow), this.state.regrIterNum);
+                        _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
+                        _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
                         var _predictionsBasedOnAvgRatings = StocksReact.functions.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                             return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
                         }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
@@ -287,13 +289,15 @@ AverageAndWeightedRatings = React.createClass({
         let _prices = this.data.stockPrices;
         let _individualRatingsEveryDay = this.getIndividualRatingsEveryDay(_prices, _ratingChanges, this.data.ratingScales);
         let hsv2rgb = this.hsv2rgb;
+        let _regrWeights = this.data.regrWeights;
 
         return <div>
             <table>
                 <thead>
                     <tr>
                         {_dateAndUniqFirmIds.map((firm, index) => {
-                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-default" key={firm} value={firm} onClick={this.toggleFirm}>{index}</button> : firm}</th>;
+                            let _btnTxt = _regrWeights[firm] && _regrWeights[firm] >= 0.001 ? (index + " (" + _regrWeights[firm].toFixed(2) + ")") : index;
+                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-default" key={firm} value={firm} onClick={this.toggleFirm}>{_btnTxt}</button> : firm}</th>;
                         })}
                     </tr>
                 </thead>
