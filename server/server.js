@@ -1,6 +1,57 @@
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
 Meteor.methods({
+    insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
+        var _user = Meteor.user();
+        if (!_user) {
+            throw new Meteor.Error("Please log in.");
+        } else {
+            var _dataImportPermissions = _user.permissions && _user.permissions.dataImports;
+            var _canImportRatingScales = _dataImportPermissions && _.contains(_dataImportPermissions, "canImportRatingScales");
+            if (!_canImportRatingScales) {
+                throw new Meteor.Error("You do not have permission to import rating scales.");
+            }
+        }
+
+        var _researchFirmQuery = {
+            name: { $regex: firmNameStr }
+        };
+        var _firms = ResearchCompanies.find(_researchFirmQuery).fetch();
+
+        var _firmId = _firms.length === 1 ? _firms[0]._id : null;
+        if (_firmId) {
+            console.log("the firm id is: ", _firmId);
+            var _ratingScaleQuery = {
+                firmRatingFullString: mainRatingStringExactMatchBool ? mainRatingString : { $regex: mainRatingString },
+                researchFirmId: _firmId
+            };
+            var _ratingScales = RatingScales.find(_ratingScaleQuery).fetch();
+
+            var _ratingScaleId = _ratingScales.length === 1 ? _ratingScales[0]._id : null;
+            if (_ratingScaleId) {
+                console.log("rating scale id: ", _ratingScaleId);
+
+                var _alternativeRatingScale = {
+                    researchFirmId: _firmId,
+                    type: "alternative",
+                    ratingString: alternativeRatingString,
+                    referenceRatingScaleId: _ratingScaleId
+                };
+
+                if (!RatingScales.findOne(_alternativeRatingScale)) {
+                    var _newId = RatingScales.insert(_alternativeRatingScale);
+                    console.log("inserted id: ", _newId);
+                }
+            } else {
+                console.log("cannot find exactly one rating scale with query: ", _ratingScaleQuery);
+            }
+        } else {
+            console.log("cannot find firm with query: ", _researchFirmQuery);
+        }
+
+        return;
+    },
+
     getStockPricesFromYahooFinance: function (symbol, startDate, endDate) {
         console.log("requesting from yahoo finance: ", symbol, startDate, endDate);
         return YahooFinance.historical({
