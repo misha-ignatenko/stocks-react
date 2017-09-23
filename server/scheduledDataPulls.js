@@ -67,6 +67,8 @@ Meteor.startup(function() {
                         dailyPullTimeNyc: _dailyYFpullTime
                     })
                 });
+
+                Meteor.call("ensureAdjCloseExistsFor", _dateStringNyc);
             }
         }
 
