@@ -637,6 +637,7 @@ if (Meteor.isServer) {
                     _apiKey;
             } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
                 var _url = _quandlFreeBaseUrl + "?" +
+                    "date.gte=2014-01-01&" +
                     "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
                     _apiKey;
             }
