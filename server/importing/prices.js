@@ -17,7 +17,10 @@ Meteor.methods({
             })
         });
 
-        Meteor.call("fixMissingPricesFor", _symbols);
+        let n = 100;
+        _.each(_.range(_symbols.length / n).map(i => _symbols.slice(i * n, (i + 1) * n)), function (symbolsChunk) {
+            Meteor.call("fixMissingPricesFor", symbolsChunk);
+        });
 
         let _newPrices = NewStockPrices.find(_qry, {fields: {_id: 1, symbol: 1}}).fetch();
 
