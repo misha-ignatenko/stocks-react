@@ -71,7 +71,7 @@ Meteor.methods({
         var _nycDateTimeString = _nycDateTime.format();
         var _latestDayDoneInNyc = _nycDateTimeString.slice(11, 19) > "21:00:00" ? _nycDateTimeString.slice(0, 10) : _nycDateTime.subtract(1, "days").format("YYYY-MM-DD");
         _.each(symbols, function (s) {
-            Meteor.call("getStockPricesNew", s, "2014-01-01", _latestDayDoneInNyc);
+            Meteor.call("getStockPricesNew", s, "2014-01-01", _latestDayDoneInNyc, true);
         });
 
         // step 3. processSplits (only if there are any stock prices with missing adjClose).
@@ -156,7 +156,7 @@ Meteor.methods({
         );
     },
 
-    getStockPricesNew: function(symbol, startStr, endStr) {
+    getStockPricesNew: function(symbol, startStr, endStr, startFromExistingEndDateBool) {
         console.log("in the outer method getStockPrices New");
         var _res;
 
@@ -201,6 +201,16 @@ Meteor.methods({
             endStr = _maxDateStrNoDashes.substring(0,4) + '-' + _maxDateStrNoDashes.substring(4,6) + '-' + _maxDateStrNoDashes.substring(6,8);
             _startUpd = startStr;
             _endUpd = endStr;
+
+            if (startFromExistingEndDateBool) {
+                // startStr one day after _existingEndDate
+                // no need to overwrite minRequestedStartDate aka _startUpd
+                startStr = moment(_existingEndDate).add(1, "days").format("YYYY-MM-DD");
+                var _stock = Stocks.findOne(symbol);
+                if (_stock && _stock.minRequestedStartDate) {
+                    _startUpd = _stock.minRequestedStartDate;
+                }
+            }
         } else {
             // there is no existing start or end date
             _pullNewData = true;
