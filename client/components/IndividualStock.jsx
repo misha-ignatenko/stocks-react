@@ -80,19 +80,10 @@ IndividualStock = React.createClass({
 
     selectFirstSearchResult: function(event) {
         if (event.keyCode === 13) {
-            //this.setSelectedStock(this.state.individualStockSearchResults[0]);
-            var _that = this;
-            if ($("#individualStockSearch").val()) {
-                //call yahoo to verify symbol
-                Meteor.call("getLatestAskPrice", $("#individualStockSearch").val(), function (error, result) {
-                    if (!error && result && result[0] && result[0].name) {
-                        Meteor.call("addIndividualStockToUser", Meteor.userId(), result[0].symbol)
-                        _that.setSelectedStock(result[0].symbol);
-                    } else {
-                        console.log("ask user to re-enter symbol");
-                        _that.clearSelectedStock();
-                    }
-                });
+            var _s = $("#individualStockSearch").val();
+            if (_s) {
+                Meteor.call("addIndividualStockToUser", Meteor.userId(), _s);
+                this.setSelectedStock(_s);
             }
         }
     },
