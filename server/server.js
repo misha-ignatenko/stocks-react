@@ -52,15 +52,6 @@ Meteor.methods({
         return;
     },
 
-    getStockPricesFromYahooFinance: function (symbol, startDate, endDate) {
-        console.log("requesting from yahoo finance: ", symbol, startDate, endDate);
-        return YahooFinance.historical({
-            symbol: symbol,
-            from: startDate,
-            to: endDate
-        });
-    },
-
     fixMissingPricesFor: function (symbols) {
 
         // step 1. check quandl_free: no date specified (false), each symbol in the symbols array, overwrite flag (true).
@@ -581,30 +572,6 @@ if (Meteor.isServer) {
         },
         removePickListItem: function(pickListItemId) {
             PickListItems.remove(pickListItemId);
-        },
-        getFullQuote: function (symbolsArray) {
-            return YahooFinance.snapshot({symbols: symbolsArray});
-        },
-        getLatestAskPrice: function (symbol) {
-            var _latestPriceQuote = YahooFinance.snapshot({symbols: [symbol], fields: ['s', 'n', 'd1', 'l1', 'y', 'r']});
-            return _latestPriceQuote;
-        },
-        getCompanyName: function (symbol) {
-            var _quotes = YahooFinance.snapshot({symbols: [symbol], fields: ['n']});
-            var _filteredQuote = _.findWhere(_quotes, {symbol: symbol});
-            return _filteredQuote.name;
-        },
-        getHistoricalData: function(symbol, start, end) {
-            console.log("requesting from yahoo finance: ", start, end);
-            return YahooFinance.historical({
-                symbol: symbol,
-                from: start,
-                to: end
-            });
-        },
-        getBlah: function() {
-            var _blah = "blah";
-            return _blah;
         },
 
         insertNewStockSymbols: function(symbolsArray) {
