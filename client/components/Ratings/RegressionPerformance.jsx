@@ -26,12 +26,12 @@ RegressionPerformance = React.createClass({
 
     componentWillMount() {
         console.log("mounting", this.props.symbol);
-        let _settings = this.data.settings;
-        var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
-        let _maxDateForRatingChanges = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment().tz("America/New_York").subtract(70, "days"));
-        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
-        console.log(_maxDateForRatingChanges);
-        console.log(_lastPriceDate);
+        let _maxDateForRatingChanges = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment().tz("America/New_York").subtract(70, "days"));
+        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false);
+
+        Meteor.call("getRegressionPerformance", this.props.symbol, _maxDateForRatingChanges, _lastPriceDate, function (err, res) {
+            console.log("done");
+        });
     },
 
     render() {

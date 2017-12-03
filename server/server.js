@@ -301,6 +301,28 @@ Meteor.methods({
             console.log("wrong key code.");
         }
     },
+
+    getRegressionPerformance: function (symbol, maxRatingChangeDate, priceCheckDate) {
+
+        // step 1. get all rating changes for symbol up to maxRatingChangeDate
+        var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
+
+        // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
+        var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString).tz("America/New_York"));
+        var _regrEnd = maxRatingChangeDate;
+        var _pricesForRegr = NewStockPrices.find({symbol: symbol, $and: [{dateString: {$gte: _regrStart}}, {dateString: {$lte: _regrEnd}}]}, {sort: {dateString: 1}}).fetch();
+
+        // step 3. check that have all the needed prices in date range
+        var _availablePricesStart = _pricesForRegr[0].dateString;
+        var _availablePricesEnd = _pricesForRegr[_pricesForRegr.length - 1].dateString;
+        if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
+            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd);
+            console.log("_averageAnalystRatingSeries: ", _averageAnalystRatingSeries.length);
+        } else {
+            console.log("mismatch with prices history: ", _regrStart, _availablePricesStart, _regrEnd, _availablePricesEnd);
+        }
+    },
+
     getDefaultPerformanceDatesFor: function(portfolioId) {
         var _p = Portfolios.findOne(portfolioId);
         var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});

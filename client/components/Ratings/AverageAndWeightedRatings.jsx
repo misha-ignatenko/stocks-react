@@ -94,7 +94,7 @@ AverageAndWeightedRatings = React.createClass({
                     _data.stocksToGraphObjs = [];
                     var _startDate = _startDateForRatingChangesSubscription;
                     var _endDate = _endDateRatingChanges;
-                    var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate);
+                    var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate);
                     //TODO: start date and end date for regression are coming from a different date picker
                     var _startDateForRegression = _startDate;
                     var _endDateForRegression = _endDate;

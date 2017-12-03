@@ -253,14 +253,14 @@ PreviousEarningsRelease = React.createClass({
         if (symbol && this.state.avgRatingStartDate && this.state.avgRatingEndDate) {
             var _startDate = this.state.avgRatingStartDate;
             var _endDate = this.state.avgRatingEndDate;
-            var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
+            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
             //TODO: start date and end date for regression are coming from a different date picker
             var _startDateForRegression = _startDate;
             var _endDateForRegression = _endDate;
             var _that = this;
             Meteor.call('checkHistoricalData', symbol, _startDate, _endDate, function(err, result) {
                 if (result && result.historicalData) {
-                    var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
+                    var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                     var _priceReactionDelayInDays = 5;
                     var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", 0.5, 1.0, Math.pow(10, -7), 30);
                     _that.setState({

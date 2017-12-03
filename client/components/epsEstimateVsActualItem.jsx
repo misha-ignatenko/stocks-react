@@ -96,7 +96,7 @@ EpsEstimateVsActualItem = React.createClass({
 
         if (symbol && _startDate && _endDate) {
             var _that = this;
-            var _averageAnalystRatingSeries = StocksReact.functions.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
+            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate);
             Meteor.call('checkHistoricalData', symbol, _startDate, _endDate, function(err, result) {
                 if (result && result.historicalData) {
                     _that.setState({
