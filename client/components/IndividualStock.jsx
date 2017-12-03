@@ -80,11 +80,17 @@ IndividualStock = React.createClass({
 
     selectFirstSearchResult: function(event) {
         if (event.keyCode === 13) {
+            var _that = this;
             var _s = $("#individualStockSearch").val();
-            if (_s) {
-                Meteor.call("addIndividualStockToUser", Meteor.userId(), _s);
-                this.setSelectedStock(_s);
-            }
+            Meteor.call("insertNewStockSymbols", [_s], function (err, res) {
+                if (res[_s]) {
+                    Meteor.call("addIndividualStockToUser", Meteor.userId(), _s);
+                    _that.setSelectedStock(_s);
+                } else {
+                    console.log("the symbol is invalid: ", _s);
+                    _that.clearSelectedStock();
+                }
+            });
         }
     },
     showRegisterAccountFields: function() {

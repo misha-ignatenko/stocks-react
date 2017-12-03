@@ -583,20 +583,28 @@ if (Meteor.isServer) {
         },
 
         insertNewStockSymbols: function(symbolsArray) {
+            var _res = {};
             var _symbolsAllCapsArray = [];
             symbolsArray.forEach(function(symbol) {
                 _symbolsAllCapsArray.push(symbol.toUpperCase());
             });
 
-            if (_symbolsAllCapsArray.length > 0) {
-                _.each(_symbolsAllCapsArray, function (s) {
+            _.each(_symbolsAllCapsArray, function (s) {
+                if (Stocks.findOne({_id: s})) {
+                    _res[s] = true;
+                } else {
                     Meteor.call("checkIfSymbolExists", s, function (error, result) {
-                        if (result && Stocks.find({_id: s}).count() === 0) {
+                        if (result) {
                             Stocks.insert({_id: s});
+                            _res[s] = true;
+                        } else {
+                            _res[s] = false;
                         }
                     })
-                });
-            }
+                }
+            });
+
+            return _res;
         },
 
         getQuandlPricesForDate: function (dateStrYYYY_MM_DD, optionalSymbolsArr, optionalOverWriteFlag) {
