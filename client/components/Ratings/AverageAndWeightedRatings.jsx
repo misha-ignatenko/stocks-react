@@ -11,8 +11,8 @@ AverageAndWeightedRatings = React.createClass({
     getInitialState() {
         let _settings = Settings.findOne();
         var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
-        let _avgRatingStartDate = StocksReact.utilities.getClosestNextWeekDayDate(moment().tz("America/New_York").subtract(90, "days"));
-        let _avgRatingEndDate = StocksReact.utilities.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
+        let _avgRatingStartDate = StocksReactUtils.getClosestNextWeekDayDate(moment().tz("America/New_York").subtract(90, "days"));
+        let _avgRatingEndDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
 
         return {
             pctDownPerDay: 0.5,
@@ -147,8 +147,12 @@ AverageAndWeightedRatings = React.createClass({
                     })
 
                 } else {
-                    //only set download flag to true
-                    Meteor.call('setPricesLoadingTag', _symbol, true);
+                    if (RatingChanges.find().fetch().length > 0) {
+                        //only set download flag to true
+                        Meteor.call('setPricesLoadingTag', _symbol, true);
+                    } else {
+                        console.log("there are no rating changes");
+                    }
                 }
             }
         }

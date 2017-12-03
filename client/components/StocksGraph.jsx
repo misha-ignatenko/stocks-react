@@ -21,7 +21,7 @@ StocksGraph = React.createClass({
         stocksObjectsArray.forEach(function (obj) {
             //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
             var _histData = obj.historicalData;
-            var _minMaxPrice = StocksReact.utilities.getMinMaxFromArrOfObj(obj.historicalData, "adjClose");
+            var _minMaxPrice = StocksReactUtils.getMinMaxFromArrOfObj(obj.historicalData, "adjClose");
             var _maxPrice = _minMaxPrice[1];
             var _minPrice = _minMaxPrice[0];
             if (_histData) {
@@ -74,7 +74,7 @@ StocksGraph = React.createClass({
             if (_avgAnalystRatings && _avgAnalystRatings.length > 2) {
                 let _seriesDataArray2 = [];
                 //determing the range of all analyst ratings
-                var _minMaxAvgRating = StocksReact.utilities.getMinMaxFromArrOfObj(_avgAnalystRatings, "avg");
+                var _minMaxAvgRating = StocksReactUtils.getMinMaxFromArrOfObj(_avgAnalystRatings, "avg");
                 var _maxRating = _minMaxAvgRating[1];
                 var _minRating = _minMaxAvgRating[0];
 
@@ -97,7 +97,7 @@ StocksGraph = React.createClass({
 
             if (obj.avgAnalystRatingsEveryDay && obj.avgAnalystRatingsEveryDay.length > 2) {
                 var _seriesDataArrayAvgRatingEveryDay = [];
-                var _rangeOfAvgRatingsByDay = StocksReact.utilities.getMinMaxFromArrOfObj(obj.avgAnalystRatingsEveryDay, "avg");
+                var _rangeOfAvgRatingsByDay = StocksReactUtils.getMinMaxFromArrOfObj(obj.avgAnalystRatingsEveryDay, "avg");
                 var _coef = 1;
                 if (_rangeOfAvgRatingsByDay.length > 0) {
                     _coef = _rangeOfPrices / (_rangeOfAvgRatingsByDay[1] - _rangeOfAvgRatingsByDay[0]);

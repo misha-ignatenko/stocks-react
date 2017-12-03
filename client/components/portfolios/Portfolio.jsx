@@ -237,7 +237,7 @@ Portfolio = React.createClass({
     getEndDateForPrices() {
         let _settings = Settings.findOne();
         var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
-        return StocksReact.utilities.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(this.state.endDate + " 17:00:00").tz("America/New_York"));
+        return StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(this.state.endDate + " 17:00:00").tz("America/New_York"));
     },
     setUpStartEndDates(portfolioId) {
         let _newState = {
