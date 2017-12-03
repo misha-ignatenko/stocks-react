@@ -589,22 +589,12 @@ if (Meteor.isServer) {
             });
 
             if (_symbolsAllCapsArray.length > 0) {
-                Meteor.call("getFullQuote", _symbolsAllCapsArray, function(error, quotesArray) {
-                    if (!error && quotesArray && quotesArray.length > 0) {
-                        quotesArray.forEach(function(quote) {
-                            if (quote.stockExchange) {
-                                var _symbolUpperCase = quote.symbol.toUpperCase();
-                                if (Stocks.find({_id: _symbolUpperCase}).count() === 0) {
-                                    Stocks.insert({
-                                        _id: _symbolUpperCase,
-                                        quote: _.extend(quote, {
-                                            asOf: new Date().toISOString()
-                                        })
-                                    });
-                                }
-                            }
-                        });
-                    }
+                _.each(_symbolsAllCapsArray, function (s) {
+                    Meteor.call("checkIfSymbolExists", s, function (error, result) {
+                        if (result && Stocks.find({_id: s}).count() === 0) {
+                            Stocks.insert({_id: s});
+                        }
+                    })
                 });
             }
         },
