@@ -486,6 +486,7 @@ AverageAndWeightedRatings = React.createClass({
                             <br/>
                             {this.renderAvgAnalystRatingsGraph()}
                             <br/><br/><br/><br/>
+                            <RegressionPerformance symbol={this.props.symbol}/>
                             {this.renderAllExistingUpDowngradesForStock()}
                             <br/>
                             {this.renderEpsMeanEstimates()}
