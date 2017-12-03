@@ -1,5 +1,37 @@
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
+// FREE
+function getWikiPricesQuandlUrl(dateStrYYYY_MM_DD, optionalSymbolsArr) {
+    var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
+    var _apiKey = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+    if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
+        var _url = _quandlFreeBaseUrl + "?date=" +
+            dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
+            _apiKey;
+    } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
+        var _url = _quandlFreeBaseUrl + "?date=" +
+            dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
+            _apiKey;
+    } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
+        var _url = _quandlFreeBaseUrl + "?" +
+            "date.gte=2014-01-01&" +
+            "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
+            _apiKey;
+    }
+
+    return _url;
+};
+
+// PAID
+function getNasdaqPricesQuandlUrl(symbol, startDate, endDate) {
+    var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
+        (startDate ? ("start_date=" + startDate + "&") : "") +
+        (endDate ? ("end_date=" + endDate + "&") : "") +
+        "api_key=" + Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
+
+    return _url;
+}
+
 Meteor.methods({
     insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
         var _user = Meteor.user();
@@ -70,13 +102,8 @@ Meteor.methods({
     },
 
     getNASDAQquandlStockPrices: function (symbol, startDate, endDate) {
-        var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
-            (startDate ? ("start_date=" + startDate + "&") : "") +
-            (endDate ? ("end_date=" + endDate + "&") : "") +
-            "api_key=" + Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
-
         try {
-            var result = HTTP.get(_url);
+            var result = HTTP.get(getNasdaqPricesQuandlUrl(symbol, startDate, endDate));
             var _data = result.data.dataset.data;
             var _columnNames = _.map(result.data.dataset.column_names, function (rawColName) {
                 return rawColName.replace(/ /g, "_");
@@ -424,35 +451,7 @@ Meteor.methods({
     }
 })
 
-
-function _recursiveF(arr, index, startStr, endStr) {
-    if (index <= arr.length - 1) {
-        var _symbol = arr[index];
-        console.log("getting prices for: ", _symbol, startStr, endStr);
-        console.log('the index is: ', index);
-        Meteor.call('getStockPricesFromYahooFinance', _symbol, startStr, endStr, function (error, result) {
-            if (!error && result) {
-                console.log("got a result from Yahoo Finance. the length of result is: ", result.length);
-                // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
-
-                result.forEach(function (priceObj) {
-                    var _dateString = moment.tz(priceObj.date.toISOString(), "America/New_York").format('YYYY-MM-DD');
-
-                    var _stockPriceObjToAttemptInsering = _.extend(priceObj, {
-                        dateString: _dateString
-                    });
-
-                    NewStockPrices.insert(_stockPriceObjToAttemptInsering)
-                });
-
-            } else {
-                console.log("there was an error for symbol: ", _symbol);
-            }
-            console.log('------------------------------------------');
-            _recursiveF(arr, index + 1, startStr, endStr);
-        });
-    }
-};
+// inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
 
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
@@ -544,26 +543,6 @@ if (Meteor.isServer) {
                 ownerName: Meteor.user().username
             });
         },
-        addStockToPickList: function(pickListId, symbol, dateAdded) {
-            var _alreadyExistingPickListItem = PickListItems.findOne({
-                pickListId: pickListId,
-                stockId: symbol,
-                dateAdded: dateAdded
-            });
-            if (_alreadyExistingPickListItem) {
-                console.log("attempt to enter duplicate pick list item prevented. item id: ", _alreadyExistingPickListItem._id, ", stock symbol: ", _alreadyExistingPickListItem.stockId);
-            } else {
-                Meteor.call("getCompanyName", symbol, function(error, result) {
-                    if (!error && result) {
-                        PickListItems.insert({
-                            pickListId: pickListId,
-                            stockId: symbol,
-                            dateAdded: dateAdded
-                        });
-                    }
-                });
-            }
-        },
         removeStockFromPickList: function(pickListItemId, dateRemoved) {
             var _pickListItem = PickListItems.findOne(pickListItemId);
             if (_pickListItem && !_pickListItem.dateRemoved) {
@@ -572,6 +551,35 @@ if (Meteor.isServer) {
         },
         removePickListItem: function(pickListItemId) {
             PickListItems.remove(pickListItemId);
+        },
+
+        checkIfSymbolExists: function (symbol) {
+            var _wikiUrl = getWikiPricesQuandlUrl(false, [symbol]);
+            var _nasdaqUrl = getNasdaqPricesQuandlUrl(symbol);
+
+            function _checkWiki() {
+                try {
+                    var _res = HTTP.get(_wikiUrl);
+                    if (_res.data.datatable.data.length > 0) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } catch (e) {
+                    return false;
+                }
+            };
+
+            function _checkNasdaq() {
+                try {
+                    var _res = HTTP.get(_nasdaqUrl);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            return _checkWiki() || _checkNasdaq();
         },
 
         insertNewStockSymbols: function(symbolsArray) {
@@ -602,25 +610,9 @@ if (Meteor.isServer) {
         },
 
         getQuandlPricesForDate: function (dateStrYYYY_MM_DD, optionalSymbolsArr, optionalOverWriteFlag) {
-            var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
-            var _apiKey = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
-            if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?date=" +
-                    dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    _apiKey;
-            } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?date=" +
-                    dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
-                    _apiKey;
-            } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?" +
-                    "date.gte=2014-01-01&" +
-                    "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    _apiKey;
-            }
 
             var _res;
-            var res = HTTP.get(_url);
+            var res = HTTP.get(getWikiPricesQuandlUrl(dateStrYYYY_MM_DD, optionalSymbolsArr));
                 if (res) {
                     var _data = res.data.datatable.data;
                     var _columnDefs = res.data.datatable.columns;

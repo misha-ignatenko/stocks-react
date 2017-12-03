@@ -121,26 +121,7 @@ Meteor.methods({
 
 
         // check which of these do not have a quote from Yahoo
-        var _symbolsThatHaveBidsOrAsks = [];
-
-
-        _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols).forEach(function(missingSym) {
-            Meteor.call("getFullQuote", [missingSym], function (error, result) {
-                if (!error) {
-                    var _result = result && result[0];
-                    if (_result && (_result.bid || _result.ask) ) {
-                        // console.log("result: ", _result);
-                        _symbolsThatHaveBidsOrAsks.push(_result.symbol);
-                    } else {
-                        // console.log("symbol has no bid and no ask: ", missingSym);
-                    }
-                } else {
-                    // console.log("error: ", error);
-                }
-            });
-        });
-
-
+        var _symbolsThatHaveBidsOrAsks = _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols);
 
 
         Email.send({
