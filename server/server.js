@@ -308,7 +308,8 @@ Meteor.methods({
         var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
 
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
-        var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + " 17:00:00").tz("America/New_York"));
+        //moment().toISOString().substring(10,24)
+        var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
         var _pricesForRegr = NewStockPrices.find({symbol: symbol, $and: [{dateString: {$nin: ["2017-07-04"]}}, {dateString: {$gte: _regrStart}}, {dateString: {$lte: _regrEnd}}]}, {sort: {dateString: 1}}).fetch();
 
