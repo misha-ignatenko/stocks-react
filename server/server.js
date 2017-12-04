@@ -317,9 +317,7 @@ Meteor.methods({
         var _availablePricesEnd = _pricesForRegr[_pricesForRegr.length - 1].dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
             var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd);
-            console.log("_averageAnalystRatingSeries: ", _averageAnalystRatingSeries.length);
             var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
-            console.log("_avgRatingsSeriesEveryDay: ", _avgRatingsSeriesEveryDay.length);
 
             var _priceReactionDelayInDays = 0;
             var pctDownPerDay = 0.5;
@@ -351,7 +349,6 @@ Meteor.methods({
             // step 7.2: get predictions based on projected future avg ratings.
             var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
                 _futureAvgProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
-            console.log(_predictionsBasedOnAvgRatings[_predictionsBasedOnAvgRatings.length - 1]);
 
             // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
             var _lastWgt = _weightedRatingsSeriesEveryDay[_weightedRatingsSeriesEveryDay.length - 1];
@@ -362,8 +359,6 @@ Meteor.methods({
             // step 8.2: get predictions based on projected future wgt ratings.
             var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
                 _futureWgtProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
-            console.log("FINAL: ");
-            console.log(_predictionsBasedOnWeightedRatings[_predictionsBasedOnWeightedRatings.length - 1]);
 
             return {
                 avg: _predictionsBasedOnAvgRatings,
