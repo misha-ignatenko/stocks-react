@@ -99,15 +99,15 @@ AverageAndWeightedRatings = React.createClass({
                     var _startDateForRegression = _startDate;
                     var _endDateForRegression = _endDate;
                     if (result && result.historicalData) {
-                        var _avgRatingsSeriesEveryDay = StocksReact.functions.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
+                        var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                         var _priceReactionDelayInDays = this.state.priceReactionDelayDays;
-                        var _weightedRatingsSeriesEveryDay = StocksReact.functions.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay, Math.pow(10, this.state.stepSizePow), this.state.regrIterNum);
+                        var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", this.state.pctDownPerDay, this.state.pctUpPerDay, Math.pow(10, this.state.stepSizePow), this.state.regrIterNum);
                         _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
                         _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
-                        var _predictionsBasedOnAvgRatings = StocksReact.functions.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+                        var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                             return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
                         }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
-                        var _predictionsBasedOnWeightedRatings = StocksReact.functions.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+                        var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
                             return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
                         }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
 
@@ -167,13 +167,8 @@ AverageAndWeightedRatings = React.createClass({
             var _allHistoricalData = _stockPricesRecord.historicalData;
             //push items from _allHistoricalData to _historicalDataBetweenTwoRequestedDates
             //only where dates are within the requested date range
-            _allHistoricalData.forEach(function(priceObjForDay) {
-                var _extractedDateStringNoTimezone = moment(priceObjForDay.date).tz("America/New_York").format("YYYY-MM-DD");
-                if ((moment(_extractedDateStringNoTimezone).isSame(startDate) || moment(_extractedDateStringNoTimezone).isAfter(startDate)) &&
-                    (moment(_extractedDateStringNoTimezone).isSame(endDate) || moment(_extractedDateStringNoTimezone).isBefore(endDate))
-                ) {
-                    _historicalDataBetweenTwoRequestedDates.push(priceObjForDay);
-                }
+            _historicalDataBetweenTwoRequestedDates = _.filter(_allHistoricalData, function (priceObjForDay) {
+                return priceObjForDay.dateString >= startDate && priceObjForDay.dateString <= endDate;
             });
             //this will limit the historicalData attribute that we are making available to the user
             _stockPricesRecord.historicalData = _historicalDataBetweenTwoRequestedDates;
@@ -487,7 +482,6 @@ AverageAndWeightedRatings = React.createClass({
                 {this.data.stuffIsBeingPulledRn ? 'prices are being loaded from Yahoo Finance right now' : <div>
                     {this.data.ratingChangesAndStockPricesSubscriptionsForSymbolReady ?
                         <div>
-                            <br/>
                             {this.renderAvgAnalystRatingsGraph()}
                             <br/><br/><br/><br/>
                             <RegressionPerformance symbol={this.props.symbol}/>

@@ -310,7 +310,7 @@ Meteor.methods({
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
         var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
-        var _pricesForRegr = NewStockPrices.find({symbol: symbol, $and: [{dateString: {$gte: _regrStart}}, {dateString: {$lte: _regrEnd}}]}, {sort: {dateString: 1}}).fetch();
+        var _pricesForRegr = NewStockPrices.find({symbol: symbol, $and: [{dateString: {$nin: ["2017-07-04"]}}, {dateString: {$gte: _regrStart}}, {dateString: {$lte: _regrEnd}}]}, {sort: {dateString: 1}}).fetch();
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
@@ -318,6 +318,59 @@ Meteor.methods({
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
             var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd);
             console.log("_averageAnalystRatingSeries: ", _averageAnalystRatingSeries.length);
+            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
+            console.log("_avgRatingsSeriesEveryDay: ", _avgRatingsSeriesEveryDay.length);
+
+            var _priceReactionDelayInDays = 0;
+            var pctDownPerDay = 0.5;
+            var pctUpPerDay = 0.5;
+            var stepSizePow = -7;
+            var regrIterNum = 30;
+            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
+            _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
+
+            // step 5. get all future prices
+            var _futurePrices = NewStockPrices.find({
+                $and: [
+                    {symbol: symbol},
+                    {dateString: {$gte: _regrEnd}},
+                    {dateString: {$lte: priceCheckDate}}
+                ]}, {sort: {dateString: 1}}).fetch();
+
+            // step 6. make sure all the needed future prices are in the db
+            if (_futurePrices[0].dateString !== _regrEnd || _futurePrices[_futurePrices.length - 1].dateString !== priceCheckDate) {
+                throw new Meteor.Error("make sure there are prices for " + symbol + " from " + _regrEnd + " to " + priceCheckDate);
+            }
+
+            // step 7.1: project last item in _avgRatingsSeriesEveryDay to all future prices
+            var _lastAvg = _avgRatingsSeriesEveryDay[_avgRatingsSeriesEveryDay.length - 1];
+            var _futureAvgProjection = _.map(_futurePrices, function (p) {
+                return {date: p.date, rating: _lastAvg.avg, dateString: p.dateString};
+            });
+
+            // step 7.2: get predictions based on projected future avg ratings.
+            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+                _futureAvgProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+            console.log(_predictionsBasedOnAvgRatings[_predictionsBasedOnAvgRatings.length - 1]);
+
+            // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
+            var _lastWgt = _weightedRatingsSeriesEveryDay[_weightedRatingsSeriesEveryDay.length - 1];
+            var _futureWgtProjection = _.map(_futurePrices, function (p) {
+                return {date: p.date, rating: _lastWgt.weightedRating, dateString: p.dateString};
+            });
+
+            // step 8.2: get predictions based on projected future wgt ratings.
+            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+                _futureWgtProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+            console.log("FINAL: ");
+            console.log(_predictionsBasedOnWeightedRatings[_predictionsBasedOnWeightedRatings.length - 1]);
+
+            return {
+                avg: _predictionsBasedOnAvgRatings,
+                wgt: _predictionsBasedOnWeightedRatings,
+                actualStart: _futurePrices[0],
+                actualEnd: _futurePrices[_futurePrices.length - 1],
+            };
         } else {
             console.log("mismatch with prices history: ", _regrStart, _availablePricesStart, _regrEnd, _availablePricesEnd);
         }

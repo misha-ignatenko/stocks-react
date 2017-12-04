@@ -17,9 +17,9 @@ Package.onUse(function (api) {
 
     api.versionsFrom('1.2.1');
 
-    api.use(["ecmascript", "momentjs:moment", "underscore"], client);
+    api.use(["ecmascript", "momentjs:moment", "underscore"], serverAndClient);
 
-    api.addFiles('client/ign-regr.js', client);
+    api.addFiles('lib/ign-regr.js', serverAndClient);
 
-    api.export("IgnRegression", client);
+    api.export("IgnRegression", serverAndClient);
 });
