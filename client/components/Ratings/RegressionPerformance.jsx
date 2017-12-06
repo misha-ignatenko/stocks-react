@@ -43,6 +43,7 @@ RegressionPerformance = React.createClass({
         var _data = this.state.regressionPerformance;
         var _wgt = _data && _data.wgt;
         var _avg = _data && _data.avg;
+        var _altWgt = _data && _data.altWgt;
         var _actualStartPrice = _data && _data.actualStart.adjClose;
         var _actualEndPrice = _data && _data.actualEnd.adjClose;
         var _noRegressionEnd = _data && _avg[_avg.length -  1].price.toFixed(2);
@@ -50,6 +51,8 @@ RegressionPerformance = React.createClass({
         var _noRegrPct = _data && ((_noRegressionEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
         var _regrPct = _data && ((_regressionEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
         var _actualPct = _data && ((_actualEndPrice - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
+        var _altRegrEnd = _data && _altWgt[_altWgt.length - 1].price.toFixed(2);
+        var _altRegrPct = _data && ((_altRegrEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
 
         return (
             <div className="row">
@@ -81,6 +84,12 @@ RegressionPerformance = React.createClass({
                             <td>{_actualStartPrice}</td>
                             <td>{_regressionEnd}</td>
                             <td>{_regrPct}</td>
+                        </tr>
+                        <tr>
+                            <td>regression*</td>
+                            <td>{_actualStartPrice}</td>
+                            <td>{_altRegrEnd}</td>
+                            <td>{_altRegrPct}</td>
                         </tr>
                     </tbody>
                 </table>}

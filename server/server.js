@@ -311,7 +311,7 @@ Meteor.methods({
         //moment().toISOString().substring(10,24)
         var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
-        var _pricesForRegr = NewStockPrices.find({symbol: symbol, $and: [{dateString: {$nin: ["2017-07-04"]}}, {dateString: {$gte: _regrStart}}, {dateString: {$lte: _regrEnd}}]}, {sort: {dateString: 1}}).fetch();
+        var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(symbol, _regrStart, _regrEnd);
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
@@ -329,12 +329,8 @@ Meteor.methods({
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
 
             // step 5. get all future prices
-            var _futurePrices = NewStockPrices.find({
-                $and: [
-                    {symbol: symbol},
-                    {dateString: {$gte: _regrEnd}},
-                    {dateString: {$lte: priceCheckDate}}
-                ]}, {sort: {dateString: 1}}).fetch();
+            var _futurePrices = StocksReactUtils.stockPrices.getPricesBetween(symbol, _regrEnd, priceCheckDate);
+            console.log("length 1: ", _futurePrices.length);
 
             // step 6. make sure all the needed future prices are in the db
             if (_futurePrices[0].dateString !== _regrEnd || _futurePrices[_futurePrices.length - 1].dateString !== priceCheckDate) {
@@ -361,9 +357,41 @@ Meteor.methods({
             var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
                 _futureWgtProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
+            // figure out the same but if predictions were based on the entire date range (regr + future)
+            // step 5*. get all prices
+            var _regrAndFuturePrices = StocksReactUtils.stockPrices.getPricesBetween(symbol, _regrStart, priceCheckDate);
+            console.log("length 2: ", _regrAndFuturePrices.length);
+
+            // step 6*. make sure have all the needed prices
+            if (_regrAndFuturePrices[0].dateString !== _regrStart || _regrAndFuturePrices[_regrAndFuturePrices.length - 1].dateString !== priceCheckDate) {
+                throw new Meteor.Error("make sure there are prices for " + symbol + " from " + _regrStart + " to " + priceCheckDate);
+            }
+
+            // step 8.1*. project all prices onto daily WGT rating series (copy over all existing _weightedRatingsSeriesEveryDay
+            // and copy over the last item from _weightedRatingsSeriesEveryDay to all the remaining future days
+            var _regrAndFutureWgtRatingsEveryDay = _.map(_regrAndFuturePrices, function (p, idx) {
+                if (p.dateString > _lastWgt.dateString) {
+                    // just copy over the last wgt rating
+                    return {date: p.date, rating: _lastWgt.weightedRating, dateString: p.dateString};
+                } else {
+                    // copy over historical daily wgt rating from regression
+                    var _w = _weightedRatingsSeriesEveryDay[idx];
+                    if (p.dateString !== _w.dateString) {
+                        throw new Meteor.Error("error while projecting daily weighted ratings into the future: " + p.dateString + " " + _w.dateString);
+                    }
+
+                    return {date: p.date, rating: _w.weightedRating, dateString: p.dateString};
+                }
+            });
+
+            // step 8.2*. get predictions based on ALL daily wgt ratings from regression AND future.
+            var _predictOnWgtRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+                _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
             return {
                 avg: _predictionsBasedOnAvgRatings,
                 wgt: _predictionsBasedOnWeightedRatings,
+                altWgt: _predictOnWgtRegrAndFut,
                 actualStart: _futurePrices[0],
                 actualEnd: _futurePrices[_futurePrices.length - 1],
             };
