@@ -285,21 +285,6 @@ Meteor.methods({
         if (SymbolMappings.find(_obj).count() == 0) {
             return SymbolMappings.insert(_obj);
         }
-    }
-    , getPricesNewForAllStocks: function(startStr, endStr, keyCode) {
-        var _allUniqueSymbols = _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), '_id'));
-        console.log("the length of all unique symbols is: ", _allUniqueSymbols.length);
-        console.log("----------------------------------");
-
-        var _existingUniqStockPriceSymbols = _.uniq(_.pluck(NewStockPrices.find({}, {fields: {symbol: 1}}).fetch(), 'symbol'));
-        var _stocksThatAreNotInStockPricesYet = _.difference(_allUniqueSymbols, _existingUniqStockPriceSymbols);
-
-        var _initialIndex = 0;
-        if (keyCode === Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken) {
-            _recursiveF(_stocksThatAreNotInStockPricesYet, _initialIndex, startStr, endStr);
-        } else {
-            console.log("wrong key code.");
-        }
     },
 
     getRegressionPerformance: function (symbol, maxRatingChangeDate, priceCheckDate) {
@@ -837,9 +822,6 @@ if (Meteor.isServer) {
 
             return "done";
         },
-        // getAllUniqSymbols: function () {
-        //     return _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), "_id"));
-        // },
 
         getLatestPricesForAllSymbols: function(defaultStartDate, _latestDateString) {
             // defaultStartDate like "2014-01-01"

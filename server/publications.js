@@ -68,7 +68,8 @@ Meteor.publish("stockPricesSpecificDates", function(mapObj) {
 });
 
 Meteor.publish("allStockNames", function() {
-    return Stocks.find({}, {fields: {_id: 1, minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
+    return Stocks.find({}, {fields: {_id: 1, "delisted.type": 1, "delisted.dateString": 1, "delisted.updatedOn": 1,
+        minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
 });
 
 Meteor.publish("getPortfolioById", function(portfId) {

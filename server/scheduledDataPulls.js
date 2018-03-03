@@ -79,8 +79,7 @@ Meteor.startup(function() {
             _previousServerSettings.quandl.dateOfLastPullFromQuandl = _dateString;
             Settings.update({_id: _previousSettings._id}, {$set: {serverSettings: _previousServerSettings}});
 
-            var _allStockObjects = Stocks.find({}, {fields: {_id: 1}}).fetch();
-            var _allStockSymbols = _.pluck(_allStockObjects, "_id");
+            var _allStockSymbols = StocksReactUtils.symbols.getLiveSymbols();
 
             Email.send({
                 to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
@@ -108,9 +107,7 @@ Meteor.methods({
     }
     , "sendMissingEarningsReleaseSymbolsEmail": function () {
         // get all available stocks (symbols are _id attributes in universal format)
-        var _allStockObjects = Stocks.find({}, {fields: {_id: 1}}).fetch();
-        var _allStockSymbols = _.pluck(_allStockObjects, "_id");
-        var _allUniqueStockSymbols = _.uniq(_allStockSymbols);
+        var _allUniqueStockSymbols = _.uniq(StocksReactUtils.symbols.getLiveSymbols());
 
         // get all available unique earnings release records (symbols are symbol attributes in universal format)
         var _uniqueEarningsReleaseSymbols = _.uniq(_.pluck(EarningsReleases.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
