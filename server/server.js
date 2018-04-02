@@ -6,7 +6,7 @@ function getWikiPricesQuandlUrl(dateStrYYYY_MM_DD, optionalSymbolsArr) {
     var _apiKey = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
     if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
         var _url = _quandlFreeBaseUrl + "?date=" +
-            dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
+            (typeof dateStrYYYY_MM_DD === "string" ? dateStrYYYY_MM_DD : dateStrYYYY_MM_DD.join()).replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
             _apiKey;
     } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
         var _url = _quandlFreeBaseUrl + "?date=" +
@@ -32,7 +32,236 @@ function getNasdaqPricesQuandlUrl(symbol, startDate, endDate) {
     return _url;
 }
 
+function getFormattedPriceObjWiki(item, _columnDefs) {
+    var _priceObj = {};
+    _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
+        var _val = item[columnDefItemIndex];
+        _priceObj[columnDefObj["name"]] = _val;
+    })
+
+    var _formattedPriceObj = {
+        "date" : new Date(_priceObj.date + "T00:00:00.000+0000"),
+        "open" : _priceObj.open,
+        "high" : _priceObj.high,
+        "low" : _priceObj.low,
+        "close" : _priceObj.close,
+        "volume" : _priceObj.volume,
+        "exDividend": _priceObj["ex-dividend"],
+        splitRatio: _priceObj.split_ratio,
+        adjOpen: _priceObj.adj_open,
+        adjHigh: _priceObj.adj_high,
+        adjLow: _priceObj.adj_low,
+        "adjClose" : _priceObj.adj_close,
+        adjVolume: _priceObj.adj_volume,
+        "symbol" : _priceObj.ticker,
+        "dateString" : _priceObj.date,
+        source: "quandl_free",
+        importedBy: Meteor.userId(),
+        importedOn: new Date().toISOString()
+    };
+
+    return _formattedPriceObj;
+}
+
+function getFormattedPriceObjNasdaq(_columnNames, obj, symbol) {
+    var _processedItem = {};
+    _.each(_columnNames, function (colName, colNameIdx) {
+        _processedItem[colName] = obj[colNameIdx];
+    });
+
+    var _convertedObj = {
+        "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
+        "open": _processedItem.Open,
+        "high": _processedItem.High,
+        "low": _processedItem.Low,
+        "close": _processedItem.Close,
+        "volume": _processedItem.Volume,
+        "symbol": symbol,
+        "dateString": _processedItem.Date,
+        "importedBy": Meteor.userId(),
+        "importedOn": new Date().toISOString(),
+        source: "quandl_paid",
+
+
+        adjFactor: _processedItem.Adjustment_Factor,
+        adjType: _processedItem.Adjustment_Type
+    };
+
+    return _convertedObj;
+}
+
+function getPortfolioPricesWiki(datesAndSymbolsMap) {
+    // todo: LIMIT COLUMNS requested
+
+
+
+    // step 1. split into batches (max response size is 10k records)
+    var _dates = _.keys(datesAndSymbolsMap);
+    var _batches = [];
+    var _datesBatch = [];
+    var _symbolsBatch = [];
+    _.each(_dates, function (dateStr, idx) {
+        var _symbolsForDate = datesAndSymbolsMap[dateStr];
+        var _futureSymbolsUnion = _.union(_symbolsBatch, _symbolsForDate);
+
+        if ((_datesBatch.length + 1) * (_futureSymbolsUnion.length) > 10000) {
+            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
+
+            _datesBatch = [dateStr];
+            _symbolsBatch = _symbolsForDate;
+        } else {
+            _datesBatch.push(dateStr);
+            _symbolsBatch = _futureSymbolsUnion;
+        }
+
+        // if last iteration, push batch
+        if (idx === _dates.length - 1) {
+            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
+        }
+    });
+
+
+
+    // step 2. get all prices
+    var _prices = [];
+    var _reponseMapFromWiki = {};
+    _.each(_batches, function (b) {
+        var _url = getWikiPricesQuandlUrl(b.dates, b.symbols);
+        console.log("url: ", _url);
+        var _res = HTTP.get(_url);
+        if (_res) {
+            var _datatable = _res.data.datatable;
+            _.each(_datatable.data, function (px) {
+                var _formatted = getFormattedPriceObjWiki(px, _datatable.columns);
+
+                // only return the prices that were requested for date and symbol
+                if (_.contains(datesAndSymbolsMap[_formatted.dateString], _formatted.symbol)) {
+                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose});
+
+                    // update _reponseMapFromWiki
+                    if (!_reponseMapFromWiki[_formatted.dateString]) {
+                        _reponseMapFromWiki[_formatted.dateString] = [_formatted.symbol];
+                    } else {
+                        _reponseMapFromWiki[_formatted.dateString] = _.union(_reponseMapFromWiki[_formatted.dateString], [_formatted.symbol]);
+                    };
+                }
+            })
+        }
+    });
+
+
+
+    // step 3. quality check
+    var _missingMap = {};
+    _.each(_dates, function (d) {
+        var _symbolsNeeded = datesAndSymbolsMap[d];
+        var _symbolsObtained = _reponseMapFromWiki[d] || [];
+        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
+        _missingMap[d] = _symbolsNotObtained;
+    });
+
+
+    return {prices: _prices, missingMap: _missingMap};
+};
+
+function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
+
+    // step 1. transform datesAndSymbolsMap
+    var _symbolsAndDatesMap = {};
+    var _dates = _.keys(datesAndSymbolsMap);
+    _.each(_dates, function (d) {
+        var _symbolsForDate = datesAndSymbolsMap[d];
+        _.each(_symbolsForDate, function (s) {
+            if (!_symbolsAndDatesMap[s]) {
+                _symbolsAndDatesMap[s] = [d];
+            } else {
+                _symbolsAndDatesMap[s].push(d);
+            }
+        });
+    });
+
+
+
+    // step 2. get all prices
+    var _prices = [];
+    var _responseMap = {};
+    var _symbols = _.keys(_symbolsAndDatesMap);
+    _.each(_symbols, function (s) {
+        var _minMaxDates = StocksReactUtils.getMinMaxDate(_symbolsAndDatesMap[s]);
+        var _url = getNasdaqPricesQuandlUrl(s, _minMaxDates.min, _minMaxDates.max);
+        console.log("url: ", _url);
+        try {
+            var _res = HTTP.get(_url);
+            var _dataset = _res.data.dataset;
+            var _unprocessedPrices = _dataset.data;
+            var _columnNames = _.map(_dataset.column_names, function (rawColName) {
+                return rawColName.replace(/ /g, "_");
+            });
+
+            _.each(_unprocessedPrices, function (obj, idx) {
+
+                // check that all column names are present
+                if (_columnNames.length === obj.length && _columnNames.length === 8) {
+                    var _convertedObj = getFormattedPriceObjNasdaq(_columnNames, obj, s);
+
+                    // only return the prices that were requested for date and symbol
+                    if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
+                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose});
+
+                        // update _responseMap
+                        if (!_responseMap[_convertedObj.dateString]) {
+                            _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
+                        } else {
+                            _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
+                        };
+                    }
+                } else {
+                    throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
+                }
+            })
+
+        } catch (e) {
+            console.log("ERROR");
+            console.log(s + ": " + e.response.content);
+        };
+    });
+
+
+
+    // step 3. quality check
+    var _missingMap = {};
+    _.each(_dates, function (d) {
+        var _symbolsNeeded = datesAndSymbolsMap[d];
+        var _symbolsObtained = _responseMap[d] || [];
+        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
+        _missingMap[d] = _symbolsNotObtained;
+    });
+
+
+    return {prices: _prices, missingMap: _missingMap};
+};
+
 Meteor.methods({
+    getPricesFromApi: function (datesAndSymbolsMap) {
+
+
+
+        // step 1. get all available data from Wiki with missing map
+        var _wikiData = getPortfolioPricesWiki(datesAndSymbolsMap);
+        var _wikiMissingMap = _wikiData.missingMap;
+        var _wikiPrices = _wikiData.prices;
+
+
+
+        // step 2. try to get from Nasdaq what's missing from Wiki. Output what's still missing in Nasdaq after Wiki.
+        var _nasdaqData = getPortfolioPricesNasdaq(_wikiMissingMap);
+        var _nasdaqMissingMap = _nasdaqData.missingMap;
+        var _nasdaqPrices = _nasdaqData.prices;
+        console.log("final missing map: ", _nasdaqMissingMap);
+
+        return _wikiPrices.concat(_nasdaqPrices);
+    },
+
     insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
         var _user = Meteor.user();
         if (!_user) {
@@ -114,28 +343,7 @@ Meteor.methods({
 
                 // check that all column names are present
                 if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                    var _processedItem = {};
-                    _.each(_columnNames, function (colName, colNameIdx) {
-                        _processedItem[colName] = obj[colNameIdx];
-                    });
-
-                    var _convertedObj = {
-                        "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
-                        "open": _processedItem.Open,
-                        "high": _processedItem.High,
-                        "low": _processedItem.Low,
-                        "close": _processedItem.Close,
-                        "volume": _processedItem.Volume,
-                        "symbol": symbol,
-                        "dateString": _processedItem.Date,
-                        "importedBy": Meteor.userId(),
-                        "importedOn": new Date().toISOString(),
-                        source: "quandl_paid",
-
-
-                        adjFactor: _processedItem.Adjustment_Factor,
-                        adjType: _processedItem.Adjustment_Type
-                    };
+                    var _convertedObj = getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
 
                     _formattedData.push(_convertedObj);
                 } else {
@@ -701,32 +909,7 @@ if (Meteor.isServer) {
 
                     var _getStockPricesFromYahooFinanceResults = [];
                     _.each(_data, function (item, itemIdx) {
-                            var _priceObj = {};
-                            _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
-                                var _val = item[columnDefItemIndex];
-                                _priceObj[columnDefObj["name"]] = _val;
-                            })
-
-                            var _formattedPriceObj = {
-                                "date" : new Date(_priceObj.date + "T00:00:00.000+0000"),
-                                "open" : _priceObj.open,
-                                "high" : _priceObj.high,
-                                "low" : _priceObj.low,
-                                "close" : _priceObj.close,
-                                "volume" : _priceObj.volume,
-                                "exDividend": _priceObj["ex-dividend"],
-                                splitRatio: _priceObj.split_ratio,
-                                adjOpen: _priceObj.adj_open,
-                                adjHigh: _priceObj.adj_high,
-                                adjLow: _priceObj.adj_low,
-                                "adjClose" : _priceObj.adj_close,
-                                adjVolume: _priceObj.adj_volume,
-                                "symbol" : _priceObj.ticker,
-                                "dateString" : _priceObj.date,
-                                source: "quandl_free",
-                                importedBy: Meteor.userId(),
-                                importedOn: new Date().toISOString()
-                            };
+                        var _formattedPriceObj = getFormattedPriceObjWiki(item, _columnDefs);
                             if (optionalOverWriteFlag) {
                                 // remove existing object if there's already a price for that date and symbol from
                                 // quandl_paid, even if there's an adjClose that came from processSplits

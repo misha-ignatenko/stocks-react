@@ -42,31 +42,6 @@ Meteor.publish("stockPricesFor", function(symbolsArr, startStr, endStr) {
     );
 });
 
-Meteor.publish("stockPricesSpecificDates", function(mapObj) {
-    // this mapping will generate an array of OR conditions for a specific date and an array of symbols of interest for that date
-    let _orStmt = _.map(mapObj, function (value, key) {
-        return {
-            dateString: key,
-            symbol: { $in: value }
-        };
-    });
-
-    return NewStockPrices.find(
-        {
-            $or: _orStmt
-        }, {
-            fields: {
-                _id: 1,
-                symbol: 1,
-                dateString: 1,
-                adjClose: 1
-            }
-        }, {
-            sort: {dateString: 1}
-        }
-    );
-});
-
 Meteor.publish("allStockNames", function() {
     return Stocks.find({}, {fields: {_id: 1, "delisted.type": 1, "delisted.dateString": 1, "delisted.updatedOn": 1,
         minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
@@ -91,16 +66,3 @@ Meteor.publish("portfolioItems", function(portfolioIds, startStr, endStr) {
         sort: {dateString: 1}
     });
 });
-
-Meteor.publish("allNewStockPricesForDate", function(dateStr) {
-    return NewStockPrices.find(
-        {
-            dateString: dateStr
-        }, {
-            fields: {
-                _id: 1,
-                dateString: 1,
-                symbol: 1
-            }
-        });
-})

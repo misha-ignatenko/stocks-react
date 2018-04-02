@@ -63,10 +63,22 @@ Portfolio = React.createClass({
                     let _relevantSymbols = _.uniq(_.pluck(_relevantPortfolioItems, "symbol"));
                     _pricesSubscrMap[dateStr] = _relevantSymbols.concat(["SPY"]);
                 });
-
-
-                if (Meteor.subscribe("stockPricesSpecificDates", _pricesSubscrMap).ready()) {
-                    _data.stockPrices = NewStockPrices.find({symbol: {$in: _uniqStockSymbols}}).fetch();
+                var _that = this;
+                if (!_that.state.pricesLoaded) {
+                    Meteor.call("getPricesFromApi", _pricesSubscrMap, function (err, res) {
+                        console.log("done with getPricesFromApi call: ", err, res);
+                        _.each(res, function (px) {
+                            if (!px.adjClose) {
+                                console.log("missing adjClose for: ", px.symbol, px.dateString);
+                            }
+                        })
+                        if (!err) {
+                            _that.setState({
+                                stockPrices: res,
+                                pricesLoaded: true
+                            });
+                        }
+                    });
                 }
             }
         }
@@ -337,7 +349,7 @@ Portfolio = React.createClass({
         }
         let _minReqMap = {};
         let _items = this.data.portfolioItems;
-        let _prices = this.data.stockPrices;
+        let _prices = this.state.stockPrices;
 
         let _missingData = false;
         _.each(_uniqDates, function(portfItemsDate, index) {
@@ -461,7 +473,7 @@ Portfolio = React.createClass({
     },
 
     shouldComponentUpdate(nextProps, nextState) {
-        return this.state.newItemShort !== nextState.newItemShort || this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
+        return nextState.stockPrices || this.state.newItemShort !== nextState.newItemShort || this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
     },
 
     setDateRangeOptions: function() {
@@ -485,9 +497,9 @@ Portfolio = React.createClass({
             <div className="container">
                 {this.data.portfolio ?
                     (this.data.portfolioItems ?
-                        ( this.data.stockPrices ?
+                        ( this.state.stockPrices ?
                             <div>
-                                {this.data.stockPrices.length}
+                                {this.state.stockPrices.length}
                                 <h1>{this.data.portfolio.name}</h1>
                                 <div className="col-md-8">
                                     <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
