@@ -57,10 +57,9 @@ AverageAndWeightedRatings = React.createClass({
         if (_ratingChangesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
 
             let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges();
-            let _pricesHandle = Meteor.subscribe("stockPricesFor", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
-            if (_pricesHandle.ready() && _ratingScalesHandle.ready()) {
-                var _allNewStockPricesArr = StocksReactUtils.stockPrices.getPricesBetween(_symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
+            if (this.state.allStockPrices && _ratingScalesHandle.ready()) {
+                var _allNewStockPricesArr = this.state.allStockPrices;
                 _data.stockPrices = _allNewStockPricesArr;
                 var _pricesWithNoAdjClose = _.filter(_data.stockPrices, function (price) { return !price["adjClose"];})
                 if (_pricesWithNoAdjClose.length > 0) {
@@ -159,25 +158,36 @@ AverageAndWeightedRatings = React.createClass({
     },
 
     getPricesBetweenTwoDates(allAvailableStockPricesObj, startDate, endDate) {
-        var _historicalDataBetweenTwoRequestedDates = [];
         var _stockPricesRecord = allAvailableStockPricesObj;
         if (_stockPricesRecord && _stockPricesRecord.historicalData) {
-            var _allHistoricalData = _stockPricesRecord.historicalData;
-            //push items from _allHistoricalData to _historicalDataBetweenTwoRequestedDates
-            //only where dates are within the requested date range
-            _historicalDataBetweenTwoRequestedDates = _.filter(_allHistoricalData, function (priceObjForDay) {
-                return priceObjForDay.dateString >= startDate && priceObjForDay.dateString <= endDate;
-            });
             //this will limit the historicalData attribute that we are making available to the user
-            _stockPricesRecord.historicalData = _historicalDataBetweenTwoRequestedDates;
+            _stockPricesRecord.historicalData = StocksReactUtils.stockPrices.getPricesBetween(_stockPricesRecord.historicalData, startDate, endDate);
         }
         return _stockPricesRecord;
+    },
+
+    componentWillReceiveProps: function (nextProps) {
+        if (this.props.symbol !== nextProps.symbol) {
+            this.getPricesForSymbol(nextProps.symbol);
+        }
+    },
+
+    componentWillMount: function () {
+        this.getPricesForSymbol(this.props.symbol);
+    },
+
+    getPricesForSymbol: function (symbol) {
+        var _that = this;
+        Meteor.call("getPricesForSymbol", symbol, function (err, res) {
+            _that.setState({allStockPrices: res});
+        });
     },
 
     shouldComponentUpdate: function(nextProps, nextState) {
         //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
         //because it takes a few seconds after new symbol prop is set to get new data to graph
         if (this.props.symbol !== nextProps.symbol ||
+                nextState.allStockPrices ||
             this.state.regrIterNum !== nextState.regrIterNum ||
             this.state.stepSizePow !== nextState.stepSizePow ||
             this.state.pctDownPerDay !== nextState.pctDownPerDay || this.state.pctUpPerDay !== nextState.pctUpPerDay ||

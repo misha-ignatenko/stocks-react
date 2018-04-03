@@ -30,18 +30,6 @@ Meteor.publish("ratingScales", function() {
     return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
 })
 
-Meteor.publish("stockPricesFor", function(symbolsArr, startStr, endStr) {
-    return NewStockPrices.find(
-        {
-            symbol: {$in: symbolsArr}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
-        }, {
-            fields: {importedOn: 0, importedBy: 0}
-        }, {
-            sort: {dateString: 1}
-        }
-    );
-});
-
 Meteor.publish("allStockNames", function() {
     return Stocks.find({}, {fields: {_id: 1, "delisted.type": 1, "delisted.dateString": 1, "delisted.updatedOn": 1,
         minRequestedStartDate: 1, maxRequestedEndDate: 1, pricesBeingPulledRightNow: 1}});
