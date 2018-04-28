@@ -287,16 +287,6 @@ Meteor.methods({
         }
     },
 
-    setPricesLoadingTag: function(symbol, bool) {
-        Stocks.update(
-            {_id: symbol},
-            {$set: {
-                pricesBeingPulledRightNow: bool
-            }},
-            {multi: true}
-        );
-    },
-
     getStockPricesNew: function(symbol, startStr, endStr, startFromExistingEndDateBool) {
         console.log("in the outer method getStockPrices New");
         var _res;
@@ -392,7 +382,6 @@ Meteor.methods({
             {$set: {
                 minRequestedStartDate: _startUpd,
                 maxRequestedEndDate: _endUpd,
-                pricesBeingPulledRightNow: false
             }},
             {multi: true}
         );

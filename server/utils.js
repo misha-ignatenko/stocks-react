@@ -99,13 +99,24 @@ StocksReactServerUtils = {
             console.log("inside getPricesForSymbol: ", symbol);
             var _prices = [];
 
-            var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
+            // try Nasdaq first
+            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
             try {
-                var _res = HTTP.get(_wikiUrl);
-                var _datatable = _res.data.datatable;
-                _.each(_datatable.data, function (px) {
-                    var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, date: _formatted.date});
+                var _res = HTTP.get(_nasdaqUrl);
+                var _dataset = _res.data.dataset;
+                var _unprocessedPrices = _dataset.data;
+                var _columnNames = _.map(_dataset.column_names, function (rawColName) {
+                    return rawColName.replace(/ /g, "_");
+                });
+
+                _.each(_unprocessedPrices, function (obj, idx) {
+                    // check that all column names are present
+                    if (_columnNames.length === obj.length && _columnNames.length === 8) {
+                        var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
+                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.close, date: _convertedObj.date});
+                    } else {
+                        throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
+                    }
                 })
 
             } catch (e) {
@@ -113,23 +124,13 @@ StocksReactServerUtils = {
             }
 
             if (_prices.length === 0) {
-                var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+                var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
                 try {
-                    var _res = HTTP.get(_nasdaqUrl);
-                    var _dataset = _res.data.dataset;
-                    var _unprocessedPrices = _dataset.data;
-                    var _columnNames = _.map(_dataset.column_names, function (rawColName) {
-                        return rawColName.replace(/ /g, "_");
-                    });
-
-                    _.each(_unprocessedPrices, function (obj, idx) {
-                        // check that all column names are present
-                        if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                            var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
-                            _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, date: _convertedObj.date});
-                        } else {
-                            throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
-                        }
+                    var _res = HTTP.get(_wikiUrl);
+                    var _datatable = _res.data.datatable;
+                    _.each(_datatable.data, function (px) {
+                        var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
+                        _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, date: _formatted.date});
                     })
 
                 } catch (e) {

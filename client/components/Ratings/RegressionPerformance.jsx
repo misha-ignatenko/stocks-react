@@ -17,8 +17,6 @@ RegressionPerformance = React.createClass({
         let _symbol = this.props.symbol;
         let _data = {};
         let _currentUser = Meteor.user();
-        let _stockInfo = Stocks.findOne({_id: _symbol});
-        _data.stuffIsBeingPulledRn = _stockInfo.pricesBeingPulledRightNow;
         _data.settings = Settings.findOne();
 
         return _data;

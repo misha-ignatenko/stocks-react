@@ -30,8 +30,6 @@ AverageAndWeightedRatings = React.createClass({
         let _data = {};
         let _currentUser = Meteor.user();
         let _settings = Settings.findOne();
-        let _stockInfo = Stocks.findOne({_id: _symbol});
-        _data.stuffIsBeingPulledRn = _stockInfo.pricesBeingPulledRightNow;
 
 
         let _format = "YYYY-MM-DD";
@@ -54,7 +52,7 @@ AverageAndWeightedRatings = React.createClass({
         let _endDateRatingChanges = _avgRatingEndDate;
         let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbols", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
-        if (_ratingChangesHandle.ready() && !_stockInfo.pricesBeingPulledRightNow) {
+        if (_ratingChangesHandle.ready()) {
 
             let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges();
 
@@ -68,25 +66,12 @@ AverageAndWeightedRatings = React.createClass({
 
                 let _allAvailablePricesForSymbol = {
                     symbol: _symbol,
-                    existingStartDate: _allNewStockPricesArr.length > 0 && _allNewStockPricesArr[0].dateString,
-                    existingEndDate: _allNewStockPricesArr.length > 0 && _allNewStockPricesArr[_allNewStockPricesArr.length - 1].dateString,
                     historicalData: _allNewStockPricesArr
                 };
 
-                var _alreadyPulledInfoForThisDateRangeBefore = _stockInfo &&
-                    _stockInfo.minRequestedStartDate &&
-                    _stockInfo.maxRequestedEndDate &&
-                    _stockInfo.minRequestedStartDate <= _startDateForRatingChangesSubscription && _stockInfo.maxRequestedEndDate >= _endDateRatingChanges;
+                if (RatingChanges.find().fetch().length > 0) {
 
-                if (_alreadyPulledInfoForThisDateRangeBefore || (
-                    _allAvailablePricesForSymbol &&
-                    _allAvailablePricesForSymbol.existingStartDate &&
-                    _allAvailablePricesForSymbol.existingEndDate &&
-                    (moment(_startDateForRatingChangesSubscription).isSame(_allAvailablePricesForSymbol.existingStartDate) || moment(_startDateForRatingChangesSubscription).isAfter(_allAvailablePricesForSymbol.existingStartDate)) &&
-                    (moment(_endDateRatingChanges).isSame(_allAvailablePricesForSymbol.existingEndDate) || moment(_endDateRatingChanges).isBefore(_allAvailablePricesForSymbol.existingEndDate))
-                )) {
-
-                    let result = this.getPricesBetweenTwoDates(_allAvailablePricesForSymbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
+                    let result = _.extend(_allAvailablePricesForSymbol, {historicalData: StocksReactUtils.stockPrices.getPricesBetween(_allAvailablePricesForSymbol.historicalData, _startDateForRatingChangesSubscription, _endDateRatingChanges)});
 
                     _data.stocksToGraphObjs = [];
                     var _startDate = _startDateForRatingChangesSubscription;
@@ -144,26 +129,12 @@ AverageAndWeightedRatings = React.createClass({
                     })
 
                 } else {
-                    if (RatingChanges.find().fetch().length > 0) {
-                        //only set download flag to true
-                        Meteor.call('setPricesLoadingTag', _symbol, true);
-                    } else {
-                        console.log("there are no rating changes");
-                    }
+                    console.log("there are no rating changes");
                 }
             }
         }
 
         return _data;
-    },
-
-    getPricesBetweenTwoDates(allAvailableStockPricesObj, startDate, endDate) {
-        var _stockPricesRecord = allAvailableStockPricesObj;
-        if (_stockPricesRecord && _stockPricesRecord.historicalData) {
-            //this will limit the historicalData attribute that we are making available to the user
-            _stockPricesRecord.historicalData = StocksReactUtils.stockPrices.getPricesBetween(_stockPricesRecord.historicalData, startDate, endDate);
-        }
-        return _stockPricesRecord;
     },
 
     componentWillReceiveProps: function (nextProps) {
@@ -487,7 +458,7 @@ AverageAndWeightedRatings = React.createClass({
         return (
             <div>
                 <br/>
-                {this.data.stuffIsBeingPulledRn ? 'prices are being loaded from Yahoo Finance right now' : <div>
+                <div>
                     {this.data.ratingChangesAndStockPricesSubscriptionsForSymbolReady ?
                         <div>
                             {this.renderAvgAnalystRatingsGraph()}
@@ -500,7 +471,7 @@ AverageAndWeightedRatings = React.createClass({
                         </div> :
                     "getting ratings changes and prices for " + this.props.symbol
                     }
-                </div>}
+                </div>
             </div>
         );
     }
