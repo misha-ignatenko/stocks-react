@@ -149,7 +149,6 @@ StocksReactServerUtils = {
     earningsReleases: {
         getZeaUrl: function (symbol) {
             var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + symbol + ".json?auth_token=" + StocksReactServerUtils.apiKey();
-            console.log("ZEA URL: ", _url);
             return _url;
         }
     }
