@@ -753,6 +753,7 @@ if (Meteor.isServer) {
         checkIfSymbolExists: function (symbol) {
             var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
             var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+            var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
 
             function _checkWiki() {
                 try {
@@ -776,7 +777,16 @@ if (Meteor.isServer) {
                 }
             }
 
-            return _checkWiki() || _checkNasdaq();
+            function _checkZEA() {
+                try {
+                    var _res = HTTP.get(_zeaUrl);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            return _checkWiki() || _checkNasdaq() || _checkZEA();
         },
 
         insertNewStockSymbols: function(symbolsArray) {

@@ -332,8 +332,7 @@ Meteor.methods({
                         };
 
 
-                        var _authToken = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
-                        var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + _quandlSymbol + ".json?auth_token=" + _authToken;
+                        var _url = StocksReactServerUtils.earningsReleases.getZeaUrl(_quandlSymbol);
                         HTTP.get(_url, function (error, result) {
                             if (!error && result) {
                                 //TODO check if earnings release data for that stock exists.

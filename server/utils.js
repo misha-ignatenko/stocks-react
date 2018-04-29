@@ -2,6 +2,11 @@
  * Created by mykhayloignatenko on 4/2/18.
  */
 StocksReactServerUtils = {
+
+    apiKey: function () {
+        return Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+    },
+
     prices: {
 
         // FREE
@@ -140,5 +145,12 @@ StocksReactServerUtils = {
 
             return _prices;
         },
+    },
+    earningsReleases: {
+        getZeaUrl: function (symbol) {
+            var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + symbol + ".json?auth_token=" + StocksReactServerUtils.apiKey();
+            console.log("ZEA URL: ", _url);
+            return _url;
+        }
     }
 };
