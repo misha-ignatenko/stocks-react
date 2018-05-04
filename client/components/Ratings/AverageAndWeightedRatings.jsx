@@ -10,16 +10,15 @@ AverageAndWeightedRatings = React.createClass({
 
     getInitialState() {
         let _settings = Settings.findOne();
-        var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
-        let _avgRatingStartDate = StocksReactUtils.getClosestNextWeekDayDate(moment().tz("America/New_York").subtract(90, "days"));
+        var _4PMEST_IN_ISO = _settings && _settings.clientSettings.ratingChanges.fourPmInEstTimeString || "16:00:00";
         let _avgRatingEndDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
 
         return {
+            pxRollingDays: 50,
             pctDownPerDay: 0.5,
             pctUpPerDay: 0.5,
             stepSizePow: -7,
             regrIterNum: 30,
-            avgRatingStartDate: _avgRatingStartDate,
             avgRatingEndDate: _avgRatingEndDate,
             priceReactionDelayDays: 0
         }
@@ -30,6 +29,9 @@ AverageAndWeightedRatings = React.createClass({
         let _data = {};
         let _currentUser = Meteor.user();
         let _settings = Settings.findOne();
+        if (!_settings || !this.state.avgRatingStartDate) {
+            return {};
+        }
 
 
         let _format = "YYYY-MM-DD";
@@ -58,8 +60,7 @@ AverageAndWeightedRatings = React.createClass({
 
             if (this.state.allStockPrices && _ratingScalesHandle.ready()) {
                 var _allNewStockPricesArr = this.state.allStockPrices;
-                _data.stockPrices = _allNewStockPricesArr;
-                var _pricesWithNoAdjClose = _.filter(_data.stockPrices, function (price) { return !price["adjClose"];})
+                var _pricesWithNoAdjClose = _.filter(_allNewStockPricesArr, function (price) { return !price["adjClose"];})
                 if (_pricesWithNoAdjClose.length > 0) {
                     console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
                 }
@@ -72,6 +73,7 @@ AverageAndWeightedRatings = React.createClass({
                 if (RatingChanges.find().fetch().length > 0) {
 
                     let result = _.extend(_allAvailablePricesForSymbol, {historicalData: StocksReactUtils.stockPrices.getPricesBetween(_allAvailablePricesForSymbol.historicalData, _startDateForRatingChangesSubscription, _endDateRatingChanges)});
+                    _data.stockPrices = result.historicalData;
 
                     _data.stocksToGraphObjs = [];
                     var _startDate = _startDateForRatingChangesSubscription;
@@ -88,10 +90,10 @@ AverageAndWeightedRatings = React.createClass({
                         _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
                         var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                             return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
-                        }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
+                        }), result.historicalData, "adjClose", this.state.simpleRollingPx, 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
                         var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
                             return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
-                        }), result.historicalData, "adjClose", 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
+                        }), result.historicalData, "adjClose", this.state.simpleRollingPx, 0, 120, 60, this.state.pctDownPerDay, this.state.pctUpPerDay);
 
                         var _objToGraph = result;
                         if (this.props.showAvgRatings && this.props.showWeightedRating) {
@@ -139,18 +141,24 @@ AverageAndWeightedRatings = React.createClass({
 
     componentWillReceiveProps: function (nextProps) {
         if (this.props.symbol !== nextProps.symbol) {
-            this.getPricesForSymbol(nextProps.symbol);
+            this.getPricesForSymbolAndEarliestRatingsChangeDate(nextProps.symbol);
         }
     },
 
     componentWillMount: function () {
-        this.getPricesForSymbol(this.props.symbol);
+        this.getPricesForSymbolAndEarliestRatingsChangeDate(this.props.symbol);
     },
 
-    getPricesForSymbol: function (symbol) {
+    getPricesForSymbolAndEarliestRatingsChangeDate: function (symbol) {
         var _that = this;
-        Meteor.call("getPricesForSymbol", symbol, function (err, res) {
-            _that.setState({allStockPrices: res});
+        Meteor.call("getPricesForSymbol", symbol, function (err1, res1) {
+            Meteor.call("getEarliestRatingChange", symbol, function (err2, res2) {
+                if (res1 && res2 && !err1 && !err2) {
+                    var _simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(res1, res2, _that.state.pxRollingDays);
+
+                    _that.setState({allStockPrices: res1, avgRatingStartDate: res2, simpleRollingPx: _simpleRollingPx});
+                }
+            });
         });
     },
 

@@ -157,6 +157,11 @@ Meteor.methods({
         return _prices;
     },
 
+    getEarliestRatingChange: function (symbol) {
+        var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
+        return _r && _r.dateString;
+    },
+
     getPricesFromApi: function (datesAndSymbolsMap) {
 
 
@@ -423,6 +428,8 @@ Meteor.methods({
             var pctUpPerDay = 0.5;
             var stepSizePow = -7;
             var regrIterNum = 30;
+            var _rollingNum = 50;
+            var _rollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
             var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
 
@@ -443,7 +450,7 @@ Meteor.methods({
 
             // step 7.2: get predictions based on projected future avg ratings.
             var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureAvgProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+                _futureAvgProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
             var _lastWgt = _weightedRatingsSeriesEveryDay[_weightedRatingsSeriesEveryDay.length - 1];
@@ -453,7 +460,7 @@ Meteor.methods({
 
             // step 8.2: get predictions based on projected future wgt ratings.
             var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureWgtProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+                _futureWgtProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // figure out the same but if predictions were based on the entire date range (regr + future)
             // step 5*. get all prices
@@ -484,14 +491,47 @@ Meteor.methods({
 
             // step 8.2*. get predictions based on ALL daily wgt ratings from regression AND future.
             var _predictOnWgtRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+                _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
+
+
+
+
+            // step 9.1*. project all prices onto daily AVG rating series
+            var _regrAndFutureAvgRatingsEveryDay = _.map(_regrAndFuturePrices, function (p, idx) {
+                if (p.dateString > _lastAvg.dateString) {
+                    // just copy over the last avg rating
+                    return {date: p.date, rating: _lastAvg.avg, dateString: p.dateString};
+                } else {
+                    // copy over historical daily avg rating from regression
+                    var _a = _avgRatingsSeriesEveryDay[idx];
+                    if (p.dateString !== _a.dateString) {
+                        throw new Meteor.Error("error while projecting daily weighted ratings into the future: " + p.dateString + " " + _a.dateString);
+                    }
+
+                    return {date: p.date, rating: _a.avg, dateString: p.dateString};
+                }
+            });
+
+            // step 9.2*. get predictions based on ALL daily avg ratings from regression AND future.
+            var _predictOnAvgRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+                _regrAndFutureAvgRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
+
 
             return {
+                avgRatingsExtended: _regrAndFutureAvgRatingsEveryDay,
+                wgtRatingsExtended: _regrAndFutureWgtRatingsEveryDay,
+                px: _regrAndFuturePrices,
                 avg: _predictionsBasedOnAvgRatings,
                 wgt: _predictionsBasedOnWeightedRatings,
+                altAvg: _predictOnAvgRegrAndFut,
                 altWgt: _predictOnWgtRegrAndFut,
                 actualStart: _futurePrices[0],
                 actualEnd: _futurePrices[_futurePrices.length - 1],
+                rCh: _ratingChangesForRegr,
+                avgRatingsDaily: _avgRatingsSeriesEveryDay,
+                wgtRatingsDaily: _weightedRatingsSeriesEveryDay,
             };
         } else {
             console.log("mismatch with prices history: ", _regrStart, _availablePricesStart, _regrEnd, _availablePricesEnd);
