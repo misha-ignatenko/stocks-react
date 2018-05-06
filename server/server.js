@@ -430,6 +430,9 @@ Meteor.methods({
             var regrIterNum = 30;
             var _rollingNum = 50;
             var _rollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
+            var _rollingPxEnd = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrEnd, _rollingNum);
+            var _rollingPriceCheck = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, priceCheckDate, _rollingNum);
+            console.log("START AND END: ", _regrStart, _regrEnd, priceCheckDate);
             var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
 
@@ -532,6 +535,10 @@ Meteor.methods({
                 rCh: _ratingChangesForRegr,
                 avgRatingsDaily: _avgRatingsSeriesEveryDay,
                 wgtRatingsDaily: _weightedRatingsSeriesEveryDay,
+                rollingRegrStart: _rollingPx,
+                rollingRegrEnd: _rollingPxEnd,
+                rollingPriceCheck: _rollingPriceCheck,
+                regrStartDate: _regrStart,
             };
         } else {
             console.log("mismatch with prices history: ", _regrStart, _availablePricesStart, _regrEnd, _availablePricesEnd);

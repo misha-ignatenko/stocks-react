@@ -151,6 +151,7 @@ AverageAndWeightedRatings = React.createClass({
 
     getPricesForSymbolAndEarliestRatingsChangeDate: function (symbol) {
         var _that = this;
+        _that.setState({allStockPrices: undefined, avgRatingStartDate: undefined});
         Meteor.call("getPricesForSymbol", symbol, function (err1, res1) {
             Meteor.call("getEarliestRatingChange", symbol, function (err2, res2) {
                 if (res1 && res1.length > 0 && res2 && !err1 && !err2) {
