@@ -153,10 +153,12 @@ AverageAndWeightedRatings = React.createClass({
         var _that = this;
         Meteor.call("getPricesForSymbol", symbol, function (err1, res1) {
             Meteor.call("getEarliestRatingChange", symbol, function (err2, res2) {
-                if (res1 && res2 && !err1 && !err2) {
+                if (res1 && res1.length > 0 && res2 && !err1 && !err2) {
                     var _simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(res1, res2, _that.state.pxRollingDays);
 
                     _that.setState({allStockPrices: res1, avgRatingStartDate: res2, simpleRollingPx: _simpleRollingPx});
+                } else {
+                    console.log("error in prices or rating changes");
                 }
             });
         });
