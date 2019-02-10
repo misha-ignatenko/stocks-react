@@ -389,8 +389,8 @@ Portfolio = React.createClass({
             // let _purchaseAtType = "close";
             // let _sellAtType = "open";
             // only look at adjClose because there is weirdness with open/close (example: SBUX around Nov 2014)
-            let _purchaseAtType = "adjClose";
-            let _sellAtType = "adjClose";
+            let _purchaseAtType = "close";
+            let _sellAtType = "close";
             let _symbolsToCheckSplitsFor = [];
 
             _.each(_uniqDates, function(date, index) {
@@ -447,7 +447,7 @@ Portfolio = React.createClass({
         _.each(_growthRates, function (data, index) {
             if (index === 0) {
                 _cumulativeGrowthRates.push([data[0], 1]);
-                _initialSP500Price = _.findWhere(_prices, {dateString: data[0], symbol: "SPY"})["adjClose"];
+                _initialSP500Price = _.findWhere(_prices, {dateString: data[0], symbol: "SPY"})["close"];
                 _sp500GrowthRates.push([data[0], 1]);
             } else {
                 _cumulativeGrowthRates.push([
@@ -456,7 +456,7 @@ Portfolio = React.createClass({
                 ]);
                 _sp500GrowthRates.push([
                     data[0],
-                    _.findWhere(_prices, {dateString: data[0], symbol: "SPY"})["adjClose"] / _initialSP500Price
+                    _.findWhere(_prices, {dateString: data[0], symbol: "SPY"})["close"] / _initialSP500Price
                 ]);
             }
         });

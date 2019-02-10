@@ -46,7 +46,7 @@ function getPortfolioPricesWiki(datesAndSymbolsMap) {
 
                 // only return the prices that were requested for date and symbol
                 if (_.contains(datesAndSymbolsMap[_formatted.dateString], _formatted.symbol)) {
-                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose});
+                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, close: _formatted.close});
 
                     // update _reponseMapFromWiki
                     if (!_reponseMapFromWiki[_formatted.dateString]) {
@@ -116,7 +116,7 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 
                     // only return the prices that were requested for date and symbol
                     if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
-                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose});
+                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
 
                         // update _responseMap
                         if (!_responseMap[_convertedObj.dateString]) {
