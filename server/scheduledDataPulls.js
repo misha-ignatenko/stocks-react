@@ -31,7 +31,7 @@ Meteor.startup(function() {
                 _setting.dataImports.quandlPrices.lastPullDate;
             var _dailyYFpullTime = _setting.dataImports.quandlPrices.dailyPullTimeNyc;
 
-            if (_dataAutoPullIsOn && _lastPullDate !== _dateStringNyc && _nycTimeString >= _dailyYFpullTime) {
+            if (false && _dataAutoPullIsOn && _lastPullDate !== _dateStringNyc && _nycTimeString >= _dailyYFpullTime) {
                 Settings.update({_id: _setting._id}, {$set: {"dataImports.quandlPrices.lastPullDate": _dateStringNyc}});
 
                 Email.send({

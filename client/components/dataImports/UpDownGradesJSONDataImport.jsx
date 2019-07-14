@@ -4,7 +4,6 @@ UpDownGradesJSONDataImport = React.createClass({
     getMeteorData() {
         return {
             currentUser: Meteor.user()
-            // , newStockPricesCount: Meteor.subscribe('allNewStockPricesForDate', '2016-07-08').ready() && NewStockPrices.find().count()
         }
     },
 

@@ -1,38 +1,187 @@
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
-// FREE
-function getWikiPricesQuandlUrl(dateStrYYYY_MM_DD, optionalSymbolsArr) {
-    var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
-    var _apiKey = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
-    if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
-        var _url = _quandlFreeBaseUrl + "?date=" +
-            dateStrYYYY_MM_DD.replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-            _apiKey;
-    } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
-        var _url = _quandlFreeBaseUrl + "?date=" +
-            dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
-            _apiKey;
-    } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
-        var _url = _quandlFreeBaseUrl + "?" +
-            "date.gte=2014-01-01&" +
-            "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-            _apiKey;
-    }
+function getPortfolioPricesWiki(datesAndSymbolsMap) {
+    // todo: LIMIT COLUMNS requested
 
-    return _url;
+
+
+    // step 1. split into batches (max response size is 10k records)
+    var _dates = _.keys(datesAndSymbolsMap);
+    var _batches = [];
+    var _datesBatch = [];
+    var _symbolsBatch = [];
+    _.each(_dates, function (dateStr, idx) {
+        var _symbolsForDate = datesAndSymbolsMap[dateStr];
+        var _futureSymbolsUnion = _.union(_symbolsBatch, _symbolsForDate);
+
+        if ((_datesBatch.length + 1) * (_futureSymbolsUnion.length) > 10000) {
+            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
+
+            _datesBatch = [dateStr];
+            _symbolsBatch = _symbolsForDate;
+        } else {
+            _datesBatch.push(dateStr);
+            _symbolsBatch = _futureSymbolsUnion;
+        }
+
+        // if last iteration, push batch
+        if (idx === _dates.length - 1) {
+            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
+        }
+    });
+
+
+
+    // step 2. get all prices
+    var _prices = [];
+    var _reponseMapFromWiki = {};
+    _.each(_batches, function (b) {
+        var _url = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(b.dates, b.symbols);
+        console.log("url: ", _url);
+        var _res = HTTP.get(_url);
+        if (_res) {
+            var _datatable = _res.data.datatable;
+            _.each(_datatable.data, function (px) {
+                var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
+
+                // only return the prices that were requested for date and symbol
+                if (_.contains(datesAndSymbolsMap[_formatted.dateString], _formatted.symbol)) {
+                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, close: _formatted.close});
+
+                    // update _reponseMapFromWiki
+                    if (!_reponseMapFromWiki[_formatted.dateString]) {
+                        _reponseMapFromWiki[_formatted.dateString] = [_formatted.symbol];
+                    } else {
+                        _reponseMapFromWiki[_formatted.dateString] = _.union(_reponseMapFromWiki[_formatted.dateString], [_formatted.symbol]);
+                    };
+                }
+            })
+        }
+    });
+
+
+
+    // step 3. quality check
+    var _missingMap = {};
+    _.each(_dates, function (d) {
+        var _symbolsNeeded = datesAndSymbolsMap[d];
+        var _symbolsObtained = _reponseMapFromWiki[d] || [];
+        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
+        _missingMap[d] = _symbolsNotObtained;
+    });
+
+
+    return {prices: _prices, missingMap: _missingMap};
 };
 
-// PAID
-function getNasdaqPricesQuandlUrl(symbol, startDate, endDate) {
-    var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
-        (startDate ? ("start_date=" + startDate + "&") : "") +
-        (endDate ? ("end_date=" + endDate + "&") : "") +
-        "api_key=" + Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
+function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 
-    return _url;
-}
+    // step 1. transform datesAndSymbolsMap
+    var _symbolsAndDatesMap = {};
+    var _dates = _.keys(datesAndSymbolsMap);
+    _.each(_dates, function (d) {
+        var _symbolsForDate = datesAndSymbolsMap[d];
+        _.each(_symbolsForDate, function (s) {
+            if (!_symbolsAndDatesMap[s]) {
+                _symbolsAndDatesMap[s] = [d];
+            } else {
+                _symbolsAndDatesMap[s].push(d);
+            }
+        });
+    });
+
+
+
+    // step 2. get all prices
+    var _prices = [];
+    var _responseMap = {};
+    var _symbols = _.keys(_symbolsAndDatesMap);
+    _.each(_symbols, function (s) {
+        var _minMaxDates = StocksReactUtils.getMinMaxDate(_symbolsAndDatesMap[s]);
+        var _url = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(s, _minMaxDates.min, _minMaxDates.max);
+        console.log("url: ", _url);
+        try {
+            var _res = HTTP.get(_url);
+            var _dataset = _res.data.dataset;
+            var _unprocessedPrices = _dataset.data;
+            var _columnNames = _.map(_dataset.column_names, function (rawColName) {
+                return rawColName.replace(/ /g, "_");
+            });
+
+            _.each(_unprocessedPrices, function (obj, idx) {
+
+                // check that all column names are present
+                if (_columnNames.length === obj.length && _columnNames.length === 8) {
+                    var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, s);
+
+                    // only return the prices that were requested for date and symbol
+                    if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
+                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
+
+                        // update _responseMap
+                        if (!_responseMap[_convertedObj.dateString]) {
+                            _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
+                        } else {
+                            _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
+                        };
+                    }
+                } else {
+                    throw new Meteor.Error("missing keys for NASDAQ data import: ", s);
+                }
+            })
+
+        } catch (e) {
+            console.log("ERROR");
+            console.log(s + ": " + e.response.content);
+        };
+    });
+
+
+
+    // step 3. quality check
+    var _missingMap = {};
+    _.each(_dates, function (d) {
+        var _symbolsNeeded = datesAndSymbolsMap[d];
+        var _symbolsObtained = _responseMap[d] || [];
+        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
+        _missingMap[d] = _symbolsNotObtained;
+    });
+
+
+    return {prices: _prices, missingMap: _missingMap};
+};
 
 Meteor.methods({
+    getPricesForSymbol: function (symbol) {
+        var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
+        return _prices;
+    },
+
+    getEarliestRatingChange: function (symbol) {
+        var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
+        return _r && _r.dateString;
+    },
+
+    getPricesFromApi: function (datesAndSymbolsMap) {
+
+
+
+        // step 1. get all available data from Wiki with missing map
+        var _wikiData = getPortfolioPricesWiki(datesAndSymbolsMap);
+        var _wikiMissingMap = _wikiData.missingMap;
+        var _wikiPrices = _wikiData.prices;
+
+
+
+        // step 2. try to get from Nasdaq what's missing from Wiki. Output what's still missing in Nasdaq after Wiki.
+        var _nasdaqData = getPortfolioPricesNasdaq(_wikiMissingMap);
+        var _nasdaqMissingMap = _nasdaqData.missingMap;
+        var _nasdaqPrices = _nasdaqData.prices;
+        console.log("final missing map: ", _nasdaqMissingMap);
+
+        return _wikiPrices.concat(_nasdaqPrices);
+    },
+
     insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
         var _user = Meteor.user();
         if (!_user) {
@@ -103,7 +252,7 @@ Meteor.methods({
 
     getNASDAQquandlStockPrices: function (symbol, startDate, endDate) {
         try {
-            var result = HTTP.get(getNasdaqPricesQuandlUrl(symbol, startDate, endDate));
+            var result = HTTP.get(StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol, startDate, endDate));
             var _data = result.data.dataset.data;
             var _columnNames = _.map(result.data.dataset.column_names, function (rawColName) {
                 return rawColName.replace(/ /g, "_");
@@ -114,28 +263,7 @@ Meteor.methods({
 
                 // check that all column names are present
                 if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                    var _processedItem = {};
-                    _.each(_columnNames, function (colName, colNameIdx) {
-                        _processedItem[colName] = obj[colNameIdx];
-                    });
-
-                    var _convertedObj = {
-                        "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
-                        "open": _processedItem.Open,
-                        "high": _processedItem.High,
-                        "low": _processedItem.Low,
-                        "close": _processedItem.Close,
-                        "volume": _processedItem.Volume,
-                        "symbol": symbol,
-                        "dateString": _processedItem.Date,
-                        "importedBy": Meteor.userId(),
-                        "importedOn": new Date().toISOString(),
-                        source: "quandl_paid",
-
-
-                        adjFactor: _processedItem.Adjustment_Factor,
-                        adjType: _processedItem.Adjustment_Type
-                    };
+                    var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
 
                     _formattedData.push(_convertedObj);
                 } else {
@@ -162,16 +290,6 @@ Meteor.methods({
             console.log("object already exists in db: ", _dateString, _symbol);
             return _obj._id + '_existing';
         }
-    },
-
-    setPricesLoadingTag: function(symbol, bool) {
-        Stocks.update(
-            {_id: symbol},
-            {$set: {
-                pricesBeingPulledRightNow: bool
-            }},
-            {multi: true}
-        );
     },
 
     getStockPricesNew: function(symbol, startStr, endStr, startFromExistingEndDateBool) {
@@ -269,7 +387,6 @@ Meteor.methods({
             {$set: {
                 minRequestedStartDate: _startUpd,
                 maxRequestedEndDate: _endUpd,
-                pricesBeingPulledRightNow: false
             }},
             {multi: true}
         );
@@ -296,7 +413,8 @@ Meteor.methods({
         //moment().toISOString().substring(10,24)
         var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
-        var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(symbol, _regrStart, _regrEnd);
+        var _allPrices = StocksReactServerUtils.prices.getAllPrices(symbol);
+        var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
@@ -310,11 +428,16 @@ Meteor.methods({
             var pctUpPerDay = 0.5;
             var stepSizePow = -7;
             var regrIterNum = 30;
+            var _rollingNum = 50;
+            var _rollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
+            var _rollingPxEnd = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrEnd, _rollingNum);
+            var _rollingPriceCheck = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, priceCheckDate, _rollingNum);
+            console.log("START AND END: ", _regrStart, _regrEnd, priceCheckDate);
             var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
 
             // step 5. get all future prices
-            var _futurePrices = StocksReactUtils.stockPrices.getPricesBetween(symbol, _regrEnd, priceCheckDate);
+            var _futurePrices = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrEnd, priceCheckDate);
             console.log("length 1: ", _futurePrices.length);
 
             // step 6. make sure all the needed future prices are in the db
@@ -330,7 +453,7 @@ Meteor.methods({
 
             // step 7.2: get predictions based on projected future avg ratings.
             var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureAvgProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+                _futureAvgProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
             var _lastWgt = _weightedRatingsSeriesEveryDay[_weightedRatingsSeriesEveryDay.length - 1];
@@ -340,11 +463,11 @@ Meteor.methods({
 
             // step 8.2: get predictions based on projected future wgt ratings.
             var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureWgtProjection, _futurePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+                _futureWgtProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // figure out the same but if predictions were based on the entire date range (regr + future)
             // step 5*. get all prices
-            var _regrAndFuturePrices = StocksReactUtils.stockPrices.getPricesBetween(symbol, _regrStart, priceCheckDate);
+            var _regrAndFuturePrices = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, priceCheckDate);
             console.log("length 2: ", _regrAndFuturePrices.length);
 
             // step 6*. make sure have all the needed prices
@@ -371,14 +494,51 @@ Meteor.methods({
 
             // step 8.2*. get predictions based on ALL daily wgt ratings from regression AND future.
             var _predictOnWgtRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", 0, 120, 60, pctDownPerDay, pctUpPerDay);
+                _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
+
+
+
+
+            // step 9.1*. project all prices onto daily AVG rating series
+            var _regrAndFutureAvgRatingsEveryDay = _.map(_regrAndFuturePrices, function (p, idx) {
+                if (p.dateString > _lastAvg.dateString) {
+                    // just copy over the last avg rating
+                    return {date: p.date, rating: _lastAvg.avg, dateString: p.dateString};
+                } else {
+                    // copy over historical daily avg rating from regression
+                    var _a = _avgRatingsSeriesEveryDay[idx];
+                    if (p.dateString !== _a.dateString) {
+                        throw new Meteor.Error("error while projecting daily weighted ratings into the future: " + p.dateString + " " + _a.dateString);
+                    }
+
+                    return {date: p.date, rating: _a.avg, dateString: p.dateString};
+                }
+            });
+
+            // step 9.2*. get predictions based on ALL daily avg ratings from regression AND future.
+            var _predictOnAvgRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+                _regrAndFutureAvgRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
+
 
             return {
+                avgRatingsExtended: _regrAndFutureAvgRatingsEveryDay,
+                wgtRatingsExtended: _regrAndFutureWgtRatingsEveryDay,
+                px: _regrAndFuturePrices,
                 avg: _predictionsBasedOnAvgRatings,
                 wgt: _predictionsBasedOnWeightedRatings,
+                altAvg: _predictOnAvgRegrAndFut,
                 altWgt: _predictOnWgtRegrAndFut,
                 actualStart: _futurePrices[0],
                 actualEnd: _futurePrices[_futurePrices.length - 1],
+                rCh: _ratingChangesForRegr,
+                avgRatingsDaily: _avgRatingsSeriesEveryDay,
+                wgtRatingsDaily: _weightedRatingsSeriesEveryDay,
+                rollingRegrStart: _rollingPx,
+                rollingRegrEnd: _rollingPxEnd,
+                rollingPriceCheck: _rollingPriceCheck,
+                regrStartDate: _regrStart,
             };
         } else {
             console.log("mismatch with prices history: ", _regrStart, _availablePricesStart, _regrEnd, _availablePricesEnd);
@@ -638,8 +798,9 @@ if (Meteor.isServer) {
         },
 
         checkIfSymbolExists: function (symbol) {
-            var _wikiUrl = getWikiPricesQuandlUrl(false, [symbol]);
-            var _nasdaqUrl = getNasdaqPricesQuandlUrl(symbol);
+            var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
+            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+            var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
 
             function _checkWiki() {
                 try {
@@ -663,7 +824,16 @@ if (Meteor.isServer) {
                 }
             }
 
-            return _checkWiki() || _checkNasdaq();
+            function _checkZEA() {
+                try {
+                    var _res = HTTP.get(_zeaUrl);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            return _checkWiki() || _checkNasdaq() || _checkZEA();
         },
 
         insertNewStockSymbols: function(symbolsArray) {
@@ -694,39 +864,14 @@ if (Meteor.isServer) {
         getQuandlPricesForDate: function (dateStrYYYY_MM_DD, optionalSymbolsArr, optionalOverWriteFlag) {
 
             var _res;
-            var res = HTTP.get(getWikiPricesQuandlUrl(dateStrYYYY_MM_DD, optionalSymbolsArr));
+            var res = HTTP.get(StocksReactServerUtils.prices.getWikiPricesQuandlUrl(dateStrYYYY_MM_DD, optionalSymbolsArr));
                 if (res) {
                     var _data = res.data.datatable.data;
                     var _columnDefs = res.data.datatable.columns;
 
                     var _getStockPricesFromYahooFinanceResults = [];
                     _.each(_data, function (item, itemIdx) {
-                            var _priceObj = {};
-                            _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
-                                var _val = item[columnDefItemIndex];
-                                _priceObj[columnDefObj["name"]] = _val;
-                            })
-
-                            var _formattedPriceObj = {
-                                "date" : new Date(_priceObj.date + "T00:00:00.000+0000"),
-                                "open" : _priceObj.open,
-                                "high" : _priceObj.high,
-                                "low" : _priceObj.low,
-                                "close" : _priceObj.close,
-                                "volume" : _priceObj.volume,
-                                "exDividend": _priceObj["ex-dividend"],
-                                splitRatio: _priceObj.split_ratio,
-                                adjOpen: _priceObj.adj_open,
-                                adjHigh: _priceObj.adj_high,
-                                adjLow: _priceObj.adj_low,
-                                "adjClose" : _priceObj.adj_close,
-                                adjVolume: _priceObj.adj_volume,
-                                "symbol" : _priceObj.ticker,
-                                "dateString" : _priceObj.date,
-                                source: "quandl_free",
-                                importedBy: Meteor.userId(),
-                                importedOn: new Date().toISOString()
-                            };
+                        var _formattedPriceObj = StocksReactServerUtils.prices.getFormattedPriceObjWiki(item, _columnDefs);
                             if (optionalOverWriteFlag) {
                                 // remove existing object if there's already a price for that date and symbol from
                                 // quandl_paid, even if there's an adjClose that came from processSplits

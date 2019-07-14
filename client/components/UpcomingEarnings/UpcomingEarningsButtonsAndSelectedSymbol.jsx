@@ -35,8 +35,8 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         let _endDateRatingChanges = this.state.endDateRatingChanges;
 
         _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
-            var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
-            _ratingsChangesSubsStatuses[symbol] = _handle.ready();
+            // var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
+            _ratingsChangesSubsStatuses[symbol] = true;
         });
 
         return {
