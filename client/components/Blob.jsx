@@ -1,6 +1,8 @@
+import { Component } from 'react';
+
 var _dimension = 10;
 
-Blob = React.createClass({
+export default class Blob extends Component {
 
     getInitialState() {
         return {
@@ -14,7 +16,7 @@ Blob = React.createClass({
             top: null,
             bottom: null
         };
-    },
+    }
 
     handleChange(event) {
         var _textAreaNewValue = event.target.value;
@@ -31,13 +33,13 @@ Blob = React.createClass({
                 cellValues: _cleanLines
             });
         }
-    },
+    }
 
     getRowAndColumnIndices(index) {
         var column = index % _dimension;
 
         return [(index - column) / _dimension, column];
-    },
+    }
 
     calculate() {
         var _totalBooleanAccesses = 0;
@@ -205,12 +207,12 @@ Blob = React.createClass({
 
         console.log("connected indices arr: ", _connectedIndicesArr);
 
-    },
+    }
 
     isCellAtIndexOne(index) {
         var _rowAndCol = this.getRowAndColumnIndices(index);
         return this.state.cellValues[_rowAndCol[0]][_rowAndCol[1]] == 1;
-    },
+    }
 
     clearCells() {
         this.setState({
@@ -218,10 +220,10 @@ Blob = React.createClass({
             cellValues: []
         });
 
-    },
+    }
 
     nothing(event) {
-    },
+    }
 
     renderCells() {
         return (
@@ -236,7 +238,7 @@ Blob = React.createClass({
                 })}
             </div>
         );
-    },
+    }
 
     render() {
         return (
@@ -272,4 +274,4 @@ Blob = React.createClass({
             </div>
         );
     }
-});
+}

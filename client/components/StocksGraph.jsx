@@ -1,14 +1,16 @@
-StocksGraph = React.createClass({
+import React, { Component } from 'react';
+
+export default class StocksGraph extends Component {
 
     propTypes: {
         stocksToGraphObjects: React.PropTypes.array.isRequired
-    },
+    }
 
-    componentWillReceiveProps: function(nextProps) {
+    componentWillReceiveProps(nextProps) {
         this.initializeChart(nextProps.stocksToGraphObjects || []);
-    },
+    }
 
-    initializeChart: function(stocksObjectsArray) {
+    initializeChart(stocksObjectsArray) {
         console.log("inside initialize chart. stocks object to graph: ", stocksObjectsArray);
         if (stocksObjectsArray.length === 0) {
             $(this.refs.myChartTwo).hide();
@@ -244,25 +246,25 @@ StocksGraph = React.createClass({
                 var _startDate = $('[name="min"]').val();
             }
         });
-    },
+    }
 
-    convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
+    convertQuandlFormatNumberDateToDateStringWithSlashes(_dateStringWithNoSlashesAsNumber) {
         _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
         var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
         var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
         var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
         return _month + "/" + _day + "/" + _year;
-    },
+    }
 
-    componentDidMount: function() {
+    componentDidMount() {
         this.initializeChart(this.props.stocksToGraphObjects || []);
-    },
+    }
 
-    render: function() {
+    render() {
         return (
             <div>
                 <div ref="myChartTwo"></div>
             </div>
         );
     }
-});
+}

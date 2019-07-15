@@ -1,3 +1,5 @@
+import moment from 'moment-timezone';
+
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
 function getPortfolioPricesWiki(datesAndSymbolsMap) {

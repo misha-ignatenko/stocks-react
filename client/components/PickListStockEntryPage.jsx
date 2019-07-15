@@ -1,12 +1,14 @@
-PickListStockEntryPage = React.createClass({
+import { Component } from 'react';
+
+class PickListStockEntryPage extends Component {
     propTypes: {
         pickListId: React.PropTypes.string.isRequired
-    },
-    getInitialState: function() {
+    }
+    getInitialState() {
         return {
             datePortfolioItemAdded: null
         };
-    },
+    }
 
     addStockToPickList(event) {
         event.preventDefault();
@@ -25,8 +27,8 @@ PickListStockEntryPage = React.createClass({
                 }
             });
         }
-    },
-    setDatepickerOptions: function() {
+    }
+    setDatepickerOptions() {
         let _datepickerOptions = {
             autoclose: true,
             todayHighlight: true,
@@ -42,9 +44,9 @@ PickListStockEntryPage = React.createClass({
                 datePortfolioItemAdded: _momentDate
             });
         });
-    },
+    }
 
-    render: function() {
+    render() {
         return (
             <div className="pickListEntryPage">
                 <input
@@ -59,4 +61,4 @@ PickListStockEntryPage = React.createClass({
             </div>
         );
     }
-});
+}

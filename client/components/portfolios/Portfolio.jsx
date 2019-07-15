@@ -1,18 +1,18 @@
-Portfolio = React.createClass({
+import { Component } from 'react';
 
-    mixins: [ReactMeteorData],
+class Portfolio extends Component {
 
-    getInitialState: function() {
+    getInitialState() {
         return {
             newItemShort: false,
             startDate: "",
             endDate: ""
         };
-    },
+    }
 
     propTypes: {
         portfolioId: React.PropTypes.string.isRequired
-    },
+    }
 
     getMeteorData() {
         let _portfId = this.props.portfolioId;
@@ -84,17 +84,17 @@ Portfolio = React.createClass({
         }
 
         return _data;
-    },
+    }
 
     componentWillReceiveProps(nextProps) {
         if (!this.state.previouslyLoadedPortfolioId || this.state.previouslyLoadedPortfolioId !== nextProps.portfolioId) {
             this.setUpStartEndDates(nextProps.portfolioId);
         }
-    },
+    }
 
     shiftStartDateBack2X(startDate, lookback) {
         return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
-    },
+    }
 
     processRatingChangesFromCriteriaPortfolio(ratingScales, rCh, startDate, endDate) {
         var ratingScalesOfInterest = _.map(this.data.criteriaRatingScales, function (arr) { return _.pluck(arr, "_id") });
@@ -208,7 +208,7 @@ Portfolio = React.createClass({
         console.log("_portfolioItems: ", _portfolioItems);
 
         return _portfolioItems;
-    },
+    }
 
     processRollingPortfolioItems(portfolioItems, startDate, lookback) {
         // note: there will be portfolio items prior to start date because need to generate rolling weights with lookback
@@ -244,13 +244,13 @@ Portfolio = React.createClass({
         })
 
         return _result;
-    },
+    }
 
     getEndDateForPrices() {
         let _settings = Settings.findOne();
         var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
         return StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(this.state.endDate + " 17:00:00").tz("America/New_York"));
-    },
+    }
     setUpStartEndDates(portfolioId) {
         let _newState = {
             previouslyLoadedPortfolioId: portfolioId,
@@ -274,16 +274,16 @@ Portfolio = React.createClass({
                 console.log(err.error);
             }
         });
-    },
+    }
 
     componentWillMount() {
         this.setUpStartEndDates(this.props.portfolioId);
-    },
+    }
     toggle(event) {
         this.setState({
             newItemShort: !this.state.newItemShort
         })
-    },
+    }
     submitNewItem() {
         let _obj = {
             portfolioId: this.data.portfolio._id,
@@ -305,7 +305,7 @@ Portfolio = React.createClass({
                 console.log(result);
             });
         }
-    },
+    }
 
     renderPortfolioUpdateEntry() {
         let _startDate = this.data.portfolio.rolling ? this.shiftStartDateBack2X(this.state.startDate, this.data.portfolio.lookback / 5 * 7) : this.state.startDate;
@@ -338,7 +338,7 @@ Portfolio = React.createClass({
                 return <div key={index}>{obj.dateString}: {obj.symbol}{obj.short ? ", short" : ", long"}</div>
             })}
         </div>;
-    },
+    }
 
     renderPortfolioPerformance() {
         // check if there is enough price data in the date range to generate performance
@@ -470,13 +470,13 @@ Portfolio = React.createClass({
             _cumulativeGrowthRates.length > 1 ?
                 <PortfolioPerformanceGraph graphData={_graphData} /> :
                 "NOT ENOUGH PERFORMANCE DATA"
-    },
+    }
 
     shouldComponentUpdate(nextProps, nextState) {
         return nextState.stockPrices || this.state.newItemShort !== nextState.newItemShort || this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
-    },
+    }
 
-    setDateRangeOptions: function() {
+    setDateRangeOptions() {
         StocksReact.ui.setDateRangeOptions("input-daterange");
 
         var _that = this;
@@ -484,10 +484,10 @@ Portfolio = React.createClass({
             var _set = StocksReact.ui.getStateForDateRangeChangeEvent(event);
             _that.setState(_set);
         });
-    },
+    }
 
-    changingStart: function() {},
-    changingEnd: function() {},
+    changingStart() {}
+    changingEnd() {}
 
     render() {
         let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.startDate);
@@ -519,4 +519,4 @@ Portfolio = React.createClass({
             </div>
         );
     }
-});
+}

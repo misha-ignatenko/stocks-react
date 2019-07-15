@@ -1,3 +1,5 @@
+import { Component } from 'react';
+
 function getRegressionResults(_initialWeightsStringified, _featureMatrix, _actualOutput, stepSize, tolerance, maxIter, _numberOfTrainingExamples, _trainingSet, _noiseVariable) {
     var _initialWghts = JSON.parse(_initialWeightsStringified);
 
@@ -56,7 +58,7 @@ function removeColumnIndicesFromMatrix(_featureMatrix, arrOfFeatureIndicesToExcl
     });
     return _newFeatureMatrix;
 }
-CorrelationOne = React.createClass({
+class CorrelationOne extends Component {
 
     getInitialState() {
         return {
@@ -71,7 +73,7 @@ CorrelationOne = React.createClass({
             tolerance: 2,
             maxIter: 40000
         };
-    },
+    }
 
     enterPrices() {
         $("#answer").html("");
@@ -81,7 +83,7 @@ CorrelationOne = React.createClass({
             splitIntoCells: false,
             textAreaValue: ""
         });
-    },
+    }
 
     handleChange(event) {
         var _textAreaNewValue = event.target.value;
@@ -111,10 +113,10 @@ CorrelationOne = React.createClass({
             cellValues: _splitByCommasAndNewLines,
             trainingRowsNum: _numberOfTrainingRows
         });
-    },
+    }
 
     handleIndividualCellChange() {
-    },
+    }
 
     renderCells() {
         return (
@@ -135,7 +137,7 @@ CorrelationOne = React.createClass({
                 })}
             </div>
         );
-    },
+    }
 
     predict() {
         var _noiseVariable = 0.001;
@@ -360,7 +362,7 @@ CorrelationOne = React.createClass({
         //do not include a random variable
         //do not include S1 for predicting S1 in training set
         //use average percentage change for S2...S10 for x days before.
-    },
+    }
 
     displayAnswer(_numberOfTrainingExamples, _allCellValues, _noiseVariable, _weights) {
         var _answer = "";
@@ -387,7 +389,7 @@ CorrelationOne = React.createClass({
             splitIntoCells: false,
             textAreaValue: ""
         });
-    },
+    }
 
 
     changeStepSize() {
@@ -395,19 +397,19 @@ CorrelationOne = React.createClass({
         this.setState({
             stepSize: newVal
         });
-    },
+    }
     changeTolerance() {
         var newVal = this.refs.tolerance.value.trim().length > 0 ? parseFloat(this.refs.tolerance.value.trim()) : "";
         this.setState({
             tolerance: newVal
         });
-    },
+    }
     changeMaxIter() {
         var newVal = this.refs.maxIter.value.trim().length > 0 ? parseInt(this.refs.maxIter.value.trim()) : "";
         this.setState({
             maxIter: newVal
         });
-    },
+    }
 
     render() {
         return (
@@ -456,4 +458,4 @@ CorrelationOne = React.createClass({
             </div>
         );
     }
-});
+}

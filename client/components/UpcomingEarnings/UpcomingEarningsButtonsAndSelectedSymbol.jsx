@@ -1,7 +1,8 @@
-UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
-    mixins: [ReactMeteorData]
+import { Component } from 'react';
 
-    , getInitialState() {
+class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
+
+    getInitialState() {
         let _ratingChangesDateFormat = "YYYY-MM-DD";
 
         return {
@@ -12,7 +13,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         };
     }
 
-    , getMeteorData() {
+    getMeteorData() {
         let _earningReleases = EarningsReleases.find().fetch();
         let _earningsReleasesSorted = _.sortBy(_earningReleases, function (obj) {
             var _composite = obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 );
@@ -48,7 +49,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         };
     }
 
-    , propTypes() {
+    propTypes() {
         return {
             //startDate: React.PropTypes.number.isRequired
             //, endDate: React.PropTypes.number.isRequired
@@ -59,13 +60,13 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         }
     }
 
-    , setNewSelectedSymbol(symbol, index) {
+    setNewSelectedSymbol(symbol, index) {
         this.setState({
             selectedSymbolIndex: index
         });
     }
 
-    , renderButtons() {
+    renderButtons() {
         let _earnRel = this.data.earningReleases;
         let _symbols = _.map(this.data.uniqueSymbols, function (symbolStr) {
             let _earnRelPerSymbol = _earnRel.filter(function (obj) {
@@ -177,7 +178,7 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         })
     }
 
-    , shouldComponentUpdate(nextProps, nextState) {
+    shouldComponentUpdate(nextProps, nextState) {
         if (this.state.selectedSymbolIndex !== nextState.selectedSymbolIndex) {
             //this.props.focusStocksFunction([
             //    this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
@@ -191,15 +192,15 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         return false;
     }
 
-    , componentDidMount: function () {
+    componentDidMount() {
         window.addEventListener('keydown', this.handleKeyDown);
     }
 
-    , componentWillUnmount: function () {
+    componentWillUnmount() {
         window.removeEventListener('keydown', this.handleKeyDown);
     }
 
-    , handleKeyDown: function (e) {
+    handleKeyDown(e) {
         let _symbolIndex = this.state.selectedSymbolIndex;
         let _new = e.which === 37 ? _symbolIndex - 1 : e.which === 39 ? _symbolIndex + 1 : _symbolIndex;
         if (_symbolIndex !== _new && this.data.uniqueSymbols && this.data.uniqueSymbols.length > 0) {
@@ -211,34 +212,34 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
         }
     }
 
-    , previousSymbolIndex(_previousState) {
+    previousSymbolIndex(_previousState) {
         let _newState = _previousState - 1 >= 0 ? _previousState - 1 : this.data.uniqueSymbols.length - 1;
         return _newState;
     }
-    , nextSymbolIndex(_previousState) {
+    nextSymbolIndex(_previousState) {
         let _newState = _previousState + 1 <= this.data.uniqueSymbols.length - 1 ? _previousState + 1 : 0;
         return _newState;
     }
 
-    , previousEarningsRelease() {
+    previousEarningsRelease() {
         let _newState = this.previousSymbolIndex(this.state.selectedSymbolIndex);
         this.setState({
             selectedSymbolIndex: _newState
         });
     }
-    , nextEarningsRelease() {
+    nextEarningsRelease() {
         let _newState = this.nextSymbolIndex(this.state.selectedSymbolIndex);
         this.setState({
             selectedSymbolIndex: _newState
         });
     }
-    , changeShowAllBtnsSetting() {
+    changeShowAllBtnsSetting() {
         this.setState({
             showAllButtons: !this.state.showAllButtons
         });
     }
 
-    , render() {
+    render() {
         let _symbol = this.data.uniqueSymbols ? this.data.uniqueSymbols[this.state.selectedSymbolIndex] : "";
 
         return (
@@ -264,4 +265,4 @@ UpcomingEarningsButtonsAndSelectedSymbol = React.createClass({
             </div>
         );
     }
-});
+}

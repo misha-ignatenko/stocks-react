@@ -1,8 +1,8 @@
+import { Component } from 'react';
+
 let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
 
-UpcomingEarningsReleases = React.createClass({
-
-    mixins: [ReactMeteorData],
+class UpcomingEarningsReleases extends Component {
 
     getInitialState() {
         let _ratingChangesDateFormat = "YYYY-MM-DD";
@@ -15,7 +15,7 @@ UpcomingEarningsReleases = React.createClass({
             endEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")),
             ratingChangesSubscriptionHandles: {}
         }
-    },
+    }
 
     getMeteorData() {
 
@@ -38,9 +38,9 @@ UpcomingEarningsReleases = React.createClass({
         }
 
         return data;
-    },
+    }
 
-    setDatepickerOptions: function() {
+    setDatepickerOptions() {
         let _datepickerOptions = {
             autoclose: true,
             todayHighlight: true,
@@ -60,14 +60,14 @@ UpcomingEarningsReleases = React.createClass({
             _set[_id] = _momentDate;
             _that.setState(_set);
         });
-    },
-    convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
+    }
+    convertQuandlFormatNumberDateToDateStringWithSlashes(_dateStringWithNoSlashesAsNumber) {
         _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
         var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
         var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
         var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
         return _month + "/" + _day + "/" + _year;
-    },
+    }
 
     focusStocks(stocksArr) {
         var _alreadyAvailableRatingChangesForSymbols = _.pluck(RatingChanges.find().fetch(), "symbol");
@@ -96,13 +96,13 @@ UpcomingEarningsReleases = React.createClass({
             ratingChangesSubscriptionHandles: _existingHandles
         });
 
-    },
+    }
 
     toggleCompanyConfirmedOnly() {
         this.setState({
             companyConfirmedEarnRelOnly: !this.state.companyConfirmedEarnRelOnly
         });
-    },
+    }
 
     render() {
         let _compOnlyBtnClass = "btn btn-default" + (this.state.companyConfirmedEarnRelOnly ? " active" : "");
@@ -131,4 +131,4 @@ UpcomingEarningsReleases = React.createClass({
             </div>
         );
     }
-});
+}

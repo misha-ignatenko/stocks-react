@@ -1,13 +1,13 @@
+import { Component } from 'react';
+
 let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
 
-PreviousEarningsRelease = React.createClass({
-
-    mixins: [ReactMeteorData],
+class PreviousEarningsRelease extends Component {
 
     propTypes: {
         symbol: React.PropTypes.string.isRequired
         //, currentUser: React.PropTypes.object.isRequired
-    },
+    }
 
     getInitialState() {
         let _format = "YYYY-MM-DD";
@@ -22,7 +22,7 @@ PreviousEarningsRelease = React.createClass({
             avgRatingEndDate: moment((new Date()).toISOString()).format(_format)
 
         }
-    },
+    }
 
     getMeteorData() {
         let _symbol = this.props.symbol;
@@ -56,8 +56,8 @@ PreviousEarningsRelease = React.createClass({
             ratingChanges: RatingChanges.find({symbol: _symbol}, {sort: {date: 1}}).fetch(),
             ratingScales: RatingScales.find().fetch()
         }
-    },
-    getExpectedVsActualEarningsReportsPairsArray: function(arrayOfEaringsReportsForSymbol) {
+    }
+    getExpectedVsActualEarningsReportsPairsArray(arrayOfEaringsReportsForSymbol) {
         var _indexPairs = [];
         for (var i = 0; i < arrayOfEaringsReportsForSymbol.length; i++) {
             for (var j = 0; j < arrayOfEaringsReportsForSymbol.length; j++) {
@@ -131,8 +131,8 @@ PreviousEarningsRelease = React.createClass({
             _uniq[index].epsRevisions = _allEpsEstimatesForUpcomingQuarter;
         });
         return _uniq;
-    },
-    shouldComponentUpdate: function(nextProps, nextState) {
+    }
+    shouldComponentUpdate(nextProps, nextState) {
         //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
         //because it takes a few seconds after new symbol prop is set to get new data to graph
         if (JSON.stringify(this.state.stocksToGraphObjs) !== JSON.stringify(nextState.stocksToGraphObjs)) {
@@ -140,12 +140,12 @@ PreviousEarningsRelease = React.createClass({
         }
 
         return false;
-    },
+    }
 
-    checkForNewestDataFromQuandl: function (symbol) {
+    checkForNewestDataFromQuandl(symbol) {
         console.log("this is done elsewhere, ", symbol);
         //Meteor.call('importData', [symbol], 'earnings_releases');
-    },
+    }
 
     renderEpsMeanEstimates() {
         return this.data.individualEarningReleases.map((release, index) => {
@@ -168,8 +168,8 @@ PreviousEarningsRelease = React.createClass({
             )
 
         })
-    },
-    componentWillReceiveProps: function(nextProps) {
+    }
+    componentWillReceiveProps(nextProps) {
         if (this.props.symbol !== nextProps.symbol) {
             console.log("should not be here");
             this.getLatestGraph2(nextProps.symbol);
@@ -184,12 +184,12 @@ PreviousEarningsRelease = React.createClass({
             //    }
             //})
         }
-    },
-    componentWillMount: function() {
+    }
+    componentWillMount() {
         //call getLatestGraph2 to show ratings graph for initially selected symbol
         this.getLatestGraph2(this.props.symbol);
-    },
-    renderAllExistingUpDowngradesForStock: function() {
+    }
+    renderAllExistingUpDowngradesForStock() {
         var _that = this;
         return <div className="row allUpDowngrades">
             <br/>
@@ -209,8 +209,8 @@ PreviousEarningsRelease = React.createClass({
                 })}
             </ul>
         </div>
-    },
-    renderEstimatedVsActualEps: function() {
+    }
+    renderEstimatedVsActualEps() {
         return this.data.expectedVsActualEpsPairs.map((estimateVsActual, index) => {
             return(<div key={index}>
                 <EpsEstimateVsActualItem
@@ -218,11 +218,11 @@ PreviousEarningsRelease = React.createClass({
                     symbol={this.props.symbol}/>
             </div>);
         });
-    },
-    changingStart: function() {},
-    changingEnd: function() {},
+    }
+    changingStart() {}
+    changingEnd() {}
 
-    renderAvgAnalystRatingsGraph: function() {
+    renderAvgAnalystRatingsGraph() {
         let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingStartDate);
         let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingEndDate);
         return (this.data.ratingChanges.length > 0 ? <div>
@@ -237,9 +237,9 @@ PreviousEarningsRelease = React.createClass({
                     stocksToGraphObjects={this.state.stocksToGraphObjs}/>
             </div>
         </div> : null);
-    },
+    }
 
-    setDateRangeOptions: function() {
+    setDateRangeOptions() {
         StocksReact.ui.setDateRangeOptions("input-daterange");
 
         var _that = this;
@@ -248,8 +248,8 @@ PreviousEarningsRelease = React.createClass({
             _that.setState(_set);
             _that.getLatestGraph2(_that.props.symbol);
         });
-    },
-    getLatestGraph2: function(symbol) {
+    }
+    getLatestGraph2(symbol) {
         if (symbol && this.state.avgRatingStartDate && this.state.avgRatingEndDate) {
             var _startDate = this.state.avgRatingStartDate;
             var _endDate = this.state.avgRatingEndDate;
@@ -273,7 +273,7 @@ PreviousEarningsRelease = React.createClass({
                 }
             });
         }
-    },
+    }
 
     render() {
         return (<div>
@@ -291,4 +291,4 @@ PreviousEarningsRelease = React.createClass({
 
         </div>);
     }
-});
+}

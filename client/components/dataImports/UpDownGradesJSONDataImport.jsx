@@ -1,11 +1,7 @@
-UpDownGradesJSONDataImport = React.createClass({
-    mixins: [ReactMeteorData],
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 
-    getMeteorData() {
-        return {
-            currentUser: Meteor.user()
-        }
-    },
+class UpDownGradesJSONDataImport extends Component {
 
     getInitialState() {
         return {
@@ -15,7 +11,7 @@ UpDownGradesJSONDataImport = React.createClass({
             splitIntoCells: false,
             cellValues: []
         }
-    },
+    }
 
     handleChange(event) {
         //parse stuff here and set splitIntoCells to true of all items contain the keys from 1st object
@@ -85,7 +81,7 @@ UpDownGradesJSONDataImport = React.createClass({
         this.setState({
             textAreaValue: _textAreaNewValue
         })
-    },
+    }
     verifyAndImportUpDownGradesJSONData() {
         //var _importObjects = '[' + this.state.textAreaValue.substring(0,this.state.textAreaValue.length-1) + ']';
         //var _parsed = JSON.parse(_importObjects);
@@ -128,13 +124,13 @@ UpDownGradesJSONDataImport = React.createClass({
                 }
             }
         });
-    },
+    }
 
-    componentWillUnmount: function() {
+    componentWillUnmount() {
         $(".bootstrap-growl").remove();
-    },
+    }
 
-    handleIndividualCellChange: function(event) {
+    handleIndividualCellChange(event) {
         var _id = $(event.target).attr("id");
         var _key = _id.split("_")[1];
         var _index = _id.split("_")[0];
@@ -142,8 +138,8 @@ UpDownGradesJSONDataImport = React.createClass({
         var _previousCellValues = this.state.cellValues;
         _previousCellValues[_index][_key] = event.target.value;
         this.setState({cellValues: _previousCellValues});
-    },
-    renderCells: function() {
+    }
+    renderCells() {
         var _firstObj = this.state.cellValues[0];
         var _keys = [];
         for (var key in _firstObj) {
@@ -173,28 +169,28 @@ UpDownGradesJSONDataImport = React.createClass({
                 })}
             </div>
         );
-    },
-    clearCells: function() {
+    }
+    clearCells() {
         this.setState({
             selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,
             cellValues: []
         });
-    },
+    }
 
     selectSourceChoice (source) {
         this.setState({
             selectedSource: source
         })
-    },
+    }
 
     render() {
         var textAreaValue = this.state.textAreaValue;
         var _selectedSource = this.state.selectedSource;
         return (
             <div className="container">
-                { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
+                { this.props.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Up/downgrades entry page:</h1>
                     {/*<h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>*/}
                     Source: <div className="btn-group" role="group" aria-label="...">
@@ -224,4 +220,11 @@ UpDownGradesJSONDataImport = React.createClass({
             </div>
         );
     }
-});
+}
+
+export default withTracker(() => {
+
+    return {
+        currentUser: Meteor.user()
+    }
+})(UpDownGradesJSONDataImport);

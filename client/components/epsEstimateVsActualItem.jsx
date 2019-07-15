@@ -1,3 +1,5 @@
+import { Component } from 'react';
+
 var _addThisManyDaysToReportDate = 90;
 var _subtractThisManyDaysFromReportDate = 90;
 
@@ -48,14 +50,12 @@ function _getEndDate_YYYY_MM_DD(_dateQuandlFormat) {
     return result;
 };
 
-EpsEstimateVsActualItem = React.createClass({
-
-    mixins: [ReactMeteorData],
+class EpsEstimateVsActualItem extends Component {
 
     propTypes: {
         estimateVsActual: React.PropTypes.object.isRequired,
         symbol: React.PropTypes.string.isRequired
-    },
+    }
 
     getInitialState() {
 
@@ -64,7 +64,7 @@ EpsEstimateVsActualItem = React.createClass({
             epsHistStartDate: _getStartDate_YYYY_MM_DD(this.props.estimateVsActual.reportDate),
             epsHistEndDate: _getEndDate_YYYY_MM_DD(this.props.estimateVsActual.reportDate)
         }
-    },
+    }
 
     getMeteorData() {
         let _symbol = this.props.symbol;
@@ -88,9 +88,9 @@ EpsEstimateVsActualItem = React.createClass({
             earningsReleases: _allEarningsReleases
             , ratingScales: StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges().ready() && RatingScales.find().fetch()
         }
-    },
+    }
 
-    getLatestGraph: function(symbol) {
+    getLatestGraph(symbol) {
         var _startDate = this.state.epsHistStartDate;
         var _endDate = this.state.epsHistEndDate;
 
@@ -105,30 +105,30 @@ EpsEstimateVsActualItem = React.createClass({
                 }
             });
         }
-    },
+    }
 
-    convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
+    convertQuandlFormatNumberDateToDateStringWithSlashes(_dateStringWithNoSlashesAsNumber) {
         _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
         var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
         var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
         var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
         return _month + "/" + _day + "/" + _year;
-    },
-    componentWillReceiveProps: function(nextProps) {
+    }
+    componentWillReceiveProps(nextProps) {
         this.getLatestGraph(nextProps.symbol);
-    },
-    componentDidMount: function() {
+    }
+    componentDidMount() {
         if (this.props.symbol && this.props.estimateVsActual) {
             this.getLatestGraph(this.props.symbol);
         }
-    },
-    changingStart: function() {
+    }
+    changingStart() {
         console.log("changing start.");
-    },
-    changingEnd: function() {
+    }
+    changingEnd() {
         console.log("changing end.");
-    },
-    setDateRangeOptions: function() {
+    }
+    setDateRangeOptions() {
         let _datepickerOptions = {
             autoclose: true,
             todayHighlight: true,
@@ -150,7 +150,7 @@ EpsEstimateVsActualItem = React.createClass({
             _that.setState(_set);
             _that.getLatestGraph(_that.props.symbol);
         });
-    },
+    }
 
     render() {
         let _color = this.props.estimateVsActual.epsActual > this.props.estimateVsActual.epsEstimate ?
@@ -190,4 +190,4 @@ EpsEstimateVsActualItem = React.createClass({
             </div>
         </div>);
     }
-});
+}

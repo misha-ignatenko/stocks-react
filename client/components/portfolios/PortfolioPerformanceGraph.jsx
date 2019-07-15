@@ -1,10 +1,12 @@
-PortfolioPerformanceGraph = React.createClass({
+import { Component } from 'react';
+
+class PortfolioPerformanceGraph extends Component {
 
     propTypes: {
         graphData: React.PropTypes.object.isRequired
-    },
+    }
 
-    initializeChart: function(obj) {
+    initializeChart(obj) {
         if (obj.portfolio.length === 0) {
             $(this.refs.performanceChart).hide();
         } else {
@@ -68,23 +70,23 @@ PortfolioPerformanceGraph = React.createClass({
 
             series: seriesModel
         });
-    },
+    }
 
-    componentDidMount: function() {
+    componentDidMount() {
         this.initializeChart(this.props.graphData);
-    },
+    }
 
-    shouldComponentUpdate: function (nextProps, nextState) {
+    shouldComponentUpdate(nextProps, nextState) {
         this.initializeChart(nextProps.graphData);
 
         return true;
-    },
+    }
 
-    render: function() {
+    render() {
         return (
             <div className="container">
                 <div className="col-md-8" ref="performanceChart"></div>
             </div>
         );
     }
-});
+}
