@@ -25,3 +25,5 @@ meteortesting:mocha
 http
 jhuenges:highstock
 rajit:bootstrap3-datepicker
+email
+mrt:bootstrap-growl

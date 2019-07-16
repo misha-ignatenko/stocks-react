@@ -3,14 +3,21 @@ import { withTracker } from 'meteor/react-meteor-data';
 
 class UpDownGradesJSONDataImport extends Component {
 
-    getInitialState() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             sourceChoices: ["fidelity", "briefing", "schwab"],
             selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,
             cellValues: []
-        }
+        };
+
+        this.handleChange = this.handleChange.bind(this);
+        this.handleIndividualCellChange = this.handleIndividualCellChange.bind(this);
+        this.verifyAndImportUpDownGradesJSONData = this.verifyAndImportUpDownGradesJSONData.bind(this);
+        this.clearCells = this.clearCells.bind(this);
     }
 
     handleChange(event) {
@@ -149,13 +156,14 @@ class UpDownGradesJSONDataImport extends Component {
             <div>
 
 
+                <div className="row">
                 {_keys.map((key) => {
                     var _keyyy = key.replace(/ /g,"_");
                     return <div className="col-md-2" key={_keyyy}>
                         <span key={_keyyy}>{key}</span>
                     </div>
                 })}
-                <br/>
+                </div>
 
 
                 {this.state.cellValues.map((cellValues, index) => {
@@ -189,7 +197,7 @@ class UpDownGradesJSONDataImport extends Component {
         var textAreaValue = this.state.textAreaValue;
         var _selectedSource = this.state.selectedSource;
         return (
-            <div className="container">
+            <div>
                 { this.props.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Up/downgrades entry page:</h1>
                     {/*<h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>*/}

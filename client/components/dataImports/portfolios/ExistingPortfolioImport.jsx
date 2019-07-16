@@ -11,6 +11,8 @@ export default class ExistingPortfolioImport extends Component {
             textAreaValue: "",
             cellValues: []
         };
+
+        this.changeWeightConfig = this.changeWeightConfig.bind(this);
     }
 
     changeWeightConfig() {

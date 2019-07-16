@@ -34,7 +34,7 @@ export default class PortfoliosImport extends Component {
         let _b = "btn btn-lg btn-light";
         let _ab = "btn btn-lg btn-light active";
 
-        return (<div className="container">
+        return (<div>
             <div className="btn-group" role="group" aria-label="...">
                 <button type="button" className={this.state.newPortfolio ? _ab : _b} onClick={this.selectTab}>New portfolio</button>
                 <button type="button" className={!this.state.newPortfolio ? _ab : _b} onClick={this.selectTab}>Portfolio items</button>

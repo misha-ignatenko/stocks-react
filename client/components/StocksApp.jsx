@@ -76,7 +76,7 @@ class StocksApp extends Component {
         let _ab = "btn btn-light active";
 
         return (
-            <div className="container">
+            <div>
                 <header>
                     <AccountsUIWrapper />
                 </header>
