@@ -11,12 +11,6 @@ class PickListItem extends Component {
         };
     }
 
-    propTypes: {
-        pickListItem: React.PropTypes.object.isRequired,
-        showPickListItem: React.PropTypes.bool.isRequired,
-        stockToGraphAddition: React.PropTypes.func.isRequired
-    }
-
     addToGraph() {
 
 

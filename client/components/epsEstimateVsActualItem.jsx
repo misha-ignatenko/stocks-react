@@ -52,11 +52,6 @@ function _getEndDate_YYYY_MM_DD(_dateQuandlFormat) {
 
 class EpsEstimateVsActualItem extends Component {
 
-    propTypes: {
-        estimateVsActual: React.PropTypes.object.isRequired,
-        symbol: React.PropTypes.string.isRequired
-    }
-
     getInitialState() {
 
         return {

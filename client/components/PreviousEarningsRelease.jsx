@@ -4,11 +4,6 @@ let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
 
 class PreviousEarningsRelease extends Component {
 
-    propTypes: {
-        symbol: React.PropTypes.string.isRequired
-        //, currentUser: React.PropTypes.object.isRequired
-    }
-
     getInitialState() {
         let _format = "YYYY-MM-DD";
 

@@ -16,12 +16,6 @@ const simpleRollingPx = new ReactiveVar(undefined);
 
 class AverageAndWeightedRatings extends Component {
 
-    propTypes: {
-        symbol: React.PropTypes.string.isRequired
-        , showAvgRatings: React.PropTypes.bool.isRequired
-        , showWeightedRating: React.PropTypes.bool.isRequired
-    }
-
     constructor(props) {
         super(props);
 

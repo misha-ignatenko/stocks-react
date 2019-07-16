@@ -11,10 +11,6 @@ export default class NewPortfolioImport extends Component {
         this.toggle = this.toggle.bind(this);
     }
 
-    propTypes: {
-        onNewPortfolioCreate: React.PropTypes.func.isRequired
-    }
-
     toggle(event) {
         this.setState({
             private: !this.state.private

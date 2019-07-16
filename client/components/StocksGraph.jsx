@@ -2,10 +2,6 @@ import React, { Component } from 'react';
 
 export default class StocksGraph extends Component {
 
-    propTypes: {
-        stocksToGraphObjects: React.PropTypes.array.isRequired
-    }
-
     componentWillReceiveProps(nextProps) {
         this.initializeChart(nextProps.stocksToGraphObjects || []);
     }

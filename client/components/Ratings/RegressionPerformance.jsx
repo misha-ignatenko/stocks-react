@@ -6,10 +6,6 @@ import StocksGraph from '../StocksGraph.jsx';
 
 class RegressionPerformance extends Component {
 
-    propTypes: {
-        symbol: React.PropTypes.string.isRequired,
-    }
-
     constructor(props) {
         super(props);
 

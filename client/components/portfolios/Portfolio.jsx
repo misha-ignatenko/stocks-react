@@ -10,10 +10,6 @@ class Portfolio extends Component {
         };
     }
 
-    propTypes: {
-        portfolioId: React.PropTypes.string.isRequired
-    }
-
     getMeteorData() {
         let _portfId = this.props.portfolioId;
 

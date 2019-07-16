@@ -1,9 +1,6 @@
 import { Component } from 'react';
 
 class PickListStockEntryPage extends Component {
-    propTypes: {
-        pickListId: React.PropTypes.string.isRequired
-    }
     getInitialState() {
         return {
             datePortfolioItemAdded: null

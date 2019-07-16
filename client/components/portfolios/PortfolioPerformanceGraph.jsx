@@ -2,10 +2,6 @@ import { Component } from 'react';
 
 class PortfolioPerformanceGraph extends Component {
 
-    propTypes: {
-        graphData: React.PropTypes.object.isRequired
-    }
-
     initializeChart(obj) {
         if (obj.portfolio.length === 0) {
             $(this.refs.performanceChart).hide();
