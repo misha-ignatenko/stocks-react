@@ -195,7 +195,7 @@ class UpDownGradesJSONDataImport extends Component {
                     {/*<h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>*/}
                     Source: <div className="btn-group" role="group" aria-label="...">
                         {this.state.sourceChoices.map((choice) => {
-                            let _btnClass = ("btn btn-default") + (choice === _selectedSource ? " active" : "");
+                            let _btnClass = ("btn btn-light") + (choice === _selectedSource ? " active" : "");
                             return <button className={_btnClass} key={choice} onClick={this.selectSourceChoice.bind(this, choice)}>{choice}</button>
                         })}
                     </div>
@@ -213,7 +213,7 @@ class UpDownGradesJSONDataImport extends Component {
                                 <button
                                     onClick={this.verifyAndImportUpDownGradesJSONData}>import</button> }
                             <br/>
-                            <button className="btn btn-default" onClick={this.clearCells}>clear</button>
+                            <button className="btn btn-light" onClick={this.clearCells}>clear</button>
                         </div>
                     }
                 </div>) : <p>plz log in</p> }

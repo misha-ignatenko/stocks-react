@@ -86,7 +86,7 @@ class PickListItem extends Component {
 
     render() {
         const pickListClassName = "pickListItem";
-        let _buttonClassName = this.state.includeInGraph ? "btn btn-primary active" : "btn btn-default";
+        let _buttonClassName = this.state.includeInGraph ? "btn btn-primary active" : "btn btn-light";
 
         return (
             <div className={pickListClassName}>

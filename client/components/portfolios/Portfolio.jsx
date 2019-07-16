@@ -316,8 +316,8 @@ class Portfolio extends Component {
         });
         // TODO: pass _latestPortfolioItems into a new compoment as properties so that user could edit them and
         // todo contd: submit an update to portfolio holdings via UI
-        let _b = "btn btn-default";
-        let _ab = "btn btn-default active";
+        let _b = "btn btn-light";
+        let _ab = "btn btn-light active";
         let _that = this;
         return <div>
             add a new item:
@@ -327,7 +327,7 @@ class Portfolio extends Component {
                 <button type="button" className={!_that.state.newItemShort ? _ab : _b} onClick={_that.toggle}>Long</button>
                 <button type="button" className={_that.state.newItemShort ? _ab : _b} onClick={_that.toggle}>Short</button>
             </div>
-            <button className="btn btn-default btn-lg" onClick={_that.submitNewItem}>submit</button>
+            <button className="btn btn-light btn-lg" onClick={_that.submitNewItem}>submit</button>
             <br/>
             <br/>
             {_startDate}

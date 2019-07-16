@@ -197,7 +197,7 @@ class AverageAndWeightedRatings extends Component {
                     <tr>
                         {_dateAndUniqFirmIds.map((firm, index) => {
                             let _btnTxt = _regrWeights[firm] && _regrWeights[firm] >= 0.001 ? (index + " (" + _regrWeights[firm].toFixed(2) + ")") : index;
-                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-default" key={firm} value={firm} onClick={this.toggleFirm}>{_btnTxt}</button> : firm}</th>;
+                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-light" key={firm} value={firm} onClick={this.toggleFirm}>{_btnTxt}</button> : firm}</th>;
                         })}
                     </tr>
                 </thead>
@@ -319,13 +319,13 @@ class AverageAndWeightedRatings extends Component {
         let _stepSize = Math.pow(10, this.state.stepSizePow);
         return (this.props.ratingChanges.length > 0 ? <div>
                 <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays} </span>
-                <button type="button" className="btn btn-default" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
-                <button type="button" className="btn btn-default" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
+                <button type="button" className="btn btn-light" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
+                <button type="button" className="btn btn-light" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
                 <input type="text" className="pctDownPerDay" ref="pctDownPerDay" id="pctDownPerDay" placeholder={this.state.pctDownPerDay} onBlur={this.refreshRegr} onChange={this.changePct}/>
                 <input type="text" className="pctUpPerDay" ref="pctUpPerDay" id="pctUpPerDay" placeholder={this.state.pctUpPerDay} onBlur={this.refreshRegr} onChange={this.changePct}/>
                 <br/>
-                increase/decrease step size: {_stepSize} <button className="btn btn-default" onClick={this.decreaseStepSize}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
-                <button className="btn btn-default" onClick={this.increaseStepSize}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
+                increase/decrease step size: {_stepSize} <button className="btn btn-light" onClick={this.decreaseStepSize}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
+                <button className="btn btn-light" onClick={this.increaseStepSize}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
                 # of regression iter: <input type="text" ref="regrNumInput" placeholder={this.state.regrIterNum} onChange={this.changeRegrNum} onBlur={this.refreshRegrIterNum}/>
 
             <div className="input-group input-daterange" ref={this.setDateRangeOptions}>

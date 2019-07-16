@@ -1,16 +1,27 @@
-import { Component } from 'react';
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
+import moment from 'moment-timezone';
+
+import AverageAndWeightedRatings from "../Ratings/AverageAndWeightedRatings.jsx";
+
+let _ratingChangesDateFormat = "YYYY-MM-DD";
+const selectedSymbolIndex = new ReactiveVar(1);
+const startDateRatingChanges = new ReactiveVar(moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat));
+const endDateRatingChanges = new ReactiveVar(moment(new Date().toISOString()).format(_ratingChangesDateFormat));
 
 class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
 
-    getInitialState() {
-        let _ratingChangesDateFormat = "YYYY-MM-DD";
+    constructor(props) {
+        super(props);
 
-        return {
-            selectedSymbolIndex: 1
-            , showAllButtons: false
-            , startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat)
-            , endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat)
+        this.state = {
+            showAllButtons: false
         };
+
+        this.nextSymbolIndex = this.nextSymbolIndex.bind(this);
+        this.changeShowAllBtnsSetting = this.changeShowAllBtnsSetting.bind(this);
+        this.nextEarningsRelease = this.nextEarningsRelease.bind(this);
+        this.previousEarningsRelease = this.previousEarningsRelease.bind(this);
     }
 
     getMeteorData() {
@@ -49,26 +60,13 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
         };
     }
 
-    propTypes() {
-        return {
-            //startDate: React.PropTypes.number.isRequired
-            //, endDate: React.PropTypes.number.isRequired
-            //, selectedSymbol: React.PropTypes.string.isRequired
-            //, showPickListItem: React.PropTypes.bool.isRequired
-            //, setSelectedSymbol: React.PropTypes.func.isRequired
-            //focusStocksFunction: React.PropTypes.func.isRequired
-        }
-    }
-
     setNewSelectedSymbol(symbol, index) {
-        this.setState({
-            selectedSymbolIndex: index
-        });
+        selectedSymbolIndex.set(index);
     }
 
     renderButtons() {
-        let _earnRel = this.data.earningReleases;
-        let _symbols = _.map(this.data.uniqueSymbols, function (symbolStr) {
+        let _earnRel = this.props.earningReleases;
+        let _symbols = _.map(this.props.uniqueSymbols, function (symbolStr) {
             let _earnRelPerSymbol = _earnRel.filter(function (obj) {
                 return obj.symbol === symbolStr;
             })
@@ -94,12 +92,12 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
             return obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 )
         })
 
-        let _ratingChangesSymbols = _.pluck(this.data.ratingChanges, "symbol");
+        let _ratingChangesSymbols = _.pluck(this.props.ratingChanges, "symbol");
 
 
         return _symbols.map((symbolObj, index) => {
             let symbol = symbolObj.symbol;
-            let _btnClass = "btn btn-default" + (index === this.state.selectedSymbolIndex ? " active" : "");
+            let _btnClass = "btn btn-light" + (index === selectedSymbolIndex.get() ? " active" : "");
             let _key = symbol + "_" + index;
             let _count = _.countBy(_ratingChangesSymbols, function(symb) {
                 return symb === symbol ? "yes" : "no";
@@ -109,7 +107,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
 
 
 
-            let _ratingChangesForSymbol = _.filter(this.data.ratingChanges, function(obj) {
+            let _ratingChangesForSymbol = _.filter(this.props.ratingChanges, function(obj) {
                 return obj.symbol === symbol;
             })
             //console.log("rating changes for symbol: ", _ratingChangesForSymbol);
@@ -148,21 +146,21 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
             //TODO need number of current ratings with unique firms (excluding firms that dropped coverage), not number of rating changes
             let _numberOfLatestReports = _latestRatingScaleIdsForUniqueFirms.length;
 
-            let nextAmt = this.data.uniqueSymbols.length - (1 + this.nextSymbolIndex(this.state.selectedSymbolIndex));
+            let nextAmt = this.props.uniqueSymbols.length - (1 + this.nextSymbolIndex(selectedSymbolIndex.get()));
             let _firstDay = index === 0;
             let _newDay = index !== 0 && symbolObj.reportDateNextFiscalQuarter !== _symbols[index - 1].reportDateNextFiscalQuarter;
             let _newTimeOfDay = index !== 0 && symbolObj.reportTimeOfDayCode !== _symbols[index - 1].reportTimeOfDayCode;
             let _dateStmt = symbolObj.reportDateNextFiscalQuarter.toString() + ", " + (symbolObj.reportTimeOfDayCode === 2 ? "before market open" : symbolObj.reportTimeOfDayCode === 3 ? "during market open" : symbolObj.reportTimeOfDayCode === 1 ? "after market close" : "unknown time of day" );
 
-            return index === this.state.selectedSymbolIndex ?
+            return index === selectedSymbolIndex.get() ?
                 <button key={_key} className={_btnClass}>{symbol} ({_numberOfLatestReports})</button> :
-                index === this.previousSymbolIndex(this.state.selectedSymbolIndex) ?
-                    <button key={_key} className="btn btn-default" onClick={this.previousEarningsRelease}>
+                index === this.previousSymbolIndex(selectedSymbolIndex.get()) ?
+                    <button key={_key} className="btn btn-light" onClick={this.previousEarningsRelease}>
                         <span className="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>Previous
                         <br/>{symbol} ({_numberOfLatestReports})
                     </button> :
-                    index === this.nextSymbolIndex(this.state.selectedSymbolIndex) ?
-                        <button key={_key} className="btn btn-default" onClick={this.nextEarningsRelease}>
+                    index === this.nextSymbolIndex(selectedSymbolIndex.get()) ?
+                        <button key={_key} className="btn btn-light" onClick={this.nextEarningsRelease}>
                             Next({nextAmt} more)<span className="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
                             <br/>{symbol} ({_numberOfLatestReports})
                         </button> :
@@ -179,17 +177,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
     }
 
     shouldComponentUpdate(nextProps, nextState) {
-        if (this.state.selectedSymbolIndex !== nextState.selectedSymbolIndex) {
-            //this.props.focusStocksFunction([
-            //    this.data.uniqueSymbols[this.previousSymbolIndex(nextState.selectedSymbolIndex)],
-            //    this.data.uniqueSymbols[nextState.selectedSymbolIndex],
-            //    this.data.uniqueSymbols[this.nextSymbolIndex(nextState.selectedSymbolIndex)]
-            //]);
-            return true;
-        } else if (this.state.showAllButtons !== nextState.showAllButtons) {
-            return true;
-        }
-        return false;
+        return true;
     }
 
     componentDidMount() {
@@ -201,9 +189,9 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
     }
 
     handleKeyDown(e) {
-        let _symbolIndex = this.state.selectedSymbolIndex;
+        let _symbolIndex = selectedSymbolIndex.get();
         let _new = e.which === 37 ? _symbolIndex - 1 : e.which === 39 ? _symbolIndex + 1 : _symbolIndex;
-        if (_symbolIndex !== _new && this.data.uniqueSymbols && this.data.uniqueSymbols.length > 0) {
+        if (_symbolIndex !== _new && this.props.uniqueSymbols && this.props.uniqueSymbols.length > 0) {
             if (e.which === 37) {
                 this.previousEarningsRelease();
             } else if (e.which === 39) {
@@ -213,25 +201,21 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
     }
 
     previousSymbolIndex(_previousState) {
-        let _newState = _previousState - 1 >= 0 ? _previousState - 1 : this.data.uniqueSymbols.length - 1;
+        let _newState = _previousState - 1 >= 0 ? _previousState - 1 : this.props.uniqueSymbols.length - 1;
         return _newState;
     }
     nextSymbolIndex(_previousState) {
-        let _newState = _previousState + 1 <= this.data.uniqueSymbols.length - 1 ? _previousState + 1 : 0;
+        let _newState = _previousState + 1 <= this.props.uniqueSymbols.length - 1 ? _previousState + 1 : 0;
         return _newState;
     }
 
     previousEarningsRelease() {
-        let _newState = this.previousSymbolIndex(this.state.selectedSymbolIndex);
-        this.setState({
-            selectedSymbolIndex: _newState
-        });
+        let _newState = this.previousSymbolIndex(selectedSymbolIndex.get());
+        selectedSymbolIndex.set(_newState);
     }
     nextEarningsRelease() {
-        let _newState = this.nextSymbolIndex(this.state.selectedSymbolIndex);
-        this.setState({
-            selectedSymbolIndex: _newState
-        });
+        let _newState = this.nextSymbolIndex(selectedSymbolIndex);
+        selectedSymbolIndex.set(_newState);
     }
     changeShowAllBtnsSetting() {
         this.setState({
@@ -240,16 +224,16 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
     }
 
     render() {
-        let _symbol = this.data.uniqueSymbols ? this.data.uniqueSymbols[this.state.selectedSymbolIndex] : "";
+        let _symbol = this.props.uniqueSymbols ? this.props.uniqueSymbols[selectedSymbolIndex.get()] : "";
 
         return (
             <div className="container">
                 {this.props.startDate}
                 {this.props.endDate}
                 <br/>
-                {!this.data.ratingsChangesSubsStatuses[_symbol] ? "ratings changes loading for " + _symbol : <div className="row">
-                    {this.data.currentUser ?
-                        <button className="btn btn-default" onClick={this.changeShowAllBtnsSetting}>
+                {!this.props.ratingsChangesSubsStatuses[_symbol] ? "ratings changes loading for " + _symbol : <div className="row">
+                    {this.props.currentUser ?
+                        <button className="btn btn-light" onClick={this.changeShowAllBtnsSetting}>
                             {this.state.showAllButtons ? "hide individual buttons" : "show all individual buttons"}
                         </button> :
                         null
@@ -266,3 +250,40 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
         );
     }
 }
+
+export default withTracker((props) => {
+
+    let _earningReleases = EarningsReleases.find().fetch();
+    let _earningsReleasesSorted = _.sortBy(_earningReleases, function (obj) {
+        var _composite = obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 );
+        return _composite;
+    });
+    let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
+    //todo this should come from settings
+    let _limit = 3;
+    let _selectedIndex = selectedSymbolIndex.get();
+    let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1 < 0 ? 0 : _selectedIndex - 1, _selectedIndex - 1 + _limit);
+    let _ratingsChangesSubsStatuses = {};
+
+    let _currentUser = Meteor.user();
+    let _settings = Settings.findOne();
+
+    let _startDateForRatingChangesSubscription =
+        _currentUser ?
+            startDateRatingChanges.get() :
+            moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
+    let _endDateRatingChanges = endDateRatingChanges.get();
+
+    _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
+        // var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
+        _ratingsChangesSubsStatuses[symbol] = true;
+    });
+
+    return {
+        earningReleases: _earningsReleasesSorted
+        , ratingChanges: RatingChanges.find().fetch()
+        , currentUser: _currentUser
+        , uniqueSymbols: _uniqueSymbols
+        , ratingsChangesSubsStatuses: _ratingsChangesSubsStatuses
+    };
+})(UpcomingEarningsButtonsAndSelectedSymbol);

@@ -77,7 +77,7 @@ class RatingChangesConsistency extends Component{
                                 old: {data.old}<br/>
                                 new: {data.new}&nbsp;&nbsp;&nbsp;
                                 {data.duplicate ?
-                                    <button className="btn btn-default btn-sm" value={data._id} onClick={this.removeDup}>remove dup</button> :
+                                    <button className="btn btn-light btn-sm" value={data._id} onClick={this.removeDup}>remove dup</button> :
                                     null}
                                 </li>
                         })}
@@ -91,10 +91,10 @@ class RatingChangesConsistency extends Component{
             <div className="container">
                 { this.props.currentUser ? (<div className="ratingChangesConsistencyDiv">
                         <h1>Rating Changes Consistency</h1>
-                        Symbol: <input ref="sym" /> <button className="btn btn-default" onClick={this.showRes}>Show Results</button>
+                        Symbol: <input ref="sym" /> <button className="btn btn-light" onClick={this.showRes}>Show Results</button>
                         {this.props.allRatingChanges ? <p>Total rating changes: {this.props.allRatingChanges.length}</p> : null}
                         {this.state.showFirms && this.props.uniqFirmIds ? <div>{this.props.uniqFirmIds.map((firmId) => {
-                            return <button key={firmId} value={firmId} className="btn btn-default btn-sm" onClick={this.setFirm}>{firmId}</button>
+                            return <button key={firmId} value={firmId} className="btn btn-light btn-sm" onClick={this.setFirm}>{firmId}</button>
                             })}</div> : null}
                         {this.renderRatingChangeHistory()}
                     </div>) : <p>Please log in.</p> }

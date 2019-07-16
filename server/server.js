@@ -701,6 +701,7 @@ Meteor.methods({
 
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
+        console.log("inside earningsReleases publication")
 
         var _query = {
             reportDateNextFiscalQuarter: {

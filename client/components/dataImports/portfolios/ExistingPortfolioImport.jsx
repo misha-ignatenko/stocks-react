@@ -198,7 +198,7 @@ export default class ExistingPortfolioImport extends Component {
            </div> : <div>
                {this.renderCells()}
                <br/><br/>
-               <button className="btn btn-lg btn-default"
+               <button className="btn btn-lg btn-light"
                    onClick={this.verifyAndImport}>IMPORT</button>
                <br/><br/><br/><br/>
            </div> }

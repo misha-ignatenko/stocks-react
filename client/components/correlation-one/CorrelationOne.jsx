@@ -418,7 +418,7 @@ class CorrelationOne extends Component {
                     <h1>correlation-one challenge</h1>
                 </header>
 
-                <button className="btn btn-default enterPrices" onClick={this.enterPrices}>Enter Prices</button>
+                <button className="btn btn-light enterPrices" onClick={this.enterPrices}>Enter Prices</button>
 
                 <br/><br/>
                 {this.state.showPriceEntryForm && !this.state.splitIntoCells ?
@@ -441,7 +441,7 @@ class CorrelationOne extends Component {
                         tolerance: 10^-<input type="text" value={this.state.tolerance} ref="tolerance" onChange={this.changeTolerance}/><br/>
                         max iter: <input type="text" value={this.state.maxIter} ref="maxIter" onChange={this.changeMaxIter}/><br/>
                         <br/>
-                        <button className="btn btn-default predict" onClick={this.predict}>predict</button>
+                        <button className="btn btn-light predict" onClick={this.predict}>predict</button>
                         <br/>
                         <br/>
                     </div> :

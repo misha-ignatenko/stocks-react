@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 import AccountsUIWrapper from './AccountsUIWrapper.jsx';
 import IndividualStock from './IndividualStock.jsx';
+import UpcomingEarningsReleases from './UpcomingEarningsReleases.jsx';
 import DataImportsMain from './dataImports/DataImportsMain.jsx';
 
 var _mainTabName = "mainTab";
@@ -33,7 +34,7 @@ class StocksApp extends Component {
 
     renderPortfolios() {
         return this.props.portfolios.map((portfolio) => {
-            return <button className="btn btn-default btn-lg" key={portfolio._id} onClick={this.setSelectedPortf.bind(this, portfolio._id)}>{portfolio.name}</button>;
+            return <button className="btn btn-light btn-lg" key={portfolio._id} onClick={this.setSelectedPortf.bind(this, portfolio._id)}>{portfolio.name}</button>;
         });
     }
 
@@ -101,7 +102,7 @@ class StocksApp extends Component {
                         }
                         <br/>
                         <br/>
-                        <button className="btn btn-default" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfolios" : "show portfolios"}</button>
+                        <button className="btn btn-light" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfolios" : "show portfolios"}</button>
                         {this.props.portfolios ? <div className="container">
                             {this.state.showPortfolios ? this.renderPortfolios() : null}
                             {this.renderSelectedPortfolio()}
