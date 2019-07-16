@@ -23,3 +23,5 @@ accounts-password@1.5.1
 underscore@1.0.10
 meteortesting:mocha
 http
+jhuenges:highstock
+rajit:bootstrap3-datepicker

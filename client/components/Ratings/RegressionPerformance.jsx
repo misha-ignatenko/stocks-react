@@ -2,6 +2,8 @@ import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
 
+import StocksGraph from '../StocksGraph.jsx';
+
 class RegressionPerformance extends Component {
 
     propTypes: {
