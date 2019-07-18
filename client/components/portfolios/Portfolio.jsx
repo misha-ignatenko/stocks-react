@@ -1,13 +1,23 @@
-import { Component } from 'react';
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
+import moment from 'moment-timezone';
+
+const startDate = new ReactiveVar("");
+const endDate = new ReactiveVar("");
+const pricesLoaded = new ReactiveVar(false);
+const stockPrices = new ReactiveVar(undefined);
 
 class Portfolio extends Component {
 
-    getInitialState() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             newItemShort: false,
-            startDate: "",
-            endDate: ""
         };
+
+        // this.setUpStartEndDates = this.setUpStartEndDates.bind(this);
+        // this.onDismiss = this.onDismiss.bind(this);
     }
 
     getMeteorData() {
@@ -93,7 +103,7 @@ class Portfolio extends Component {
     }
 
     processRatingChangesFromCriteriaPortfolio(ratingScales, rCh, startDate, endDate) {
-        var ratingScalesOfInterest = _.map(this.data.criteriaRatingScales, function (arr) { return _.pluck(arr, "_id") });
+        var ratingScalesOfInterest = _.map(this.props.criteriaRatingScales, function (arr) { return _.pluck(arr, "_id") });
         var ratingChanges = _.filter(rCh, function (obj) {
             return obj.dateString >= startDate && obj.dateString <= endDate;
         })
@@ -165,7 +175,7 @@ class Portfolio extends Component {
 
         // generate combined holdings map
         var _RESULT = {};
-        var _p = this.data.portfolio;
+        var _p = this.props.portfolio;
         _.each(_uniqDates, function (d) {
             // get an array of holdings from each strategy
             var _stratHoldingsArrForDay = [];
@@ -245,27 +255,25 @@ class Portfolio extends Component {
     getEndDateForPrices() {
         let _settings = Settings.findOne();
         var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
-        return StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(this.state.endDate + " 17:00:00").tz("America/New_York"));
+        return StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(endDate.get() + " 17:00:00").tz("America/New_York"));
     }
     setUpStartEndDates(portfolioId) {
         let _newState = {
             previouslyLoadedPortfolioId: portfolioId,
-            startDate: "",
-            endDate: ""
         };
         this.setState(_newState);
+        startDate.set("");
+        endDate.set("");
 
         let _that = this;
         Meteor.call("getDefaultPerformanceDatesFor", portfolioId, function (err, res) {
             if (!err && res) {
                 if (res.ratingChanges) {
-                    _that.data.ratingChanges = res.ratingChanges;
-                    _that.data.criteriaRatingScales = res.criteriaRatingScales;
+                    _that.props.ratingChanges = res.ratingChanges;
+                    _that.props.criteriaRatingScales = res.criteriaRatingScales;
                 }
-                _that.setState({
-                    startDate: res.startDate,
-                    endDate: res.endDate
-                });
+                startDate.set(res.startDate);
+                endDate.set(res.endDate);
             } else {
                 console.log(err.error);
             }
@@ -282,7 +290,7 @@ class Portfolio extends Component {
     }
     submitNewItem() {
         let _obj = {
-            portfolioId: this.data.portfolio._id,
+            portfolioId: this.props.portfolio._id,
             symbol: ReactDOM.findDOMNode(this.refs.newItemSymbolStr).value.trim(),
             dateString: ReactDOM.findDOMNode(this.refs.newItemDateStr).value.trim(),
             short: this.state.newItemShort
@@ -304,10 +312,10 @@ class Portfolio extends Component {
     }
 
     renderPortfolioUpdateEntry() {
-        let _startDate = this.data.portfolio.rolling ? this.shiftStartDateBack2X(this.state.startDate, this.data.portfolio.lookback / 5 * 7) : this.state.startDate;
+        let _startDate = this.props.portfolio.rolling ? this.shiftStartDateBack2X(startDate.get(), this.props.portfolio.lookback / 5 * 7) : startDate.get();
         // get the last date
-        let _lastRebalanceDate = _.last(_.pluck(this.data.portfolioItems, "dateString"));
-        let _latestPortfolioItems = this.data.portfolioItems.filter(function (obj) {
+        let _lastRebalanceDate = _.last(_.pluck(this.props.portfolioItems, "dateString"));
+        let _latestPortfolioItems = this.props.portfolioItems.filter(function (obj) {
             return obj.dateString === _lastRebalanceDate;
         });
         // TODO: pass _latestPortfolioItems into a new compoment as properties so that user could edit them and
@@ -328,9 +336,9 @@ class Portfolio extends Component {
             <br/>
             {_startDate}
             <br/>
-            {this.state.endDate}
+            {endDate.get()}
             <br/>
-            {this.data.rawPortfolioItems.reverse().map((obj, index) => {
+            {this.props.rawPortfolioItems.reverse().map((obj, index) => {
                 return <div key={index}>{obj.dateString}: {obj.symbol}{obj.short ? ", short" : ", long"}</div>
             })}
         </div>;
@@ -338,14 +346,14 @@ class Portfolio extends Component {
 
     renderPortfolioPerformance() {
         // check if there is enough price data in the date range to generate performance
-        let _uniqDates = this.data.uniqPortfItemDates;
+        let _uniqDates = this.props.uniqPortfItemDates;
         let _endDate = this.getEndDateForPrices();
         if (_uniqDates.indexOf(_endDate) === -1) {
             _uniqDates.push(_endDate);
         }
         let _minReqMap = {};
-        let _items = this.data.portfolioItems;
-        let _prices = this.state.stockPrices;
+        let _items = this.props.portfolioItems;
+        let _prices = stockPrices.get();
 
         let _missingData = false;
         _.each(_uniqDates, function(portfItemsDate, index) {
@@ -469,7 +477,10 @@ class Portfolio extends Component {
     }
 
     shouldComponentUpdate(nextProps, nextState) {
-        return nextState.stockPrices || this.state.newItemShort !== nextState.newItemShort || this.props.portfolioId !== nextProps.portfolioId || this.state.startDate !== nextState.startDate || this.state.endDate !== nextState.endDate;
+        return true;
+
+
+        return nextState.stockPrices || this.state.newItemShort !== nextState.newItemShort || this.props.portfolioId !== nextProps.portfolioId || startDate.get() !== nextState.startDate || endDate.get() !== nextState.endDate;
     }
 
     setDateRangeOptions() {
@@ -486,17 +497,17 @@ class Portfolio extends Component {
     changingEnd() {}
 
     render() {
-        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.startDate);
-        let _endDate = this.state.endDate !== "" && StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.getEndDateForPrices());
+        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(startDate.get());
+        let _endDate = endDate.get() !== "" && StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.getEndDateForPrices());
 
         return (
-            <div className="container">
-                {this.data.portfolio ?
-                    (this.data.portfolioItems ?
-                        ( this.state.stockPrices ?
+            <div>
+                {this.props.portfolio ?
+                    (this.props.portfolioItems ?
+                        ( stockPrices.get() ?
                             <div>
-                                {this.state.stockPrices.length}
-                                <h1>{this.data.portfolio.name}</h1>
+                                {stockPrices.get().length}
+                                <h1>{this.props.portfolio.name}</h1>
                                 <div className="col-md-8">
                                     <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
                                         <input type="text" className="form-control" id="startDate" value={_startDate} onChange={this.changingStart}/>
@@ -516,3 +527,75 @@ class Portfolio extends Component {
         );
     }
 }
+
+export default withTracker((props) => {
+    let _settings = Settings.findOne();
+    var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
+
+    let _portfId = props.portfolioId;
+
+    let _data = {};
+
+    if (startDate.get() !== "" && endDate.get() !== "" && Meteor.subscribe("getPortfolioById", _portfId).ready()) {
+        _data.portfolio = Portfolios.findOne({_id: _portfId});
+
+        // check if portfolio is an intersection based on rating changes
+        let _hasCriteria = _data.portfolio.criteria ? true : false;
+
+        let _isRolling = _data.portfolio.rolling;
+        let _businessDayLookback = _data.portfolio.lookback;
+        let _lookback = _businessDayLookback / 5 * 7;
+        let _startDate = _isRolling ? this.shiftStartDateBack2X(startDate.get(), _lookback) : startDate.get();
+
+        // 2 cases:
+        //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
+        //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
+        if (
+            (_hasCriteria && Meteor.subscribe("ratingScales").ready() && this.data.ratingChanges) ||
+            (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, endDate.get()).ready())
+        ) {
+            _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
+            _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, startDate.get(), _lookback) : _hasCriteria ? this.processRatingChangesFromCriteriaPortfolio(RatingScales.find().fetch(), this.data.ratingChanges, startDate.get(), endDate.get()) : _data.rawPortfolioItems;
+            let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
+            _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));
+            let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
+            _data.uniqPortfItemDates = _uniqPortfItemDates;
+
+            let _endDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO, moment(endDate.get() + " 17:00:00").tz("America/New_York"));
+            let _datesForSub = _.union(_uniqPortfItemDates, [_endDate]);
+
+
+            // generate a map for prices subscription
+            let _pricesSubscrMap = {};
+            let _datesForSubSorted = _.sortBy(_datesForSub);
+            _.each(_datesForSubSorted, function (dateStr, idx) {
+                let _relevantPortfolioItems = _.filter(_data.portfolioItems, function (obj) {
+                    if (idx > 0) {
+                        // if it's not the first date, include symbols from the previous date
+                        return obj.dateString === dateStr || obj.dateString === _datesForSubSorted[idx - 1]
+                    } else {
+                        return obj.dateString === dateStr;
+                    }
+                });
+                let _relevantSymbols = _.uniq(_.pluck(_relevantPortfolioItems, "symbol"));
+                _pricesSubscrMap[dateStr] = _relevantSymbols.concat(["SPY"]);
+            });
+            if (!pricesLoaded.get()) {
+                Meteor.call("getPricesFromApi", _pricesSubscrMap, function (err, res) {
+                    console.log("done with getPricesFromApi call: ", err, res);
+                    _.each(res, function (px) {
+                        if (!px.adjClose) {
+                            console.log("missing adjClose for: ", px.symbol, px.dateString);
+                        }
+                    })
+                    if (!err) {
+                        pricesLoaded.set(true);
+                        stockPrices.set(res);
+                    }
+                });
+            }
+        }
+    }
+
+    return _data;
+})(Portfolio);

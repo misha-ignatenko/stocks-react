@@ -6,6 +6,7 @@ import AccountsUIWrapper from './AccountsUIWrapper.jsx';
 import IndividualStock from './IndividualStock.jsx';
 import UpcomingEarningsReleases from './UpcomingEarningsReleases.jsx';
 import DataImportsMain from './dataImports/DataImportsMain.jsx';
+import Portfolio from './portfolios/Portfolio.jsx';
 
 var _mainTabName = "mainTab";
 var _individualStockTabName = "individualStockTab";
@@ -23,6 +24,7 @@ class StocksApp extends Component {
         };
 
         this.selectTab = this.selectTab.bind(this);
+        this.showHidePortfs = this.showHidePortfs.bind(this);
     }
 
     setSelectedPortf(portId) {
