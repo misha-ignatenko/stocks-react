@@ -108,12 +108,13 @@ Meteor.methods({
     "getVarFromServer": function() {
         return _serverSideVarCount;
     }
-    , "sendMissingEarningsReleaseSymbolsEmail": function () {
+    , async "sendMissingEarningsReleaseSymbolsEmail"() {
         // get all available stocks (symbols are _id attributes in universal format)
         var _allUniqueStockSymbols = _.uniq(StocksReactUtils.symbols.getLiveSymbols());
 
         // get all available unique earnings release records (symbols are symbol attributes in universal format)
-        var _uniqueEarningsReleaseSymbols = _.uniq(_.pluck(EarningsReleases.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
+        var _uniqueEarningsReleaseSymbols = [];
+        await EarningsReleases._collection.rawCollection().distinct("symbol").then(symbols => _uniqueEarningsReleaseSymbols = _uniqueEarningsReleaseSymbols.concat(symbols));
 
 
         // figure out which stocks have no earnings releases
