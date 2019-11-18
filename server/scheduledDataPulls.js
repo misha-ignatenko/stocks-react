@@ -54,15 +54,10 @@ Meteor.methods({
         var _allUniqueStockSymbols = _.uniq(StocksReactUtils.symbols.getLiveSymbols());
 
         // get all available unique earnings release records (symbols are symbol attributes in universal format)
-        var _uniqueEarningsReleaseSymbols = [];
-        await EarningsReleases._collection.rawCollection().distinct("symbol").then(symbols => _uniqueEarningsReleaseSymbols = _uniqueEarningsReleaseSymbols.concat(symbols));
+        var _uniqueEarningsReleaseSymbols = await EarningsReleases._collection.rawCollection().distinct("symbol").then(symbols => {return symbols;});
 
 
         // figure out which stocks have no earnings releases
-        // _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols)
-
-
-        // check which of these do not have a quote from Yahoo
         var _symbolsThatHaveBidsOrAsks = _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols);
 
 
