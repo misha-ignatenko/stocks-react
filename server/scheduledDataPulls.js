@@ -30,6 +30,7 @@ Meteor.startup(function() {
                 from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                 subject: 'getting earnings releases',
                 text: JSON.stringify({
+                    hostname: Meteor.absoluteUrl(),
                     timeNow: new Date(),
                     symbols: _.uniq(_allStockSymbols)
                 })
