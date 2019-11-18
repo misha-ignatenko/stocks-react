@@ -12,7 +12,7 @@ Meteor.startup(function() {
         var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
 
         var _setting = Settings.findOne();
-        var _dataAutoPullIsOn = _setting && _setting.dataImports && _setting.dataImports.autoDataImportsTurnedOn;
+        var _dataAutoPullIsOn = false;
 
         if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
             var _previousSettings = Settings.findOne();
