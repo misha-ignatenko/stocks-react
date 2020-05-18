@@ -2,10 +2,15 @@ Meteor.publish("settings", function () {
     return Settings.find({type: "main"}, {fields: {_id: 1, clientSettings: 1}});
 });
 
+// ResearchCompanies publications
+Meteor.publish("researchCompaniesByIDs", function (IDs) {
+    return ResearchCompanies.find({_id: {$in: IDs}});
+});
 
 // RatingChanges publications
 Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD, end_YYYY_MM_DD) {
     return RatingChanges.find({
+        isError: {$ne: true},
         symbol: {$in: symbolsArr}, $and: [{dateString: {$gte: start_YYYY_MM_DD}}, {dateString: {$lte: end_YYYY_MM_DD}}]
     }, {
         fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}
@@ -15,9 +20,17 @@ Meteor.publish("ratingChangesForSymbols", function (symbolsArr, start_YYYY_MM_DD
 });
 Meteor.publish("allRatingChangesForSymbol", function (symbol) {
     return RatingChanges.find(
-        {symbol: symbol},
+        {
+            symbol: symbol,
+            isError: {$ne: true},
+        },
         {fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1}},
         {sort: {dateString: 1}
+    });
+});
+Meteor.publish("errorRatingChanges", function () {
+    return RatingChanges.find({
+        isError: true,
     });
 });
 
