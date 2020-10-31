@@ -1,6 +1,8 @@
+import { Component } from 'react';
+
 var _dimension = 10;
 
-Blob = React.createClass({
+export default class Blob extends Component {
 
     getInitialState() {
         return {
@@ -14,7 +16,7 @@ Blob = React.createClass({
             top: null,
             bottom: null
         };
-    },
+    }
 
     handleChange(event) {
         var _textAreaNewValue = event.target.value;
@@ -31,13 +33,13 @@ Blob = React.createClass({
                 cellValues: _cleanLines
             });
         }
-    },
+    }
 
     getRowAndColumnIndices(index) {
         var column = index % _dimension;
 
         return [(index - column) / _dimension, column];
-    },
+    }
 
     calculate() {
         var _totalBooleanAccesses = 0;
@@ -152,9 +154,9 @@ Blob = React.createClass({
             var _id = _coord[0] + "_" + _coord[1];
             var _selector = $("#" + _id);
             if (_selector.html() == 1) {
-                //_selector.removeClass("btn-default").addClass("btn-info");
+                //_selector.removeClass("btn-light").addClass("btn-info");
             } else {
-                _selector.removeClass("btn-default").addClass("btn-success");
+                _selector.removeClass("btn-light").addClass("btn-success");
             }
         });
 
@@ -166,9 +168,9 @@ Blob = React.createClass({
             var _id = _coord[0] + "_" + _coord[1];
             var _selector = $("#" + _id);
             //if (_selector.html() == 1) {
-            //    _selector.removeClass("btn-default").addClass("btn-info");
+            //    _selector.removeClass("btn-light").addClass("btn-info");
             //} else {
-            _selector.removeClass("btn-default").addClass("btn-info");
+            _selector.removeClass("btn-light").addClass("btn-info");
             //}
         });
 
@@ -205,12 +207,12 @@ Blob = React.createClass({
 
         console.log("connected indices arr: ", _connectedIndicesArr);
 
-    },
+    }
 
     isCellAtIndexOne(index) {
         var _rowAndCol = this.getRowAndColumnIndices(index);
         return this.state.cellValues[_rowAndCol[0]][_rowAndCol[1]] == 1;
-    },
+    }
 
     clearCells() {
         this.setState({
@@ -218,10 +220,10 @@ Blob = React.createClass({
             cellValues: []
         });
 
-    },
+    }
 
     nothing(event) {
-    },
+    }
 
     renderCells() {
         return (
@@ -229,14 +231,14 @@ Blob = React.createClass({
                 {this.state.cellValues.map((cellValues, y) => {
                     return (<div className="row" key={y}>{cellValues.map((cell, x) => {
                         let _key = y + "_" + x;
-                        let _class = "btn btn-default" + ((cell === "1") ? " active" : "");
+                        let _class = "btn btn-light" + ((cell === "1") ? " active" : "");
 
                         return <button className={_class} id={_key} key={_key} onClick={this.nothing}>{cell}</button>;
                     })}<br/></div>)
                 })}
             </div>
         );
-    },
+    }
 
     render() {
         return (
@@ -255,8 +257,8 @@ Blob = React.createClass({
                     <div>
                         {this.renderCells()}
                         <br/>
-                        <button className="btn btn-default" onClick={this.calculate}>calculate blob</button>
-                        <button className="btn btn-default" onClick={this.clearCells}>clear</button>
+                        <button className="btn btn-light" onClick={this.calculate}>calculate blob</button>
+                        <button className="btn btn-light" onClick={this.clearCells}>clear</button>
 
                         <br/>
                         <h3>results:</h3>
@@ -272,4 +274,4 @@ Blob = React.createClass({
             </div>
         );
     }
-});
+}

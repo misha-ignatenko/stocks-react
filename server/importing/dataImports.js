@@ -1,3 +1,4 @@
+import moment from 'moment-timezone';
 
 var _totalMaxGradingValue = 120;
 
@@ -187,9 +188,17 @@ Meteor.methods({
 
                     //first, check if that research company exists
                     var _researchCompany = ResearchCompanies.findOne({name: importItem.researchFirmString});
+                    var originalCompanyId;
                     var _researchCompanyId;
                     if (_researchCompany) {
                         _researchCompanyId = _researchCompany._id;
+                        if (_researchCompany.type === "alternative") {
+                            var mainResearchCompany = _researchCompany.referenceId && ResearchCompanies.findOne(_researchCompany.referenceId);
+                            if (mainResearchCompany) {
+                                originalCompanyId = _researchCompany._id;
+                                _researchCompanyId = mainResearchCompany._id;
+                            }
+                        }
                     } else {
                         _researchCompanyId = ResearchCompanies.insert({name: importItem.researchFirmString});
                     }
@@ -245,6 +254,10 @@ Meteor.methods({
                                 addedOn: new Date().toUTCString(),
                                 source: importItem.source
                             };
+                            // if used alternative research company, store the original research company name
+                            if (originalCompanyId) {
+                                _ratingChange.originalResearchCompanyId = originalCompanyId;
+                            }
 
                             // -----------------------------------------------------------------------------
                             // Determine if there are any irregularities.

@@ -1,3 +1,5 @@
+import moment from 'moment-timezone';
+
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
@@ -699,6 +701,7 @@ Meteor.methods({
 
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
+        console.log("inside earningsReleases publication")
 
         var _query = {
             reportDateNextFiscalQuarter: {

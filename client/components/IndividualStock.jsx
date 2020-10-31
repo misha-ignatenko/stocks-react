@@ -1,16 +1,14 @@
-IndividualStock = React.createClass({
-    mixins: [ReactMeteorData],
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 
-    getMeteorData() {
-        let _user = Meteor.user();
-        return {
-            currentUser: _user
-            , allStockNames: Meteor.subscribe("allStockNames").ready() && Stocks.find().fetch()
-        }
-    },
-    getInitialState: function()
-    {
-        return ({
+import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings.jsx';
+
+class IndividualStock extends Component {
+
+    constructor(props) {
+        super(props);
+
+        this.state = {
             individualStockStartDate: null,
             individualStockEndDate: null,
             individualStockSearchResults: [],
@@ -20,10 +18,13 @@ IndividualStock = React.createClass({
             showRegisterAccountBtn: true
             , showAvgRatings: true
             , showWeightedRating: true
-        });
-    },
+        };
 
-    componentWillMount: function() {
+        this.selectTab = this.selectTab.bind(this);
+        this.searchingStock = this.searchingStock.bind(this);
+    }
+
+    componentWillMount() {
         if (_.isNull(Meteor.user())) {
             var _username = Random.id() + "@ign-stocks.com";
             var _password = Random.id();
@@ -33,10 +34,10 @@ IndividualStock = React.createClass({
                 registered: false
             });
         }
-    },
-    searchingStock: function() {
+    }
+    searchingStock() {
         $("#individualStockSearch").val($("#individualStockSearch").val().toUpperCase());
-        let _arrayOfStockSymbolsAvailable = this.data.currentUser.individualStocksAccess ? this.data.currentUser.individualStocksAccess : [];
+        let _arrayOfStockSymbolsAvailable = this.props.currentUser.individualStocksAccess ? this.props.currentUser.individualStocksAccess : [];
         let _searchCandidates = _arrayOfStockSymbolsAvailable.filter(function(symbol) {
             if ($("#individualStockSearch").val() && symbol.search($("#individualStockSearch").val()) > -1) {
                 return true;
@@ -47,38 +48,38 @@ IndividualStock = React.createClass({
         this.setState({
             individualStockSearchResults: _searchCandidates
         });
-    },
-    renderSearchResults: function() {
+    }
+    renderSearchResults() {
         return (this.state.selectedStock || this.state.individualStockSearchResults.length > 0) ? this.state.individualStockSearchResults.map((symbol) => {
             return <button key={symbol} onClick={this.setSelectedStock.bind(this, symbol)}>{symbol}</button>;
         }) : null;
-    },
-    setSelectedStock: function(key) {
+    }
+    setSelectedStock(key) {
         $("#individualStockSearch").val(key);
         this.setState({
             selectedStock: key,
             individualStockSearchResults: []
         });
-    },
-    clearSelectedStock: function() {
+    }
+    clearSelectedStock() {
         this.setState({
             selectedStock: null,
             individualStockSearchResults: []
         });
         $("#individualStockSearch").val("");
-    },
-    resetDateRange: function() {
+    }
+    resetDateRange() {
         $("#individualStockStartDate").val("");
         $("#individualStockEndDate").val("");
         this.setState({
             individualStockStartDate: null,
             individualStockEndDate: null
         });
-    },
+    }
 
     //TODO: add alert to prevent user from adding too many stocks
 
-    selectFirstSearchResult: function(event) {
+    selectFirstSearchResult(event) {
         if (event.keyCode === 13) {
             var _that = this;
             var _s = $("#individualStockSearch").val();
@@ -92,20 +93,20 @@ IndividualStock = React.createClass({
                 }
             });
         }
-    },
-    showRegisterAccountFields: function() {
+    }
+    showRegisterAccountFields() {
         this.setState({
             showRegisterNewAccountFields: true,
             showRegisterAccountBtn: false
         });
-    },
-    hideRegisterAccountFields: function() {
+    }
+    hideRegisterAccountFields() {
         this.setState({
             showRegisterNewAccountFields: false,
             showRegisterAccountBtn: true
         });
-    },
-    registerDummyUser: function() {
+    }
+    registerDummyUser() {
         var _newUsername = React.findDOMNode(this.refs.fromDummyToReal_username).value.trim();
         var _newPassword = React.findDOMNode(this.refs.fromDummyToReal_password).value.trim().toString();
         if (_newUsername && _newPassword) {
@@ -119,27 +120,27 @@ IndividualStock = React.createClass({
                 }
             });
         }
-    },
+    }
 
-    selectTab: function(e) {
+    selectTab(e) {
         let _clickedTabId = $(e.target).attr("id");
 
         this.setState({
             showAvgRatings: _clickedTabId === 'wgt' ? false : true,
             showWeightedRating: _clickedTabId === 'avg' ? false : true
         });
-    },
+    }
 
-    render: function() {
-        let _b = "btn btn-default";
-        let _ab = "btn btn-default active";
+    render() {
+        let _b = "btn btn-light";
+        let _ab = "btn btn-light active";
 
         return (
             <div className="container">
-                { this.data.currentUser ? <div>
-                    {this.data.currentUser.registered ? null :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
-                    { !this.data.currentUser.registered && this.state.showRegisterNewAccountFields ? <div>
-                        username: <input ref="fromDummyToReal_username" value={this.data.currentUser.username}/>
+                { this.props.currentUser ? <div>
+                    {this.props.currentUser.registered ? null :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
+                    { !this.props.currentUser.registered && this.state.showRegisterNewAccountFields ? <div>
+                        username: <input ref="fromDummyToReal_username" value={this.props.currentUser.username}/>
                         password: <input ref="fromDummyToReal_password" value={Random.id()}/>
                         <br/>
                         <button onClick={this.registerDummyUser}>register</button>
@@ -196,4 +197,13 @@ IndividualStock = React.createClass({
             </div>
         )
     }
-})
+}
+
+export default withTracker(() => {
+
+    let _user = Meteor.user();
+    return {
+        currentUser: _user
+        , allStockNames: Meteor.subscribe("allStockNames").ready() && Stocks.find().fetch()
+    }
+})(IndividualStock);

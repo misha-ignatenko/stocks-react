@@ -1,19 +1,21 @@
-NewPortfolioImport = React.createClass({
-    getInitialState() {
-        return {
-            private: true
-        }
-    },
+import React, { Component } from 'react';
 
-    propTypes: {
-        onNewPortfolioCreate: React.PropTypes.func.isRequired
-    },
+export default class NewPortfolioImport extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+            private: true
+        };
+
+        this.toggle = this.toggle.bind(this);
+    }
 
     toggle(event) {
         this.setState({
             private: !this.state.private
         });
-    },
+    }
 
     createNewPortfolio(event) {
         var _that = this;
@@ -34,11 +36,11 @@ NewPortfolioImport = React.createClass({
                 });
             }
         });
-    },
+    }
 
     render() {
-        let _b = "btn btn-default";
-        let _ab = "btn btn-default active";
+        let _b = "btn btn-light";
+        let _ab = "btn btn-light active";
 
         return (<div className="container">
             <br/>
@@ -51,4 +53,4 @@ NewPortfolioImport = React.createClass({
             <button className={_b} onClick={this.createNewPortfolio}>Submit</button>
         </div>);
     }
-});
+}

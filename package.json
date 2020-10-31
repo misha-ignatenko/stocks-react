@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "@babel/runtime": "^7.5.4",
+    "bcrypt": "^3.0.0",
+    "bootstrap": "^4.3.1",
+    "history": "^4.9.0",
+    "jquery": "^3.4.1",
+    "moment-timezone": "^0.5.26",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6",
+    "react-router": "^5.0.1",
+    "reactstrap": "^8.0.1",
+    "underscore": "^1.9.1"
+  }
+}

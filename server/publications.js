@@ -27,6 +27,7 @@ Meteor.publish("specificRatingScales", function(ratingScaleIdsArr) {
     return RatingScales.find({_id: {$in: ratingScaleIdsArr}}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
 });
 Meteor.publish("ratingScales", function() {
+    console.log("inside ratingScales publication");
     return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
 })
 

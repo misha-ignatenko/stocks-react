@@ -1,21 +1,30 @@
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
+import moment from 'moment-timezone';
+
+import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
+
 let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
+const companyConfirmedEarnRelOnly = new ReactiveVar(true);
+const startEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).format("YYYYMMDD")));
+const endEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")));
 
-UpcomingEarningsReleases = React.createClass({
+class UpcomingEarningsReleases extends Component {
 
-    mixins: [ReactMeteorData],
+    constructor(props) {
+        super(props);
 
-    getInitialState() {
         let _ratingChangesDateFormat = "YYYY-MM-DD";
 
-        return {
-            companyConfirmedEarnRelOnly: true,
+        this.state = {
             startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
             endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
-            startEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).format("YYYYMMDD")),
-            endEarningsReleaseDateInteger: parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")),
             ratingChangesSubscriptionHandles: {}
-        }
-    },
+        };
+
+        this.convertQuandlFormatNumberDateToDateStringWithSlashes = this.convertQuandlFormatNumberDateToDateStringWithSlashes.bind(this);
+        this.setDatepickerOptions = this.setDatepickerOptions.bind(this);
+    }
 
     getMeteorData() {
 
@@ -38,9 +47,9 @@ UpcomingEarningsReleases = React.createClass({
         }
 
         return data;
-    },
+    }
 
-    setDatepickerOptions: function() {
+    setDatepickerOptions() {
         let _datepickerOptions = {
             autoclose: true,
             todayHighlight: true,
@@ -48,8 +57,8 @@ UpcomingEarningsReleases = React.createClass({
         };
         $('#startEarningsReleaseDateInteger').datepicker(_datepickerOptions);
         $('#endEarningsReleaseDateInteger').datepicker(_datepickerOptions);
-        $('#startEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(this.state.startEarningsReleaseDateInteger));
-        $('#endEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(this.state.endEarningsReleaseDateInteger));
+        $('#startEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(startEarningsReleaseDateInteger.get()));
+        $('#endEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(endEarningsReleaseDateInteger.get()));
         var _that = this;
 
         $('.datepickerInput2').on('change', function() {
@@ -60,14 +69,14 @@ UpcomingEarningsReleases = React.createClass({
             _set[_id] = _momentDate;
             _that.setState(_set);
         });
-    },
-    convertQuandlFormatNumberDateToDateStringWithSlashes: function(_dateStringWithNoSlashesAsNumber) {
+    }
+    convertQuandlFormatNumberDateToDateStringWithSlashes(_dateStringWithNoSlashesAsNumber) {
         _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
         var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
         var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
         var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
         return _month + "/" + _day + "/" + _year;
-    },
+    }
 
     focusStocks(stocksArr) {
         var _alreadyAvailableRatingChangesForSymbols = _.pluck(RatingChanges.find().fetch(), "symbol");
@@ -96,21 +105,19 @@ UpcomingEarningsReleases = React.createClass({
             ratingChangesSubscriptionHandles: _existingHandles
         });
 
-    },
+    }
 
     toggleCompanyConfirmedOnly() {
-        this.setState({
-            companyConfirmedEarnRelOnly: !this.state.companyConfirmedEarnRelOnly
-        });
-    },
+        companyConfirmedEarnRelOnly.set(!companyConfirmedEarnRelOnly.get());
+    }
 
     render() {
-        let _compOnlyBtnClass = "btn btn-default" + (this.state.companyConfirmedEarnRelOnly ? " active" : "");
+        let _compOnlyBtnClass = "btn btn-light" + (companyConfirmedEarnRelOnly.get() ? " active" : "");
 
         return (
             <div className="container">
-                { this.data.currentUser ? (
-                    this.data.currentUser.registered ? (
+                { this.props.currentUser ? (
+                    this.props.currentUser.registered ? (
                         <div>
                             <br/>
                             <div className="datepickers" ref={this.setDatepickerOptions}>
@@ -126,9 +133,30 @@ UpcomingEarningsReleases = React.createClass({
                         </div>
                     ) : null
                 ) : null}
-                {this.data.earningsReleasesSubscriptionReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases."}
+                {this.props.earningsReleasesSubscriptionReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases."}
                 <br/>
             </div>
         );
     }
-});
+}
+
+export default withTracker((props) => {
+    //check if EXP_RPT_DATE_QR1 or EXP_RPT_DATE_QR2 exist inside earningreleases collection
+    //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
+
+    var data = {};
+    data.currentUser = Meteor.user();
+    data.settings = Settings.findOne();
+    if (data.settings) {
+        var _endDateForEarningsReleasesSubscription =
+            data.currentUser ?
+                endEarningsReleaseDateInteger.get() :
+                parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
+        var _handle1 = Meteor.subscribe("earningsReleases", startEarningsReleaseDateInteger.get(), _endDateForEarningsReleasesSubscription, companyConfirmedEarnRelOnly.get());
+        if (_handle1.ready() && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("allStockNames").ready()) {
+            data.earningsReleasesSubscriptionReady = true;
+        }
+    }
+
+    return data;
+})(UpcomingEarningsReleases);

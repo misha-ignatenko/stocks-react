@@ -1,13 +1,18 @@
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
+
 var _totalNUmberOfPossibleRatingThresholds = 12;
 
-ImportRatingScales = React.createClass({
-    mixins: [ReactMeteorData],
+class ImportRatingScales extends Component {
+    constructor(props) {
+        super(props);
 
-    getMeteorData() {
-        return {
-            currentUser: Meteor.user()
-        }
-    },
+        this.state = {
+
+        };
+
+        this.submitRatingScales = this.submitRatingScales.bind(this);
+    }
     submitRatingScales() {
         let _allRatings = [];
         for (var i = 1; i <= _totalNUmberOfPossibleRatingThresholds; i++) {
@@ -49,7 +54,7 @@ ImportRatingScales = React.createClass({
                 }
             })
         }
-    },
+    }
     renderAllInputFields() {
         let _arrayOfInputRefs = [];
         for (var i = 1; i <= _totalNUmberOfPossibleRatingThresholds; i++) {
@@ -58,13 +63,13 @@ ImportRatingScales = React.createClass({
         return _arrayOfInputRefs.map((refString) => {
             return <li key={refString}>Rating string: <input ref={refString}/></li>
         })
-    },
+    }
 
     render() {
 
         return (
             <div className="container">
-                { this.data.currentUser ? (<div className="ratingScalesDataImport">
+                { this.props.currentUser ? (<div className="ratingScalesDataImport">
                     <h1>Rating Scales Data Import</h1>
                     <h3>Please specify the rating scale for <input ref="researchFirmString"/> company, from lowest to highest:</h3>
                     <ol>
@@ -79,4 +84,11 @@ ImportRatingScales = React.createClass({
             </div>
         );
     }
-});
+}
+
+export default withTracker(() => {
+
+    return {
+        currentUser: Meteor.user()
+    }
+})(ImportRatingScales);

@@ -1,33 +1,31 @@
-ExistingPortfolioImport = React.createClass({
+import React, { Component } from 'react';
 
-    mixins: [ReactMeteorData],
+export default class ExistingPortfolioImport extends Component {
 
-    getMeteorData() {
-        let _data = {};
+    constructor(props) {
+        super(props);
 
-        return _data;
-    },
-
-    getInitialState() {
-        return {
+        this.state = {
             equalWeight: true,
             splitIntoCells: false,
             textAreaValue: "",
             cellValues: []
-        }
-    },
+        };
+
+        this.changeWeightConfig = this.changeWeightConfig.bind(this);
+    }
 
     changeWeightConfig() {
         this.setState({
             equalWeight: !this.state.equalWeight
         });
-    },
+    }
 
     handleIndividualCellChange() {
 
-    },
+    }
 
-    renderCells: function() {
+    renderCells() {
         var _firstObj = this.state.cellValues[0];
         var _keys = [];
         for (var key in _firstObj) {
@@ -58,7 +56,7 @@ ExistingPortfolioImport = React.createClass({
                 })}
             </div>
         );
-    },
+    }
 
     convertToCells(event) {
         //parse stuff here and set splitIntoCells to true of all items contain the keys from 1st object
@@ -127,23 +125,23 @@ ExistingPortfolioImport = React.createClass({
         this.setState({
             textAreaValue: _textAreaNewValue
         })
-    },
+    }
 
-    clearCells: function() {
+    clearCells() {
         this.setState({
             textAreaValue: "",
             splitIntoCells: false,
             cellValues: []
         });
-    },
+    }
 
     removeWarningsAndResults() {
         $(".bootstrap-growl").remove();
-    },
+    }
 
     componentWillUnmount() {
         this.removeWarningsAndResults();
-    },
+    }
 
     verifyAndImport() {
 
@@ -180,11 +178,11 @@ ExistingPortfolioImport = React.createClass({
                     });
             }
         });
-    },
+    }
 
    render() {
-       let _b = "btn btn-md btn-default";
-       let _ab = "btn btn-md btn-default active";
+       let _b = "btn btn-md btn-light";
+       let _ab = "btn btn-md btn-light active";
 
        return (<div className="container">
            <br/>
@@ -202,11 +200,11 @@ ExistingPortfolioImport = React.createClass({
            </div> : <div>
                {this.renderCells()}
                <br/><br/>
-               <button className="btn btn-lg btn-default"
+               <button className="btn btn-lg btn-light"
                    onClick={this.verifyAndImport}>IMPORT</button>
                <br/><br/><br/><br/>
            </div> }
 
        </div>);
    }
-});
+}

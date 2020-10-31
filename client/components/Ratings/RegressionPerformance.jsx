@@ -1,27 +1,19 @@
-RegressionPerformance = React.createClass({
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
+import moment from 'moment-timezone';
 
-    mixins: [ReactMeteorData],
+import StocksGraph from '../StocksGraph.jsx';
 
-    propTypes: {
-        symbol: React.PropTypes.string.isRequired,
-    },
+class RegressionPerformance extends Component {
 
-    getInitialState() {
+    constructor(props) {
+        super(props);
 
-        return {
+        this.state = {
             regressionPerformance: undefined,
             rollingNum: 50,
-        }
-    },
-
-    getMeteorData() {
-        let _symbol = this.props.symbol;
-        let _data = {};
-        let _currentUser = Meteor.user();
-        _data.settings = Settings.findOne();
-
-        return _data;
-    },
+        };
+    }
 
     componentWillMount() {
         console.log("mounting", this.props.symbol);
@@ -36,7 +28,7 @@ RegressionPerformance = React.createClass({
                 _that.setState({regressionPerformance: res});
             }
         });
-    },
+    }
 
     render() {
         var _data = this.state.regressionPerformance;
@@ -157,4 +149,13 @@ RegressionPerformance = React.createClass({
             </div>
         );
     }
-});
+}
+
+export default withTracker((props) => {
+    let _symbol = props.symbol;
+    let _data = {};
+    let _currentUser = Meteor.user();
+    _data.settings = Settings.findOne();
+
+    return _data;
+})(RegressionPerformance);

@@ -1,47 +1,44 @@
-//TODO React is not defined
-//var React = require('react-bootstrap');
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+import AccountsUIWrapper from './AccountsUIWrapper.jsx';
+import IndividualStock from './IndividualStock.jsx';
+import UpcomingEarningsReleases from './UpcomingEarningsReleases.jsx';
+import DataImportsMain from './dataImports/DataImportsMain.jsx';
+import Portfolio from './portfolios/Portfolio.jsx';
+
 var _mainTabName = "mainTab";
 var _individualStockTabName = "individualStockTab";
 var _upcomingEarningsReleasesTabName = "upcomingEarningsReleases";
 var _dataImportsTabName = "dataImportsTab";
 
-StocksApp = React.createClass({
+class StocksApp extends Component {
+    constructor(props) {
+        super(props);
 
-    mixins: [ReactMeteorData],
-
-    getInitialState() {
-        return {
+        this.state = {
             tabNameToShow: _mainTabName
             , selectedPortfolioId: null
             , showPortfolios: true
-        }
-    },
-
-    getMeteorData() {
-        let _data = {
-            currentUser: Meteor.user()
         };
 
-        if (Meteor.subscribe("portfolios").ready()) {
-            let _allPortfs = Portfolios.find().fetch();
-            _data.portfolios = _allPortfs;
-        }
-
-        return _data;
-    },
+        this.selectTab = this.selectTab.bind(this);
+        this.showHidePortfs = this.showHidePortfs.bind(this);
+    }
 
     setSelectedPortf(portId) {
         this.setState({
             selectedPortfolioId: portId,
             showPortfolios: false
         });
-    },
+    }
 
     renderPortfolios() {
-        return this.data.portfolios.map((portfolio) => {
-            return <button className="btn btn-default btn-lg" key={portfolio._id} onClick={this.setSelectedPortf.bind(this, portfolio._id)}>{portfolio.name}</button>;
+        return this.props.portfolios.map((portfolio) => {
+            return <button className="btn btn-light btn-lg" key={portfolio._id} onClick={this.setSelectedPortf.bind(this, portfolio._id)}>{portfolio.name}</button>;
         });
-    },
+    }
 
     renderSelectedPortfolio() {
         let _pId = this.state.selectedPortfolioId;
@@ -50,13 +47,13 @@ StocksApp = React.createClass({
             key={_pId}
             portfolioId={_pId}
         /> : <div>SELECT A PORTFOLIO TO SEE PERFORMANCE</div>;
-    },
+    }
 
     showHidePortfs() {
         this.setState({
             showPortfolios: !this.state.showPortfolios
         });
-    },
+    }
 
     createNewPortfolio(event) {
         event.preventDefault();
@@ -65,22 +62,23 @@ StocksApp = React.createClass({
         Meteor.call("createNewPortfolio", _name, function (error, result) {
             _that.refs.textInput.value = "";
         });
-    },
+    }
 
     selectTab(e) {
         let _clickedTabName = $(e.target).attr("id");
         this.setState({
             tabNameToShow: _clickedTabName
         });
-    },
+    }
 
     render() {
         //add this to tabs to make router work
         //<li className="tab3"><a href="/dataimport/updowngrades">TEST TO UP DOWN GRADES</a></li>
-        let _b = "btn btn-default";
-        let _ab = "btn btn-default active";
+        let _b = "btn btn-light";
+        let _ab = "btn btn-light active";
+
         return (
-            <div className="container">
+            <div>
                 <header>
                     <AccountsUIWrapper />
                 </header>
@@ -89,13 +87,13 @@ StocksApp = React.createClass({
                     <button type="button" className={this.state.tabNameToShow === _mainTabName ? _ab : _b} id={_mainTabName} onClick={this.selectTab}>Portfolios</button>
                     <button type="button" className={this.state.tabNameToShow === _individualStockTabName ? _ab : _b} id={_individualStockTabName} onClick={this.selectTab}>Individual Stocks</button>
                     <button type="button" className={this.state.tabNameToShow === _upcomingEarningsReleasesTabName ? _ab : _b} id={_upcomingEarningsReleasesTabName} onClick={this.selectTab}>Upcoming Earnings Releases</button>
-                    {this.data.currentUser && this.data.currentUser.showDataImportsTab ? <button type="button" className={this.state.tabNameToShow === _dataImportsTabName ? _ab : _b} id={_dataImportsTabName} onClick={this.selectTab}>Data Imports</button> : null }
+                    {this.props.currentUser && this.props.currentUser.showDataImportsTab ? <button type="button" className={this.state.tabNameToShow === _dataImportsTabName ? _ab : _b} id={_dataImportsTabName} onClick={this.selectTab}>Data Imports</button> : null }
                 </div>
 
                 { this.state.tabNameToShow === _mainTabName ? (
                     <div>
                         <br/>
-                        { this.data.currentUser ?
+                        { this.props.currentUser ?
                             <form className="col-md-4 new-pickList" style={{float: "right"}} onSubmit={this.createNewPortfolio} >
                                 <input
                                     style={{width: "100%"}}
@@ -106,8 +104,8 @@ StocksApp = React.createClass({
                         }
                         <br/>
                         <br/>
-                        <button className="btn btn-default" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfolios" : "show portfolios"}</button>
-                        {this.data.portfolios ? <div className="container">
+                        <button className="btn btn-light" onClick={this.showHidePortfs}>{this.state.showPortfolios ? "hide portfolios" : "show portfolios"}</button>
+                        {this.props.portfolios ? <div className="container">
                             {this.state.showPortfolios ? this.renderPortfolios() : null}
                             {this.renderSelectedPortfolio()}
                         </div> : "GETTING PORTFOLIOS"}
@@ -132,4 +130,17 @@ StocksApp = React.createClass({
             </div>
         );
     }
-});
+}
+
+export default withTracker(() => {
+
+    let _data = {
+        currentUser: Meteor.user()
+    };
+
+    if (Meteor.subscribe("portfolios").ready()) {
+        _data.portfolios = Portfolios.find().fetch();
+    }
+
+    return _data;
+})(StocksApp);

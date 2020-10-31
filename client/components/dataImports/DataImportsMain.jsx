@@ -1,26 +1,39 @@
+import React, { Component } from 'react';
+
+import PortfoliosImport from './portfolios/PortfoliosImportMain.jsx';
+import RatingChangesConsistency from './ratingChanges/RatingChangesConsistency.jsx';
+import UpDownGradesJSONDataImport from './UpDownGradesJSONDataImport.jsx';
+import ImportRatingScales from './ImportRatingScales.jsx';
+import EarningsReleasesJSONDataImport from './EarningsReleasesJSONDataImport.jsx';
+
 var _earningsReleasesImportTabName = "Earnings Releases";
 var _ratingScalesImportTabName = "Rating Scales";
 var _ratingChangesImportTabName = "Rating Changes";
 var _ratingChangeConsistency = "Rating Changes Consistency";
 var _portfolioImportTabName = "Portfolios";
 
-DataImportsMain = React.createClass({
+export default class DataImportsMain extends Component {
 
-    getInitialState() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selectedTab: ""
-        }
-    },
+        };
+
+        this.selectTab = this.selectTab.bind(this);
+    }
+
     selectTab(e) {
         let _clickedTabName = $(e.target).attr("id");
         this.setState({
             selectedTab: _clickedTabName
         });
-    },
+    }
 
     render() {
-        let _b = "btn btn-default";
-        let _ab = "btn btn-default active";
+        let _b = "btn btn-light";
+        let _ab = "btn btn-light active";
 
         return (
             <div className="container DataImportsMainDiv">
@@ -40,4 +53,4 @@ DataImportsMain = React.createClass({
             </div>
         );
     }
-});
+}

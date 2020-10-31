@@ -1,11 +1,7 @@
-EarningsReleasesJSONDataImport = React.createClass({
-    mixins: [ReactMeteorData],
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 
-    getMeteorData() {
-        return {
-            currentUser: Meteor.user()
-        }
-    },
+class EarningsReleasesJSONDataImport extends Component {
 
     verifyAndImportUpDownGradesJSONData() {
         var _textAreaValue = this.refs.earningsReleasesTextArea.value;
@@ -22,12 +18,12 @@ EarningsReleasesJSONDataImport = React.createClass({
         _allStocks = _.uniq(_allStocks);
         this.refs.earningsReleasesTextArea.value = "";
         Meteor.call('importData', _allStocks, 'earnings_releases', false);
-    },
+    }
 
     render() {
         return (
             <div className="container">
-                { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
+                { this.props.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Earnings Releases Data Import</h1>
                     <p>Please enter stock symbols separated by commas or new lines:</p>
                     <textarea ref="earningsReleasesTextArea" rows="20" cols="100"></textarea>
@@ -37,4 +33,11 @@ EarningsReleasesJSONDataImport = React.createClass({
             </div>
         );
     }
-});
+}
+
+export default withTracker(() => {
+
+    return {
+        currentUser: Meteor.user()
+    }
+})(EarningsReleasesJSONDataImport);

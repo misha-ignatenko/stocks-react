@@ -1,21 +1,17 @@
-PickListItem = React.createClass({
+import { Component } from 'react';
 
-    getInitialState: function() {
+class PickListItem extends Component {
+
+    getInitialState() {
         return {
             includeInGraph: false,
             showRemoveDateField: false,
             showRemoveFromPortfolioBtn: true,
             dateRemoved: null
         };
-    },
+    }
 
-    propTypes: {
-        pickListItem: React.PropTypes.object.isRequired,
-        showPickListItem: React.PropTypes.bool.isRequired,
-        stockToGraphAddition: React.PropTypes.func.isRequired
-    },
-
-    addToGraph: function() {
+    addToGraph() {
 
 
         //set this.props.stockToGraphAddition as object with stockID and whether or not it should  be included
@@ -38,22 +34,22 @@ PickListItem = React.createClass({
         //then if not call the Yahoo Finance and add data to StockPrices collection
         //add that line to graph
         //use example from web -- graph looks amaze.
-    },
-    deleteThisPickListItem: function() {
+    }
+    deleteThisPickListItem() {
         console.log("deleting portfolio item", this.props.pickListItem._id);
         Meteor.call("removePickListItem", this.props.pickListItem._id, function(error, result) {
             if (!error) {
                 console.log("successfully deleter pick list item.");
             }
         });
-    },
-    showRemoveDateField: function() {
+    }
+    showRemoveDateField() {
         this.setState({
             showRemoveFromPortfolioBtn: false,
             showRemoveDateField: true
         });
-    },
-    doRemove: function() {
+    }
+    doRemove() {
         var _that = this;
         Meteor.call("removeStockFromPickList", this.props.pickListItem._id, this.state.dateRemoved, function(error, result) {
             if (!error) {
@@ -63,8 +59,8 @@ PickListItem = React.createClass({
                 });
             }
         })
-    },
-    setDatepickerOptions: function() {
+    }
+    setDatepickerOptions() {
         let _datepickerOptions = {
             autoclose: true,
             todayHighlight: true,
@@ -80,11 +76,11 @@ PickListItem = React.createClass({
                 dateRemoved: _momentDate
             });
         });
-    },
+    }
 
     render() {
         const pickListClassName = "pickListItem";
-        let _buttonClassName = this.state.includeInGraph ? "btn btn-primary active" : "btn btn-default";
+        let _buttonClassName = this.state.includeInGraph ? "btn btn-primary active" : "btn btn-light";
 
         return (
             <div className={pickListClassName}>
@@ -109,4 +105,4 @@ PickListItem = React.createClass({
             </div>
         );
     }
-});
+}

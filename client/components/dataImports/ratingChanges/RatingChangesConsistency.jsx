@@ -1,30 +1,17 @@
-RatingChangesConsistency = React.createClass({
-    mixins: [ReactMeteorData],
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 
-    getInitialState() {
-        return {
+class RatingChangesConsistency extends Component{
+
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selectedSymbol: undefined,
             showFirms: true,
             selectedFirmId: undefined
         };
-    },
-
-    getMeteorData() {
-        var _data = {
-            currentUser: Meteor.user()
-        };
-        if (this.state.selectedSymbol && Meteor.subscribe("allRatingChangesForSymbol", this.state.selectedSymbol).ready() && Meteor.subscribe("ratingScales").ready()) {
-            _data.allRatingChanges = RatingChanges.find({symbol: this.state.selectedSymbol}, {sort: {dateString: 1}}).fetch();
-            _data.uniqFirmIds = _.uniq(_.pluck(_data.allRatingChanges, "researchFirmId"));
-            _data.ratingScales = RatingScales.find().fetch();
-            var _firmId = this.state.selectedFirmId;
-            if (_firmId) {
-                _data.rChForFirm = _.filter(_data.allRatingChanges, function (rCh) { return rCh.researchFirmId === _firmId; })
-            }
-        }
-
-        return _data;
-    },
+    }
 
     showRes() {
         var _trimmed = this.refs.sym.value.trim();
@@ -36,21 +23,21 @@ RatingChangesConsistency = React.createClass({
             })
             this.refs.sym.value = "";
         }
-    },
+    }
     setFirm(event) {
         this.setState({
             showFirms: false,
             selectedFirmId: event.target.value
         })
-    },
+    }
     removeDup(event) {
         Meteor.call("removeDupRatingChange", event.target.value, function (err, res) {
             console.log(err);
         });
-    },
+    }
     renderRatingChangeHistory() {
-        var _rCh = this.data.rChForFirm;
-        var _rSc = this.data.ratingScales;
+        var _rCh = this.props.rChForFirm;
+        var _rSc = this.props.ratingScales;
         var _displayData = [];
         if (_rCh) {
             _.each(_rCh, function (rc, index) {
@@ -90,28 +77,46 @@ RatingChangesConsistency = React.createClass({
                                 old: {data.old}<br/>
                                 new: {data.new}&nbsp;&nbsp;&nbsp;
                                 {data.duplicate ?
-                                    <button className="btn btn-default btn-sm" value={data._id} onClick={this.removeDup}>remove dup</button> :
+                                    <button className="btn btn-light btn-sm" value={data._id} onClick={this.removeDup}>remove dup</button> :
                                     null}
                                 </li>
                         })}
                     </ul> : null}
         </div>
-    },
+    }
 
     render() {
 
         return (
             <div className="container">
-                { this.data.currentUser ? (<div className="ratingChangesConsistencyDiv">
+                { this.props.currentUser ? (<div className="ratingChangesConsistencyDiv">
                         <h1>Rating Changes Consistency</h1>
-                        Symbol: <input ref="sym" /> <button className="btn btn-default" onClick={this.showRes}>Show Results</button>
-                        {this.data.allRatingChanges ? <p>Total rating changes: {this.data.allRatingChanges.length}</p> : null}
-                        {this.state.showFirms && this.data.uniqFirmIds ? <div>{this.data.uniqFirmIds.map((firmId) => {
-                            return <button key={firmId} value={firmId} className="btn btn-default btn-sm" onClick={this.setFirm}>{firmId}</button>
+                        Symbol: <input ref="sym" /> <button className="btn btn-light" onClick={this.showRes}>Show Results</button>
+                        {this.props.allRatingChanges ? <p>Total rating changes: {this.props.allRatingChanges.length}</p> : null}
+                        {this.state.showFirms && this.props.uniqFirmIds ? <div>{this.props.uniqFirmIds.map((firmId) => {
+                            return <button key={firmId} value={firmId} className="btn btn-light btn-sm" onClick={this.setFirm}>{firmId}</button>
                             })}</div> : null}
                         {this.renderRatingChangeHistory()}
                     </div>) : <p>Please log in.</p> }
             </div>
         );
     }
-});
+}
+
+export default withTracker(() => {
+
+    var _data = {
+        currentUser: Meteor.user()
+    };
+    if (this.state && this.state.selectedSymbol && Meteor.subscribe("allRatingChangesForSymbol", this.state.selectedSymbol).ready() && Meteor.subscribe("ratingScales").ready()) {
+        _data.allRatingChanges = RatingChanges.find({symbol: this.state.selectedSymbol}, {sort: {dateString: 1}}).fetch();
+        _data.uniqFirmIds = _.uniq(_.pluck(_data.allRatingChanges, "researchFirmId"));
+        _data.ratingScales = RatingScales.find().fetch();
+        var _firmId = this.state.selectedFirmId;
+        if (_firmId) {
+            _data.rChForFirm = _.filter(_data.allRatingChanges, function (rCh) { return rCh.researchFirmId === _firmId; })
+        }
+    }
+
+    return _data;
+})(RatingChangesConsistency);

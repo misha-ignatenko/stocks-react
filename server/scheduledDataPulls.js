@@ -1,3 +1,6 @@
+import moment from 'moment-timezone';
+import _ from 'underscore';
+
 var _serverSideVarCount = 0;
 
 Meteor.startup(function() {
@@ -27,6 +30,7 @@ Meteor.startup(function() {
                 from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
                 subject: 'getting earnings releases',
                 text: JSON.stringify({
+                    hostname: Meteor.absoluteUrl(),
                     timeNow: new Date(),
                     symbols: _.uniq(_allStockSymbols)
                 })
@@ -46,19 +50,15 @@ Meteor.methods({
     "getVarFromServer": function() {
         return _serverSideVarCount;
     }
-    , "sendMissingEarningsReleaseSymbolsEmail": function () {
+    , async "sendMissingEarningsReleaseSymbolsEmail"() {
         // get all available stocks (symbols are _id attributes in universal format)
         var _allUniqueStockSymbols = _.uniq(StocksReactUtils.symbols.getLiveSymbols());
 
         // get all available unique earnings release records (symbols are symbol attributes in universal format)
-        var _uniqueEarningsReleaseSymbols = _.uniq(_.pluck(EarningsReleases.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
+        var _uniqueEarningsReleaseSymbols = await EarningsReleases._collection.rawCollection().distinct("symbol").then(symbols => {return symbols;});
 
 
         // figure out which stocks have no earnings releases
-        // _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols)
-
-
-        // check which of these do not have a quote from Yahoo
         var _symbolsThatHaveBidsOrAsks = _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols);
 
 

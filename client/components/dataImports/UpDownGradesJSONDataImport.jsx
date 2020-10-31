@@ -1,21 +1,24 @@
-UpDownGradesJSONDataImport = React.createClass({
-    mixins: [ReactMeteorData],
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 
-    getMeteorData() {
-        return {
-            currentUser: Meteor.user()
-        }
-    },
+class UpDownGradesJSONDataImport extends Component {
 
-    getInitialState() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             sourceChoices: ["fidelity", "briefing", "schwab"],
             selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,
             cellValues: []
-        }
-    },
+        };
+
+        this.handleChange = this.handleChange.bind(this);
+        this.handleIndividualCellChange = this.handleIndividualCellChange.bind(this);
+        this.verifyAndImportUpDownGradesJSONData = this.verifyAndImportUpDownGradesJSONData.bind(this);
+        this.clearCells = this.clearCells.bind(this);
+    }
 
     handleChange(event) {
         //parse stuff here and set splitIntoCells to true of all items contain the keys from 1st object
@@ -85,7 +88,7 @@ UpDownGradesJSONDataImport = React.createClass({
         this.setState({
             textAreaValue: _textAreaNewValue
         })
-    },
+    }
     verifyAndImportUpDownGradesJSONData() {
         //var _importObjects = '[' + this.state.textAreaValue.substring(0,this.state.textAreaValue.length-1) + ']';
         //var _parsed = JSON.parse(_importObjects);
@@ -128,13 +131,13 @@ UpDownGradesJSONDataImport = React.createClass({
                 }
             }
         });
-    },
+    }
 
-    componentWillUnmount: function() {
+    componentWillUnmount() {
         $(".bootstrap-growl").remove();
-    },
+    }
 
-    handleIndividualCellChange: function(event) {
+    handleIndividualCellChange(event) {
         var _id = $(event.target).attr("id");
         var _key = _id.split("_")[1];
         var _index = _id.split("_")[0];
@@ -142,8 +145,8 @@ UpDownGradesJSONDataImport = React.createClass({
         var _previousCellValues = this.state.cellValues;
         _previousCellValues[_index][_key] = event.target.value;
         this.setState({cellValues: _previousCellValues});
-    },
-    renderCells: function() {
+    }
+    renderCells() {
         var _firstObj = this.state.cellValues[0];
         var _keys = [];
         for (var key in _firstObj) {
@@ -153,13 +156,14 @@ UpDownGradesJSONDataImport = React.createClass({
             <div>
 
 
+                <div className="row">
                 {_keys.map((key) => {
                     var _keyyy = key.replace(/ /g,"_");
                     return <div className="col-md-2" key={_keyyy}>
                         <span key={_keyyy}>{key}</span>
                     </div>
                 })}
-                <br/>
+                </div>
 
 
                 {this.state.cellValues.map((cellValues, index) => {
@@ -173,33 +177,33 @@ UpDownGradesJSONDataImport = React.createClass({
                 })}
             </div>
         );
-    },
-    clearCells: function() {
+    }
+    clearCells() {
         this.setState({
             selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,
             cellValues: []
         });
-    },
+    }
 
     selectSourceChoice (source) {
         this.setState({
             selectedSource: source
         })
-    },
+    }
 
     render() {
         var textAreaValue = this.state.textAreaValue;
         var _selectedSource = this.state.selectedSource;
         return (
-            <div className="container">
-                { this.data.currentUser ? (<div className="upDowngradesJSONDataImport">
+            <div>
+                { this.props.currentUser ? (<div className="upDowngradesJSONDataImport">
                     <h1>Up/downgrades entry page:</h1>
                     {/*<h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>*/}
                     Source: <div className="btn-group" role="group" aria-label="...">
                         {this.state.sourceChoices.map((choice) => {
-                            let _btnClass = ("btn btn-default") + (choice === _selectedSource ? " active" : "");
+                            let _btnClass = ("btn btn-light") + (choice === _selectedSource ? " active" : "");
                             return <button className={_btnClass} key={choice} onClick={this.selectSourceChoice.bind(this, choice)}>{choice}</button>
                         })}
                     </div>
@@ -217,11 +221,18 @@ UpDownGradesJSONDataImport = React.createClass({
                                 <button
                                     onClick={this.verifyAndImportUpDownGradesJSONData}>import</button> }
                             <br/>
-                            <button className="btn btn-default" onClick={this.clearCells}>clear</button>
+                            <button className="btn btn-light" onClick={this.clearCells}>clear</button>
                         </div>
                     }
                 </div>) : <p>plz log in</p> }
             </div>
         );
     }
-});
+}
+
+export default withTracker(() => {
+
+    return {
+        currentUser: Meteor.user()
+    }
+})(UpDownGradesJSONDataImport);
