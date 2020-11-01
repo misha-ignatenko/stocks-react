@@ -1,4 +1,5 @@
-if (Meteor.isClient) {
+import moment from 'moment-timezone';
+
     Accounts.ui.config({
         passwordSignupFields: "USERNAME_ONLY"
     });
@@ -41,12 +42,15 @@ if (Meteor.isClient) {
             };
             $("." + dateRangeClassName).datepicker(_daterangeOptions);
         },
-        getStateForDateRangeChangeEvent: function(event) {
-            var _newVal = $(event.target).val();
+        getStateForDateRangeChangeEvent: function(event, optionalDate=false) {
+            var _newVal = optionalDate || $(event.target).val();
             var _format = "YYYY-MM-DD";
             var _momentDate = moment(new Date(_newVal).toISOString()).format(_format);
             if (moment(_momentDate).isAfter(moment())) {
                 _momentDate = moment(new Date().toISOString()).format(_format);
+            }
+            if (optionalDate) {
+                return _momentDate;
             }
             var _id = $(event.target).attr('id');
             var _set = {};
@@ -55,4 +59,3 @@ if (Meteor.isClient) {
             return _set;
         }
     };
-}
