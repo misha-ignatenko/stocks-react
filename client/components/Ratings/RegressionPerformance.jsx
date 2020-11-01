@@ -98,7 +98,7 @@ class RegressionPerformance extends Component {
                         <th>{_regrStartDate}&nbsp;&nbsp;&nbsp;&nbsp;</th>
                         <th>{_data.actualStart.dateString}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</th>
                         <th>{_data.actualEnd.dateString}&nbsp;&nbsp;&nbsp;&nbsp;</th>
-                        <th>% up/dn (from own)&nbsp;&nbsp;&nbsp;&nbsp;</th>
+                        <th>% up/dn (from {_data.actualStart.dateString})&nbsp;&nbsp;&nbsp;&nbsp;</th>
                         <th>% up/dn (from actual)&nbsp;&nbsp;&nbsp;&nbsp;</th>
                         <th>% up/dn (from rolling)</th>
                     </tr>
@@ -114,7 +114,7 @@ class RegressionPerformance extends Component {
                         <td>{pctDiff(_rollingPriceCheck, _actualEndPrice)}</td>
                     </tr>
                     <tr>
-                        <td>rolling ({this.state.rollingNum})</td>
+                        <td>rolling price ({this.state.rollingNum})</td>
                         <td>{_rollingRegrStart}</td>
                         <td>{_rollingRegrEnd}</td>
                         <td>{_rollingPriceCheck}</td>
