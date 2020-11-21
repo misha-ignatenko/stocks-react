@@ -1,5 +1,9 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import moment from 'moment-timezone';
+import { EJSON } from 'meteor/ejson';
 
 import StocksGraph from '../StocksGraph.jsx';
 import RegressionPerformance from './RegressionPerformance.jsx';
@@ -25,12 +29,12 @@ class AverageAndWeightedRatings extends Component {
 
         this.state = {
             pxRollingDays: 50,
-            pctDownPerDay: 0.5,
-            pctUpPerDay: 0.5,
-            stepSizePow: -7,
-            regrIterNum: 30,
+            pctDownPerDay: pctDownPerDay.get(),
+            pctUpPerDay: pctUpPerDay.get(),
+            stepSizePow: stepSizePow.get(),
+            regrIterNum: regrIterNum.get(),
             avgRatingEndDate: _avgRatingEndDate,
-            priceReactionDelayDays: 0
+            priceReactionDelayDays: priceReactionDelayDays.get(),
         };
 
         avgRatingEndDate.set(_avgRatingEndDate);
@@ -48,21 +52,39 @@ class AverageAndWeightedRatings extends Component {
     componentWillMount() {
         this.getPricesForSymbolAndEarliestRatingsChangeDate(this.props.symbol);
     }
+    // this is needed to keep the reactive vars and the local state in sync. the synced state is needed for shouldComponentUpdate
+    syncReactiveVarsAndState(reactiveVars, values, stateKeys) {
+        let newState = {};
+        reactiveVars.forEach((reactiveVar, index) => {
+            reactiveVar.set(values[index]);
+            newState[stateKeys[index]] = values[index];
+        });
+        this.setState(newState);
+    }
+    syncOneReactiveVarAndState(reactiveVar, value, stateKey) {
+        this.syncReactiveVarsAndState([reactiveVar], [value], [stateKey]);
+    }
 
     getPricesForSymbolAndEarliestRatingsChangeDate(symbol) {
         var _that = this;
-        _that.setState({allStockPrices: undefined, avgRatingStartDate: undefined});
-        avgRatingStartDate.set(undefined);
-        allStockPrices.set(undefined);
+        this.syncReactiveVarsAndState([allStockPrices, avgRatingStartDate], [undefined, undefined], ['allStockPrices', 'avgRatingStartDate']);
         Meteor.call("getPricesForSymbol", symbol, function (err1, res1) {
             Meteor.call("getEarliestRatingChange", symbol, function (err2, res2) {
                 if (res1 && res1.length > 0 && res2 && !err1 && !err2) {
                     var _simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(res1, res2, _that.state.pxRollingDays);
-
-                    _that.setState({allStockPrices: res1, avgRatingStartDate: res2, simpleRollingPx: _simpleRollingPx});
-                    avgRatingStartDate.set(res2);
-                    allStockPrices.set(res1);
-                    simpleRollingPx.set(_simpleRollingPx);
+                    _that.syncReactiveVarsAndState([
+                        avgRatingStartDate,
+                        allStockPrices,
+                        simpleRollingPx,
+                    ], [
+                        res2,
+                        res1,
+                        _simpleRollingPx,
+                    ], [
+                        'avgRatingStartDate',
+                        'allStockPrices',
+                        'simpleRollingPx',
+                    ]);
                 } else {
                     console.log("error in prices or rating changes");
                 }
@@ -73,9 +95,13 @@ class AverageAndWeightedRatings extends Component {
     shouldComponentUpdate(nextProps, nextState) {
         //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
         //because it takes a few seconds after new symbol prop is set to get new data to graph
+        if (EJSON.equals(this.props, nextProps) && EJSON.equals(this.state, nextState)) {
+            return false;
+        }
         if (this.props.symbol !== nextProps.symbol ||
-                nextState.allStockPrices ||
+                !EJSON.equals(nextState.allStockPrices, this.state.allStockPrices) ||
             this.state.regrIterNum !== nextState.regrIterNum ||
+                !EJSON.equals(this.props.allGraphData, nextProps.allGraphData) ||
             this.state.stepSizePow !== nextState.stepSizePow ||
             this.state.pctDownPerDay !== nextState.pctDownPerDay || this.state.pctUpPerDay !== nextState.pctUpPerDay ||
             this.state.avgRatingStartDate !== nextState.avgRatingStartDate ||
@@ -264,85 +290,59 @@ class AverageAndWeightedRatings extends Component {
         </div>
     }
 
-    changingStart() {}
-    changingEnd() {}
+    changingStart(date) {
+        this.syncOneReactiveVarAndState(avgRatingStartDate, StocksReact.ui.getStateForDateRangeChangeEvent(false, date), 'avgRatingStartDate');
+    }
+    changingEnd(date) {
+        this.syncOneReactiveVarAndState(avgRatingEndDate, StocksReact.ui.getStateForDateRangeChangeEvent(false, date), 'avgRatingEndDate');
+    }
 
     decreasePriceDelay() {
-        this.setState({
-            priceReactionDelayDays: this.state.priceReactionDelayDays - 1
-        });
+        this.syncOneReactiveVarAndState(priceReactionDelayDays, priceReactionDelayDays.get() - 1, 'priceReactionDelayDays');
     }
     increasePriceDelay() {
-        this.setState({
-            priceReactionDelayDays: this.state.priceReactionDelayDays + 1
-        });
-    }
-
-    changeRegrNum(event) {
-        this.refs.regrNumInput.value = event.target.value;
+        this.syncOneReactiveVarAndState(priceReactionDelayDays, priceReactionDelayDays.get() + 1, 'priceReactionDelayDays');
     }
     refreshRegrIterNum(event) {
-        this.setState({
-            regrIterNum: parseInt(event.target.value)
-        })
-    }
-
-    refreshRegr(event) {
-        var _newState = {};
-        _newState[event.target.id] = parseFloat(event.target.value);
-        this.setState(_newState);
-    }
-    changePct(event) {
-        $("#" + event.target.id).val(event.target.value);
+        this.syncOneReactiveVarAndState(regrIterNum, parseInt(event.target.value), 'regrIterNum');
     }
     increaseStepSize() {
-        this.setState({
-            stepSizePow: this.state.stepSizePow + 1
-        })
+        this.syncOneReactiveVarAndState(stepSizePow, stepSizePow.get() + 1, 'stepSizePow');
     }
     decreaseStepSize() {
-        this.setState({
-            stepSizePow: this.state.stepSizePow - 1
-        })
+        this.syncOneReactiveVarAndState(stepSizePow, stepSizePow.get() - 1, 'stepSizePow');
+    }
+    setPctDown(event) {
+        this.syncOneReactiveVarAndState(pctDownPerDay, parseFloat(event.target.value), 'pctDownPerDay');
+    }
+    setPctUp(event) {
+        this.syncOneReactiveVarAndState(pctUpPerDay, parseFloat(event.target.value), 'pctUpPerDay');
     }
 
 
     renderAvgAnalystRatingsGraph() {
-        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingStartDate);
-        let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(this.state.avgRatingEndDate);
-        let _stepSize = Math.pow(10, this.state.stepSizePow);
+        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(avgRatingStartDate.get());
+        let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(avgRatingEndDate.get());
+        let _stepSize = Math.pow(10, stepSizePow.get());
         return (this.props.ratingChanges.length > 0 ? <div>
-                <span>price reaction delay for rating changes (in days): {this.state.priceReactionDelayDays} </span>
-                <button type="button" className="btn btn-light" onClick={this.decreasePriceDelay}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
-                <button type="button" className="btn btn-light" onClick={this.increasePriceDelay}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
-                <input type="text" className="pctDownPerDay" ref="pctDownPerDay" id="pctDownPerDay" placeholder={this.state.pctDownPerDay} onBlur={this.refreshRegr} onChange={this.changePct}/>
-                <input type="text" className="pctUpPerDay" ref="pctUpPerDay" id="pctUpPerDay" placeholder={this.state.pctUpPerDay} onBlur={this.refreshRegr} onChange={this.changePct}/>
+                <span>price reaction delay for rating changes (in days): {priceReactionDelayDays.get()} </span>
+                <button type="button" className="btn btn-light" onClick={this.decreasePriceDelay.bind(this)}>-</button>
+                <button type="button" className="btn btn-light" onClick={this.increasePriceDelay.bind(this)}>+</button>
+                <input type="text" className="pctDownPerDay" id="pctDownPerDay" placeholder={pctDownPerDay.get()} onBlur={this.setPctDown.bind(this)} />
+                <input type="text" className="pctUpPerDay" id="pctUpPerDay" placeholder={pctUpPerDay.get()} onBlur={this.setPctUp.bind(this)} />
                 <br/>
-                increase/decrease step size: {_stepSize} <button className="btn btn-light" onClick={this.decreaseStepSize}><span className="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
-                <button className="btn btn-light" onClick={this.increaseStepSize}><span className="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
-                # of regression iter: <input type="text" ref="regrNumInput" placeholder={this.state.regrIterNum} onChange={this.changeRegrNum} onBlur={this.refreshRegrIterNum}/>
+                increase/decrease step size: {_stepSize} <button className="btn btn-light" onClick={this.decreaseStepSize.bind(this)}>-</button>
+                <button className="btn btn-light" onClick={this.increaseStepSize.bind(this)}>+</button>
+                # of regression iter: <input type="text" placeholder={regrIterNum.get()} onBlur={this.refreshRegrIterNum.bind(this)}/>
 
-            <div className="input-group input-daterange" ref={this.setDateRangeOptions}>
-                <input type="text" className="form-control" id="avgRatingStartDate" value={_startDate} onChange={this.changingStart}/>
-                <span className="input-group-addon">to</span>
-                <input type="text" className="form-control" id="avgRatingEndDate" value={_endDate} onChange={this.changingEnd}/>
-            </div>
+                <DatePicker selected={new Date(moment(avgRatingStartDate.get()))} onChange={date => this.changingStart(date)} />
+                <DatePicker selected={new Date(moment(avgRatingEndDate.get()))} onChange={date => this.changingEnd(date)} />
 
             <div className="col-md-12 individualStockGraph">
                 <StocksGraph
                     stocksToGraphObjects={this.props.stocksToGraphObjs}/>
             </div>
         </div> : null);
-    }
-
-    setDateRangeOptions() {
-        StocksReact.ui.setDateRangeOptions("input-daterange");
-
-        var _that = this;
-        $('.form-control').on('change', function(event) {
-            var _set = StocksReact.ui.getStateForDateRangeChangeEvent(event);
-            _that.setState(_set);
-        });
     }
 
     renderEpsMeanEstimates() {

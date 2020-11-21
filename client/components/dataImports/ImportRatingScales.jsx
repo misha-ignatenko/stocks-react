@@ -4,6 +4,15 @@ import { withTracker } from 'meteor/react-meteor-data';
 var _totalNUmberOfPossibleRatingThresholds = 12;
 
 class ImportRatingScales extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+
+        };
+
+        this.submitRatingScales = this.submitRatingScales.bind(this);
+    }
     submitRatingScales() {
         let _allRatings = [];
         for (var i = 1; i <= _totalNUmberOfPossibleRatingThresholds; i++) {

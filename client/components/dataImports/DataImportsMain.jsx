@@ -3,6 +3,8 @@ import React, { Component } from 'react';
 import PortfoliosImport from './portfolios/PortfoliosImportMain.jsx';
 import RatingChangesConsistency from './ratingChanges/RatingChangesConsistency.jsx';
 import UpDownGradesJSONDataImport from './UpDownGradesJSONDataImport.jsx';
+import ImportRatingScales from './ImportRatingScales.jsx';
+import EarningsReleasesJSONDataImport from './EarningsReleasesJSONDataImport.jsx';
 
 var _earningsReleasesImportTabName = "Earnings Releases";
 var _ratingScalesImportTabName = "Rating Scales";
