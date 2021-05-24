@@ -2,6 +2,8 @@ import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
 
+import PortfolioPerformanceGraph from './PortfolioPerformanceGraph.jsx';
+
 const startDate = new ReactiveVar("");
 const endDate = new ReactiveVar("");
 const pricesLoaded = new ReactiveVar(false);
@@ -18,78 +20,6 @@ class Portfolio extends Component {
 
         // this.setUpStartEndDates = this.setUpStartEndDates.bind(this);
         // this.onDismiss = this.onDismiss.bind(this);
-    }
-
-    getMeteorData() {
-        let _portfId = this.props.portfolioId;
-
-        let _data = {};
-
-        if (this.state.startDate !== "" && this.state.endDate !== "" && Meteor.subscribe("getPortfolioById", _portfId).ready()) {
-            _data.portfolio = Portfolios.findOne({_id: _portfId});
-
-            // check if portfolio is an intersection based on rating changes
-            let _hasCriteria = _data.portfolio.criteria ? true : false;
-
-            let _isRolling = _data.portfolio.rolling;
-            let _businessDayLookback = _data.portfolio.lookback;
-            let _lookback = _businessDayLookback / 5 * 7;
-            let _startDate = _isRolling ? this.shiftStartDateBack2X(this.state.startDate, _lookback) : this.state.startDate;
-
-            // 2 cases:
-            //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
-            //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
-            if (
-                (_hasCriteria && Meteor.subscribe("ratingScales").ready() && this.data.ratingChanges) ||
-                (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready())
-            ) {
-                _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
-                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _hasCriteria ? this.processRatingChangesFromCriteriaPortfolio(RatingScales.find().fetch(), this.data.ratingChanges, this.state.startDate, this.state.endDate) : _data.rawPortfolioItems;
-                let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
-                _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));
-                let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
-                _data.uniqPortfItemDates = _uniqPortfItemDates;
-
-                let _endDate = this.getEndDateForPrices();
-                let _datesForSub = _.union(_uniqPortfItemDates, [_endDate]);
-
-
-                // generate a map for prices subscription
-                let _pricesSubscrMap = {};
-                let _datesForSubSorted = _.sortBy(_datesForSub);
-                _.each(_datesForSubSorted, function (dateStr, idx) {
-                    let _relevantPortfolioItems = _.filter(_data.portfolioItems, function (obj) {
-                        if (idx > 0) {
-                            // if it's not the first date, include symbols from the previous date
-                            return obj.dateString === dateStr || obj.dateString === _datesForSubSorted[idx - 1]
-                        } else {
-                            return obj.dateString === dateStr;
-                        }
-                    });
-                    let _relevantSymbols = _.uniq(_.pluck(_relevantPortfolioItems, "symbol"));
-                    _pricesSubscrMap[dateStr] = _relevantSymbols.concat(["SPY"]);
-                });
-                var _that = this;
-                if (!_that.state.pricesLoaded) {
-                    Meteor.call("getPricesFromApi", _pricesSubscrMap, function (err, res) {
-                        console.log("done with getPricesFromApi call: ", err, res);
-                        _.each(res, function (px) {
-                            if (!px.adjClose) {
-                                console.log("missing adjClose for: ", px.symbol, px.dateString);
-                            }
-                        })
-                        if (!err) {
-                            _that.setState({
-                                stockPrices: res,
-                                pricesLoaded: true
-                            });
-                        }
-                    });
-                }
-            }
-        }
-
-        return _data;
     }
 
     componentWillReceiveProps(nextProps) {
@@ -393,8 +323,8 @@ class Portfolio extends Component {
             // let _purchaseAtType = "close";
             // let _sellAtType = "open";
             // only look at adjClose because there is weirdness with open/close (example: SBUX around Nov 2014)
-            let _purchaseAtType = "close";
-            let _sellAtType = "close";
+            let _purchaseAtType = "adjClose";
+            let _sellAtType = "adjClose";
             let _symbolsToCheckSplitsFor = [];
 
             _.each(_uniqDates, function(date, index) {
@@ -428,6 +358,9 @@ class Portfolio extends Component {
                                 _symbolsToCheckSplitsFor.push(symbol)
                             }
                             let _change = (_sellPrice - _purchasePrice) / _purchasePrice;
+                            if (Math.abs(_change) > 0.25) {
+                                console.log('flagging large change: ', _change, symbol, _startDate, _purchasePrice, _endDate, _sellPrice);
+                            }
 
                             let _weightedChange = pItem.weight * _change;
                             _weightedTotalChange += _weightedChange;
@@ -436,7 +369,7 @@ class Portfolio extends Component {
                         }
                     });
                     if (_totalAbsWgt < .9) {
-                        console.log("this number should be 1: ", _totalAbsWgt);
+                        console.log("this number should be 1: ", _totalAbsWgt, date);
                     }
 
                     _growthRates.push([date, _weightedTotalChange]);

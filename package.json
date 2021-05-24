@@ -3,6 +3,7 @@
     "@babel/runtime": "^7.12.1",
     "bcrypt": "^5.0.0",
     "bootstrap": "^4.3.1",
+    "ejson": "^2.2.1",
     "fibers": "^5.0.0",
     "history": "^4.9.0",
     "jquery": "^3.5.1",
@@ -12,6 +13,6 @@
     "react-dom": "^16.8.6",
     "react-router": "^5.0.1",
     "reactstrap": "^8.0.1",
-    "underscore": "^1.9.1"
+    "underscore": "^1.13.1"
   }
 }

@@ -4,7 +4,7 @@
 StocksReactServerUtils = {
 
     apiKey: function () {
-        return Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+        return Settings.findOne({type: "main"}, {fields: {'dataImports.earningsReleases.quandlZeaAuthToken': 1}}).dataImports.earningsReleases.quandlZeaAuthToken;
     },
 
     prices: {
@@ -12,7 +12,7 @@ StocksReactServerUtils = {
         // FREE
         getWikiPricesQuandlUrl: function (dateStrYYYY_MM_DD, optionalSymbolsArr) {
             var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
-            var _apiKey = Settings.findOne({type: "main"}).dataImports.earningsReleases.quandlZeaAuthToken;
+            var _apiKey = StocksReactServerUtils.apiKey();
             if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
                 var _url = _quandlFreeBaseUrl + "?date=" +
                     (typeof dateStrYYYY_MM_DD === "string" ? dateStrYYYY_MM_DD : dateStrYYYY_MM_DD.join()).replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
@@ -36,7 +36,7 @@ StocksReactServerUtils = {
             var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
                 (startDate ? ("start_date=" + startDate + "&") : "") +
                 (endDate ? ("end_date=" + endDate + "&") : "") +
-                "api_key=" + Settings.findOne().dataImports.earningsReleases.quandlZeaAuthToken;
+                "api_key=" + StocksReactServerUtils.apiKey();
 
             return _url;
         },
@@ -95,6 +95,13 @@ StocksReactServerUtils = {
                 adjFactor: _processedItem.Adjustment_Factor,
                 adjType: _processedItem.Adjustment_Type
             };
+
+            // 17 = dividend
+            if (!_convertedObj.adjFactor || _convertedObj.adjType === 17) {
+                _convertedObj.adjClose = _convertedObj.close;
+            } else {
+                console.log('ADJUSTMENT: ', symbol, _processedItem);
+            }
 
             return _convertedObj;
         },
