@@ -386,6 +386,14 @@ Meteor.methods({
         }
     },
 
+    portfolioItems: function (portfolioIds, startStr, endStr) {
+        return PortfolioItems.find({
+            portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
+        }, {
+            sort: {dateString: 1}
+        }).fetch();
+    },
+
     getDefaultPerformanceDatesFor: function(portfolioId) {
         var _p = Portfolios.findOne(portfolioId);
         var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});

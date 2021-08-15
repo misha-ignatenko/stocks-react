@@ -47,11 +47,3 @@ Meteor.publish("getPortfolioById", function(portfId) {
         return Portfolios.find({_id: portfId, private: false}, {fields: {_id: 1, name: 1}});
     }
 });
-
-Meteor.publish("portfolioItems", function(portfolioIds, startStr, endStr) {
-    return PortfolioItems.find({
-        portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
-    }, {
-        sort: {dateString: 1}
-    });
-});

@@ -1,14 +1,35 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
+import { EJSON } from 'meteor/ejson';
 
 import PortfolioPerformanceGraph from './PortfolioPerformanceGraph.jsx';
+import _ from 'underscore';
 
 const startDate = new ReactiveVar("");
 const endDate = new ReactiveVar("");
 const pricesLoaded = new ReactiveVar(false);
 const stockPrices = new ReactiveVar(undefined);
+var loadingPortfolioItems = false;
+var lastLoadedPortfolioItemsParams = '';
+const portfolioItems = new ReactiveVar(undefined);
 
+const shiftStartDateBack2X = (startDate, lookback) => {
+    return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
+};
+
+const loadPortfolioItems = (portfolioId, startDate, endDate) => {
+    if (loadingPortfolioItems) return;
+    const params = EJSON.stringify({portfolioId, startDate, endDate});
+    if (params === lastLoadedPortfolioItemsParams) return;
+
+    loadingPortfolioItems = true;
+    Meteor.call("portfolioItems", [portfolioId], startDate, endDate, function(err, res) {
+        portfolioItems.set(res);
+        loadingPortfolioItems = false;
+        lastLoadedPortfolioItemsParams = params;
+    });
+};
 class Portfolio extends Component {
 
     constructor(props) {
@@ -26,10 +47,6 @@ class Portfolio extends Component {
         if (!this.state.previouslyLoadedPortfolioId || this.state.previouslyLoadedPortfolioId !== nextProps.portfolioId) {
             this.setUpStartEndDates(nextProps.portfolioId);
         }
-    }
-
-    shiftStartDateBack2X(startDate, lookback) {
-        return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
     }
 
     processRatingChangesFromCriteriaPortfolio(ratingScales, rCh, startDate, endDate) {
@@ -159,7 +176,7 @@ class Portfolio extends Component {
         let _map = {};
         let _that = this;
         _.each(_uniqDates, function (dateStr) {
-            let _startDate = _that.shiftStartDateBack2X(dateStr, lookback);
+            let _startDate = shiftStartDateBack2X(dateStr, lookback);
             let _endDate = dateStr;
             let _itemsOfInterest = _.filter(portfolioItems, function (item) {
                 return item.dateString >= _startDate && item.dateString <= _endDate;
@@ -242,7 +259,7 @@ class Portfolio extends Component {
     }
 
     renderPortfolioUpdateEntry() {
-        let _startDate = this.props.portfolio.rolling ? this.shiftStartDateBack2X(startDate.get(), this.props.portfolio.lookback / 5 * 7) : startDate.get();
+        let _startDate = this.props.portfolio.rolling ? shiftStartDateBack2X(startDate.get(), this.props.portfolio.lookback / 5 * 7) : startDate.get();
         // get the last date
         let _lastRebalanceDate = _.last(_.pluck(this.props.portfolioItems, "dateString"));
         let _latestPortfolioItems = this.props.portfolioItems.filter(function (obj) {
@@ -422,6 +439,13 @@ class Portfolio extends Component {
         var _that = this;
         $('.form-control').on('change', function(event) {
             var _set = StocksReact.ui.getStateForDateRangeChangeEvent(event);
+            if (_.has(_set, 'startDate')) {
+                startDate.set(_set.startDate);
+            }
+            if (_.has(_set, 'endDate')) {
+                endDate.set(_set.endDate);
+            }
+            return;
             _that.setState(_set);
         });
     }
@@ -478,16 +502,19 @@ export default withTracker((props) => {
         let _isRolling = _data.portfolio.rolling;
         let _businessDayLookback = _data.portfolio.lookback;
         let _lookback = _businessDayLookback / 5 * 7;
-        let _startDate = _isRolling ? this.shiftStartDateBack2X(startDate.get(), _lookback) : startDate.get();
+        let _startDate = _isRolling ? shiftStartDateBack2X(startDate.get(), _lookback) : startDate.get();
 
+        if (!_hasCriteria) {
+            loadPortfolioItems(_data.portfolio._id, _startDate, endDate.get());
+        }
         // 2 cases:
         //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
         //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
         if (
             (_hasCriteria && Meteor.subscribe("ratingScales").ready() && this.data.ratingChanges) ||
-            (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, endDate.get()).ready())
+            (!_hasCriteria && portfolioItems.get())
         ) {
-            _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
+            _data.rawPortfolioItems = portfolioItems.get();
             _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, startDate.get(), _lookback) : _hasCriteria ? this.processRatingChangesFromCriteriaPortfolio(RatingScales.find().fetch(), this.data.ratingChanges, startDate.get(), endDate.get()) : _data.rawPortfolioItems;
             let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
             _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));
