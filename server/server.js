@@ -388,6 +388,13 @@ Meteor.methods({
 
     portfolioItems: function (portfolioIds, startStr, endStr) {
         return PortfolioItems.find({
+            $or: [
+                {
+                    weight: {$exists: false},
+                }, {
+                    weight: {$exists: true, $gt: 0},
+                },
+            ],
             portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
         }, {
             sort: {dateString: 1}
