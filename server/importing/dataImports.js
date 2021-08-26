@@ -304,6 +304,33 @@ Meteor.methods({
                         if (_result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(_old) === -1) {
                             _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_old);
                         }
+
+                        // insert the error unless it's already stored
+                        var errorQuery = {
+                            dateString: importItem.dateString,
+                            researchFirmId: _researchCompanyId,
+                            symbol: _universalSymbol,
+                            'originalRatingStrings.old': importItem.oldRatingString,
+                            'originalRatingStrings.new': importItem.newRatingString,
+                        };
+                        if (RatingChanges.find(errorQuery).count() === 0) {
+                            var errorRatingChange = {
+                                date: new Date(importItem.dateString).toUTCString(),
+                                dateString: importItem.dateString,
+                                researchFirmId: _researchCompanyId,
+                                symbol: _universalSymbol,
+                                private: true,
+                                addedBy: Meteor.userId(),
+                                addedOn: new Date().toUTCString(),
+                                source: importItem.source,
+                                originalRatingStrings: {
+                                    old: importItem.oldRatingString,
+                                    new: importItem.newRatingString,
+                                },
+                                isError: true,
+                            };
+                            RatingChanges.insert(errorRatingChange);
+                        }
                     }
                 });
 
