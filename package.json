@@ -8,10 +8,10 @@
     "history": "^4.9.0",
     "jquery": "^3.5.1",
     "moment-timezone": "^0.5.26",
-    "react": "^16.8.6",
+    "react": "^16.14.0",
     "react-datepicker": "^3.3.0",
     "react-dom": "^16.8.6",
-    "react-router": "^5.0.1",
+    "react-router-dom": "^6.2.1",
     "reactstrap": "^8.0.1",
     "tar": "^6.1.11",
     "underscore": "^1.13.1"

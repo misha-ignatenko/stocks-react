@@ -2,28 +2,17 @@ import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-import AccountsUIWrapper from './AccountsUIWrapper.jsx';
-import IndividualStock from './IndividualStock.jsx';
-import UpcomingEarningsReleases from './UpcomingEarningsReleases.jsx';
-import DataImportsMain from './dataImports/DataImportsMain.jsx';
 import Portfolio from './portfolios/Portfolio.jsx';
-
-var _mainTabName = "mainTab";
-var _individualStockTabName = "individualStockTab";
-var _upcomingEarningsReleasesTabName = "upcomingEarningsReleases";
-var _dataImportsTabName = "dataImportsTab";
 
 class StocksApp extends Component {
     constructor(props) {
         super(props);
 
         this.state = {
-            tabNameToShow: _mainTabName
-            , selectedPortfolioId: null
+            selectedPortfolioId: null
             , showPortfolios: true
         };
 
-        this.selectTab = this.selectTab.bind(this);
         this.showHidePortfs = this.showHidePortfs.bind(this);
     }
 
@@ -64,33 +53,11 @@ class StocksApp extends Component {
         });
     }
 
-    selectTab(e) {
-        let _clickedTabName = $(e.target).attr("id");
-        this.setState({
-            tabNameToShow: _clickedTabName
-        });
-    }
-
     render() {
-        //add this to tabs to make router work
-        //<li className="tab3"><a href="/dataimport/updowngrades">TEST TO UP DOWN GRADES</a></li>
-        let _b = "btn btn-light";
-        let _ab = "btn btn-light active";
 
         return (
             <div>
-                <header>
-                    <AccountsUIWrapper />
-                </header>
 
-                <div className="btn-group" role="group" aria-label="...">
-                    <button type="button" className={this.state.tabNameToShow === _mainTabName ? _ab : _b} id={_mainTabName} onClick={this.selectTab}>Portfolios</button>
-                    <button type="button" className={this.state.tabNameToShow === _individualStockTabName ? _ab : _b} id={_individualStockTabName} onClick={this.selectTab}>Individual Stocks</button>
-                    <button type="button" className={this.state.tabNameToShow === _upcomingEarningsReleasesTabName ? _ab : _b} id={_upcomingEarningsReleasesTabName} onClick={this.selectTab}>Upcoming Earnings Releases</button>
-                    {this.props.currentUser && this.props.currentUser.showDataImportsTab ? <button type="button" className={this.state.tabNameToShow === _dataImportsTabName ? _ab : _b} id={_dataImportsTabName} onClick={this.selectTab}>Data Imports</button> : null }
-                </div>
-
-                { this.state.tabNameToShow === _mainTabName ? (
                     <div>
                         <br/>
                         { this.props.currentUser ?
@@ -111,22 +78,6 @@ class StocksApp extends Component {
                         </div> : "GETTING PORTFOLIOS"}
                         <br/>
                     </div>
-                ) : null}
-                { this.state.tabNameToShow === _individualStockTabName ? (
-                    <div>
-                        <IndividualStock />
-                    </div>
-                ) : null}
-                { this.state.tabNameToShow === _upcomingEarningsReleasesTabName ? (
-                    <div>
-                        <UpcomingEarningsReleases />
-                    </div>
-                ) : null}
-                { this.state.tabNameToShow === _dataImportsTabName ? (
-                    <div>
-                        <DataImportsMain />
-                    </div>
-                ) : null}
             </div>
         );
     }
