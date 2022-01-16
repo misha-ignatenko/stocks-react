@@ -659,10 +659,11 @@ if (Meteor.isServer) {
             var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
             var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
             var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
+            const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
 
-            function _checkWiki() {
+            function checkDatatable(url) {
                 try {
-                    var _res = HTTP.get(_wikiUrl);
+                    var _res = HTTP.get(url);
                     if (_res.data.datatable.data.length > 0) {
                         return true;
                     } else {
@@ -691,7 +692,7 @@ if (Meteor.isServer) {
                 }
             }
 
-            return _checkWiki() || _checkNasdaq() || _checkZEA();
+            return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
         },
 
         insertNewStockSymbols: function(symbolsArray) {

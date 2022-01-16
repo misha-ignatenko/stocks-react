@@ -25,6 +25,9 @@ Meteor.startup(function() {
             _previousServerSettings.quandl.dateOfLastPullFromQuandl = _dateString;
             Settings.update({_id: _previousSettings._id}, {$set: {serverSettings: _previousServerSettings}});
 
+            Meteor.call('importData', [], 'earnings_releases_new', true);
+
+            /*
             var _allStockSymbols = StocksReactUtils.symbols.getLiveSymbols();
 
             // the API allows up to 5000 calls per 10 min
@@ -57,6 +60,7 @@ Meteor.startup(function() {
             const results = futures.map((future, index) => {
                 return future.wait();
             });
+            */
 
             Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
         }
