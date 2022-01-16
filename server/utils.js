@@ -6,6 +6,7 @@ StocksReactServerUtils = {
     apiKey: function () {
         return Settings.findOne({type: "main"}, {fields: {'dataImports.earningsReleases.quandlZeaAuthToken': 1}}).dataImports.earningsReleases.quandlZeaAuthToken;
     },
+    newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
 
     prices: {
 
@@ -154,6 +155,16 @@ StocksReactServerUtils = {
         },
     },
     earningsReleases: {
+        getAllEarningsReleasesUrl: () => {
+            const key = StocksReactServerUtils.apiKey();
+            const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?api_key=${key}`;
+            return url;
+        },
+        getEarningsReleasesUrl: (symbol) => {
+            const key = StocksReactServerUtils.apiKey();
+            const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?ticker=${symbol}&api_key=${key}`;
+            return url;
+        },
         getZeaUrl: function (symbol) {
             var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + symbol + ".json?auth_token=" + StocksReactServerUtils.apiKey();
             return _url;

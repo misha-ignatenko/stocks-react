@@ -1,4 +1,5 @@
 import moment from 'moment-timezone';
+import _ from 'underscore';
 
 var _totalMaxGradingValue = 120;
 
@@ -125,7 +126,7 @@ Meteor.methods({
         importData: function(importData, importType, scheduledDataPullFlag) {
             //run all the checks here
 
-            if (! Meteor.userId() && importType !== "earnings_releases") {
+            if (!Meteor.userId() && !['earnings_releases', 'earnings_releases_new'].includes(importType)) {
                 throw new Meteor.Error("not-authorized");
             }
 
@@ -329,6 +330,125 @@ Meteor.methods({
 
             } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
+            } else if (importType === 'earnings_releases_new') {
+                const settings = Settings.findOne().serverSettings.ratingsChanges;
+
+                if (scheduledDataPullFlag) {
+                    Email.send({
+                        to: settings.emailTo,
+                        from: settings.emailTo,
+                        subject: 'getting earnings releases (new)',
+                        text: JSON.stringify({
+                            hostname: Meteor.absoluteUrl(),
+                            timeNow: new Date(),
+                        }),
+                    });
+                };
+
+                let numMatching = 0;
+                let numInserted = 0;
+
+                const url = StocksReactServerUtils.earningsReleases.getAllEarningsReleasesUrl();
+                const expectedStatusCode = 200;
+                const expectedNumberOfColumns = 24;
+                const today = moment().format('YYYY-MM-DD');
+
+                try {
+                    const response = HTTP.get(url);
+                    if (response.statusCode !== expectedStatusCode) {
+                        throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
+                    }
+
+                    const columns = response.data.datatable.columns;
+                    if (columns.length !== expectedNumberOfColumns) {
+                        throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
+                    }
+                    columns.forEach(column => {
+                        column.name = column.name.toUpperCase();
+                    });
+
+                    const data = response.data.datatable.data;
+                    data.forEach((row, rowIndex) => {
+                        if (row.length !== expectedNumberOfColumns) {
+                            throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
+                        }
+
+                        let objectFromApi = {};
+                        columns.forEach((columnDefinition, columnDefinitionIndex) => {
+                            const columnName = columnDefinition.name;
+                            const columnType = columnDefinition.type;
+                            let rowData = row[columnDefinitionIndex];
+
+                            // get rid of dashes and convert to a number to match existing format
+                            if (columnType === 'Date' && rowData) {
+                                rowData = parseInt(rowData.replace(/-/g, ''));
+                            }
+
+                            objectFromApi[columnName] = rowData;
+                        });
+
+                        let earningsRelease = {};
+                        _.keys(objectFromApi).forEach(rawKey => {
+                            const dbKey = _convertQuandlZEAfieldName(rawKey);
+                            if (!dbKey) {
+                                throw new Meteor.Error(`unknown key: ${rawKey}`);
+                            } else {
+                                earningsRelease[dbKey] = objectFromApi[rawKey];
+                            }
+                        });
+
+                        // special cases
+                        if (!earningsRelease.asOf) earningsRelease.asOf = today;
+                        earningsRelease.symbol = _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
+
+                        // sanity checks
+                        if (!earningsRelease.asOf || !earningsRelease.symbol) {
+                            throw new Meteor.Error(`something went wrong: ${rowIndex}`);
+                        }
+
+                        const matchingIDs = getMatchingEarningsReleaseIDs(earningsRelease);
+                        const lastModified = new Date();
+                        if (matchingIDs.length) {
+                            // update asOf and lastModified fields
+                            matchingIDs.forEach(id => {
+                                EarningsReleases.update(id, {$set: {
+                                    asOf: earningsRelease.asOf,
+                                    lastModified,
+                                }});
+                                numMatching += 1;
+                            });
+                        } else {
+                            EarningsReleases.insert(_.extend({lastModified}, earningsRelease));
+                            Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
+                            numInserted += 1;
+                        }
+                    });
+
+                    if (scheduledDataPullFlag) {
+                        Email.send({
+                            to: settings.emailTo,
+                            from: settings.emailTo,
+                            subject: 'DONE getting earnings releases (new)',
+                            text: JSON.stringify({
+                                timeNow: new Date(),
+                                totalNumRecordsFromTheAPI: data.length,
+                                numInserted, numMatching,
+                            }),
+                        });
+                    };
+                } catch (error) {
+                    const errorString = error.toString();
+                    if (scheduledDataPullFlag) {
+                        Email.send({
+                            to: settings.emailTo,
+                            from: settings.emailTo,
+                            subject: 'ERROR from getting earnings releases (new)',
+                            text: JSON.stringify({
+                                timeNow: new Date(), errorString,
+                            }),
+                        });
+                    }
+                }
             } else if (importType === "earnings_releases") {
                 console.log("earnings_releases import function called with: ", importData);
                 var _earningsReleaseSymbolsRequested = [];
@@ -513,6 +633,28 @@ Meteor.methods({
          PER_END_DATE_QRM3 : Period end date for the one year prior fiscal quarter (QR-3) (YYYYMMDD)
          endDateOneYearAgoFiscalQuarter
 
+         m_ticker: Zacks proprietary master ticker or trading symbol
+
+         ticker: Exchange ticker or trading symbol
+
+         comp_name: Zacks abbreviated company name
+
+         comp_name_2: Full proper company name
+
+         exchange: Exchange traded
+
+         currency_code: Currency code
+
+         street_mean_est_qr1: Zacks consensus estimated earnings per share (EPS) for the next fiscal quarter to be reported, calculated as the arithmetic mean of all individual sell-side EPS estimates, using the Zacks Street accounting methodology.
+
+         exp_rpt_date_fr2: Expected report date for the fiscal year after the next fiscal year to be reported (FR2)
+
+         late_last_desc: Late last description - Indicates whether the report is late and by how long. Values in this field will be one of the following for each record: "Not Late", "More than 3 days late", "More than 20 days late" or "Unknown".
+
+         source_desc: Indicates whether the expected report date comes from a company issued confirmation or from a Zacks mathematical algorithm. Values in this field will be one of the following for each record: "Company" or "Estimated". This field only applies to the next expected quarterly report date, EXP_RPT_DATE_QR1 column. Expected report dates for fiscal periods further out are considered "Estimated" if/until company confirmations are received for those dates
+
+         time_of_day_desc: Time of day description - Indicates the time of day when the earnings announcement is expected. Values in this field will be one of the following for each record: "After market close", "Before the open", "During market trading" or "Unknown"
+
          */
         var _fieldNameToReturn;
 
@@ -544,6 +686,28 @@ Meteor.methods({
             _fieldNameToReturn = "endDateOneYearAgoFiscalQuarter";
         } else if (zeaFieldName === "AS_OF") {
             _fieldNameToReturn = "asOf";
+        } else if (zeaFieldName === 'M_TICKER') {
+            return 'altSymbol';
+        } else if (zeaFieldName === 'TICKER') {
+            return 'symbol';
+        } else if (zeaFieldName === 'COMP_NAME') {
+            return 'companyName';
+        } else if (zeaFieldName === 'COMP_NAME_2') {
+            return 'altCompanyName';
+        } else if (zeaFieldName === 'EXCHANGE') {
+            return 'exchange';
+        } else if (zeaFieldName === 'CURRENCY_CODE') {
+            return 'currencyCode';
+        } else if (zeaFieldName === 'STREET_MEAN_EST_QR1') {
+            return 'streetMeanEstimateNextFiscalQuarter';
+        } else if (zeaFieldName === 'EXP_RPT_DATE_FR2') {
+            return 'reportDateNextNextFiscalYear';
+        } else if (zeaFieldName === 'LATE_LAST_DESC') {
+            return 'lateLastDescription';
+        } else if (zeaFieldName === 'SOURCE_DESC') {
+            return 'sourceDescription';
+        } else if (zeaFieldName === 'TIME_OF_DAY_DESC') {
+            return 'timeOfDayDescription';
         }
 
         return _fieldNameToReturn;
@@ -565,6 +729,16 @@ Meteor.methods({
             }
         })
         return _matchingEarningReleaseId;
+    }
+
+    function getMatchingEarningsReleaseIDs(earningsRelease) {
+        const fieldsToOmit = [
+            'asOf',
+            'lastModified',
+            'lastModifiedBy',
+        ];
+        const query = _.omit(earningsRelease, fieldsToOmit);
+        return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
     }
 
     function _canPullAgainFromQuandl(symbol) {
