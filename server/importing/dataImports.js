@@ -418,7 +418,7 @@ Meteor.methods({
                                 numMatching += 1;
                             });
                         } else {
-                            EarningsReleases.insert(_.extend({lastModified}, earningsRelease));
+                            EarningsReleases.insert(_.extend({lastModified, insertedDate: lastModified}, earningsRelease));
                             Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
                             numInserted += 1;
                         }
@@ -450,6 +450,7 @@ Meteor.methods({
                     }
                 }
             } else if (importType === "earnings_releases") {
+                return;
                 console.log("earnings_releases import function called with: ", importData);
                 var _earningsReleaseSymbolsRequested = [];
 
@@ -736,6 +737,7 @@ Meteor.methods({
             'asOf',
             'lastModified',
             'lastModifiedBy',
+            'insertedDate',
         ];
         const query = _.omit(earningsRelease, fieldsToOmit);
         return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
