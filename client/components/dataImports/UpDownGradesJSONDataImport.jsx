@@ -7,7 +7,12 @@ class UpDownGradesJSONDataImport extends Component {
         super(props);
 
         this.state = {
-            sourceChoices: ["fidelity", "briefing", "schwab"],
+            sourceChoices: [
+                'f',
+                'b',
+                's',
+                'other',
+            ],
             selectedSource: "",
             textAreaValue: '',
             splitIntoCells: false,

@@ -25,6 +25,7 @@ class Navigation extends Component {
                 <NavLink to="/" style={activeStyle}>Portfolios</NavLink> |{' '}
                 <NavLink to="/stock" style={activeStyle}>Individual Stocks</NavLink> |{' '}
                 <NavLink to="/upcomingEarningsReleases" style={activeStyle}>Upcoming Earnings Releases</NavLink> |{' '}
+                <NavLink to="/contact" style={activeStyle}>Contact</NavLink> |{' '}
                 {showDataImportsTab ? <NavLink to="/dataImports" style={activeStyle}>Data Imports</NavLink> : null}
             </div>
         );

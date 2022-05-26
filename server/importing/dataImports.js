@@ -252,7 +252,7 @@ Meteor.methods({
                                 oldRatingId: _ratingScaleObjectForOld._id,
                                 private: true,
                                 addedBy: Meteor.userId(),
-                                addedOn: new Date().toUTCString(),
+                                addedOn: new Date(),
                                 source: importItem.source
                             };
                             // if used alternative research company, store the original research company name
