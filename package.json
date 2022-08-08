@@ -7,7 +7,7 @@
     "fibers": "^5.0.0",
     "history": "^4.9.0",
     "jquery": "^3.5.1",
-    "moment": "^2.29.3",
+    "moment": "^2.29.4",
     "moment-timezone": "^0.5.26",
     "node-fetch": "^3.2.10",
     "react": "^16.14.0",
