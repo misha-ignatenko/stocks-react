@@ -243,7 +243,7 @@ Meteor.methods({
                         } else if (_universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
                             // can insert
                             var _ratingChange = {
-                                date: new Date(importItem.dateString).toUTCString(),
+                                date: new Date(importItem.dateString),
                                 dateString: importItem.dateString,
                                 //dateValue: moment(importItem.dateString).valueOf(),
                                 researchFirmId: _researchCompanyId,
