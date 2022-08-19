@@ -1,7 +1,11 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
+import { check } from 'meteor/check';
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
+
+const lookbackMonths = 4;
+const dateStringSortDesc = {dateString: -1};
 
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
     // todo: LIMIT COLUMNS requested
@@ -155,6 +159,31 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 };
 
 Meteor.methods({
+    getLatestRatingChanges() {
+        const ratingChanges = RatingChanges.find({
+            dateString: {$gte: StocksReactServerUtils.monthsAgo(lookbackMonths)},
+        }, {
+            sort: dateStringSortDesc,
+            limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
+        }).fetch();
+
+        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
+    getLatestRatingChangesForSymbol(symbol) {
+        check(symbol, String);
+
+        const ratingChanges = RatingChanges.find({
+            dateString: {$gte: StocksReactServerUtils.monthsAgo(lookbackMonths)},
+            symbol: symbol,
+        }, {
+            sort: dateStringSortDesc,
+            limit: StocksReactServerUtils.ratingsChangesLimitSymbol(),
+        }).fetch();
+
+        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
     getPricesForSymbol: function (symbol) {
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
