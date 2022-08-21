@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import _ from 'underscore';
+import { NavLink } from 'react-router-dom';
 
 const ALL_MODE = 'all';
 const SYMBOL_MODE = 'symbol';
@@ -201,6 +202,8 @@ class RatingChanges extends Component {
                             <button type='button' className={_b} onClick={this.exportCSV}>
                                 Export as a CSV
                             </button>
+                            <br/>
+                            To view more, <NavLink to="/contact" >Contact Us</NavLink>
                             <table id='ratingChanges'>
                                 <thead>
                                     <tr>
