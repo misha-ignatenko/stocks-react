@@ -5,6 +5,15 @@ import { check } from 'meteor/check';
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
 const dateStringSortDesc = {dateString: -1};
+const researchFirmIDsToExclude = [
+    'vt29AuAATaAu7r3rS',
+];
+const getRatingChangesQuery = () => {
+    return {
+        researchFirmId: {$nin: researchFirmIDsToExclude},
+        dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+    };
+};
 
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
     // todo: LIMIT COLUMNS requested
@@ -159,9 +168,7 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 
 Meteor.methods({
     getLatestRatingChanges() {
-        const ratingChanges = RatingChanges.find({
-            dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
-        }, {
+        const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
             limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
         }).fetch();
@@ -172,10 +179,9 @@ Meteor.methods({
     getLatestRatingChangesForSymbol(symbol) {
         check(symbol, String);
 
-        const ratingChanges = RatingChanges.find({
-            dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+        const ratingChanges = RatingChanges.find(_.extend(getRatingChangesQuery(), {
             symbol: symbol,
-        }, {
+        }), {
             sort: dateStringSortDesc,
             limit: StocksReactServerUtils.ratingsChangesLimitSymbol(),
         }).fetch();
@@ -687,7 +693,7 @@ if (Meteor.isServer) {
             check(symbol, String);
 
             const symbols = Stocks.find({
-                _id: {$regex: symbol},
+                _id: {$regex: symbol.toUpperCase()},
             }, {
                 fields: {_id: 1},
                 limit: 5,
