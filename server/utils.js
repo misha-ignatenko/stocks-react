@@ -1,7 +1,75 @@
 /**
  * Created by mykhayloignatenko on 4/2/18.
  */
+import moment from 'moment-timezone';
+import _ from 'underscore';
+
+const settingsQuery = {type: "main"};
+const getSetting = (setting) => {
+    const settingsObject = Settings.findOne(settingsQuery, {fields: {[setting]: 1}});
+    let s = settingsObject;
+    setting.split('.').forEach(interimField => {
+        if (_.isObject(s) && _.has(s, interimField)) {
+            s = s[interimField];
+        } else {
+            s = undefined;
+        }
+    });
+    return s;
+};
+
 StocksReactServerUtils = {
+
+    ratingsChangesLimitGlobal() {
+        return getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+    },
+    ratingsChangesLimitSymbol() {
+        return getSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+    },
+    getExtraRatingChangeData(ratingChanges) {
+        let firmMap = new Map();
+        const firmIDs = _.pluck(ratingChanges, 'researchFirmId');
+        ResearchCompanies.find({
+            _id: {$in: firmIDs},
+        }, {
+            fields: {
+                name: 1,
+            },
+        }).forEach(company => {
+            firmMap.set(company._id, company);
+        });
+
+        let ratingMap = new Map();
+        const oldRatingIDs = _.pluck(ratingChanges, 'oldRatingId');
+        const newRatingIDs = _.pluck(ratingChanges, 'newRatingId');
+        const ratingIDs = _.union(oldRatingIDs, newRatingIDs);
+        RatingScales.find({
+            _id: {$in: ratingIDs},
+        }, {
+            fields: {
+                firmRatingFullString: 1,
+            },
+        }).forEach(rating => {
+            ratingMap.set(rating._id, rating);
+        });
+
+        ratingChanges.forEach(ratingChange => {
+            ratingChange.researchFirmName = firmMap.get(ratingChange.researchFirmId).name;
+
+            ratingChange.oldRating = ratingMap.get(ratingChange.oldRatingId).firmRatingFullString;
+            ratingChange.newRating = ratingMap.get(ratingChange.newRatingId).firmRatingFullString;
+        });
+
+        return ratingChanges.map(ratingChange => {
+            return _.pick(ratingChange, [
+                'symbol',
+                'researchFirmName',
+                'oldRating',
+                'newRating',
+                'dateString',
+            ]);
+        });
+    },
 
     apiKey: function () {
         return Settings.findOne({type: "main"}, {fields: {'dataImports.earningsReleases.quandlZeaAuthToken': 1}}).dataImports.earningsReleases.quandlZeaAuthToken;

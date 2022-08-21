@@ -8,15 +8,17 @@ import DataImportsMain from './components/dataImports/DataImportsMain.jsx';
 import UpcomingEarningsReleases from './components/UpcomingEarningsReleases.jsx';
 import Contact from './components/Contact.jsx';
 import Navigation from './components/Navigation.jsx';
+import RatingChanges from './components/Ratings/RatingChanges.jsx';
 
 Meteor.startup(function() {
     let AppRoutes = (
         <div className="container">
         <BrowserRouter>
-            <Navigation />            
+            <Navigation />
 
             <Routes>
                 <Route path="/" element={<StocksApp />} />
+                <Route path="/ratingChanges" element={<RatingChanges />}/>
                 <Route path="/stock" element={<IndividualStock />} />
                 <Route path="/upcomingEarningsReleases" element={<UpcomingEarningsReleases />}/>
                 <Route path="/contact" element={<Contact />}/>

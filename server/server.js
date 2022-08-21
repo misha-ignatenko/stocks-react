@@ -1,7 +1,10 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
+import { check } from 'meteor/check';
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
+
+const dateStringSortDesc = {dateString: -1};
 
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
     // todo: LIMIT COLUMNS requested
@@ -155,6 +158,31 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 };
 
 Meteor.methods({
+    getLatestRatingChanges() {
+        const ratingChanges = RatingChanges.find({
+            dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+        }, {
+            sort: dateStringSortDesc,
+            limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
+        }).fetch();
+
+        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
+    getLatestRatingChangesForSymbol(symbol) {
+        check(symbol, String);
+
+        const ratingChanges = RatingChanges.find({
+            dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+            symbol: symbol,
+        }, {
+            sort: dateStringSortDesc,
+            limit: StocksReactServerUtils.ratingsChangesLimitSymbol(),
+        }).fetch();
+
+        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
     getPricesForSymbol: function (symbol) {
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
@@ -411,7 +439,7 @@ Meteor.methods({
         if (_p.rolling && pItemsExist) {
             _minDateStr = moment(_minDateStr).tz("America/New_York").add(_p.lookback / 5 * 7, "days").format("YYYY-MM-DD");
         }
-        
+
         // a case for combined portfolios (i.e., portfolios consisting of a screen by multiple criteria)
         if (_p.criteria) {
             var _ratingScaleIds = [];
@@ -510,7 +538,7 @@ Meteor.methods({
             console.log("cannot find the needed firm: ", _firm);
         }
     }
-    
+
     , insertNewRollingPortfolioItem: function (obj) {
         // check that the symbol exists
         var _p = Portfolios.findOne(obj.portfolioId);
@@ -655,7 +683,21 @@ if (Meteor.isServer) {
             PickListItems.remove(pickListItemId);
         },
 
+        getSimilarSymbols(symbol) {
+            check(symbol, String);
+
+            const symbols = Stocks.find({
+                _id: {$regex: symbol},
+            }, {
+                fields: {_id: 1},
+                limit: 5,
+            }).fetch();
+            return _.pluck(symbols, '_id');
+        },
+
         checkIfSymbolExists: function (symbol) {
+            check(symbol, String);
+
             var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
             var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
             var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
@@ -696,6 +738,8 @@ if (Meteor.isServer) {
         },
 
         insertNewStockSymbols: function(symbolsArray) {
+            check(symbolsArray, [String]);
+
             var _res = {};
             var _symbolsAllCapsArray = [];
             symbolsArray.forEach(function(symbol) {
