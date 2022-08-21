@@ -7,7 +7,7 @@ import AccountsUIWrapper from './AccountsUIWrapper.jsx';
 class Navigation extends Component {
 
     constructor(props) {
-        super(props);    
+        super(props);
     }
 
     render() {
@@ -22,6 +22,7 @@ class Navigation extends Component {
                     <AccountsUIWrapper />
                 </header>
 
+                <NavLink to="/ratingChanges" style={activeStyle}>Rating Changes</NavLink> |{' '}
                 <NavLink to="/" style={activeStyle}>Portfolios</NavLink> |{' '}
                 <NavLink to="/stock" style={activeStyle}>Individual Stocks</NavLink> |{' '}
                 <NavLink to="/upcomingEarningsReleases" style={activeStyle}>Upcoming Earnings Releases</NavLink> |{' '}

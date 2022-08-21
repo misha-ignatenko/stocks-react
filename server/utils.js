@@ -20,10 +20,6 @@ const getSetting = (setting) => {
 
 StocksReactServerUtils = {
 
-    dateFormat: "YYYY-MM-DD",
-    monthsAgo(months) {
-        return moment().subtract(months, 'months').format(this.dateFormat);
-    },
     ratingsChangesLimitGlobal() {
         return getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
