@@ -590,6 +590,9 @@ Meteor.methods({
 
 if (Meteor.isServer) {
     Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
+        check(startDate, Number);
+        check(endDate, Number);
+        check(companyConfirmedOnly, Boolean);
         console.log("inside earningsReleases publication")
 
         var _query = {
