@@ -23,7 +23,7 @@ class Navigation extends Component {
                 </header>
 
                 <NavLink to="/ratingChanges" style={activeStyle}>Rating Changes</NavLink> |{' '}
-                <NavLink to="/" style={activeStyle}>Portfolios</NavLink> |{' '}
+                <NavLink to="/portfolios" style={activeStyle}>Portfolios</NavLink> |{' '}
                 <NavLink to="/stock" style={activeStyle}>Individual Stocks</NavLink> |{' '}
                 <NavLink to="/upcomingEarningsReleases" style={activeStyle}>Upcoming Earnings Releases</NavLink> |{' '}
                 <NavLink to="/contact" style={activeStyle}>Contact</NavLink> |{' '}

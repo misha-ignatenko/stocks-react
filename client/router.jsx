@@ -17,7 +17,8 @@ Meteor.startup(function() {
             <Navigation />
 
             <Routes>
-                <Route path="/" element={<StocksApp />} />
+                <Route path="/portfolios" element={<StocksApp />} />
+                <Route path="/" element={<RatingChanges />}/>
                 <Route path="/ratingChanges" element={<RatingChanges />}/>
                 <Route path="/stock" element={<IndividualStock />} />
                 <Route path="/upcomingEarningsReleases" element={<UpcomingEarningsReleases />}/>

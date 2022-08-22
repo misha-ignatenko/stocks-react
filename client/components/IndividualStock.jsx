@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
+import { Random } from 'meteor/random';
 
 import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings.jsx';
 
@@ -28,6 +29,7 @@ class IndividualStock extends Component {
         if (_.isNull(Meteor.user())) {
             var _username = Random.id() + "@ign-stocks.com";
             var _password = Random.id();
+            return;
             Accounts.createUser({
                 username: _username,
                 password: _password,
@@ -193,7 +195,7 @@ class IndividualStock extends Component {
                         null
                     }
 
-                </div> : "u havta be logged in."}
+                </div> : "You must be logged in to view this page."}
             </div>
         )
     }

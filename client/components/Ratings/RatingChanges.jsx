@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import _ from 'underscore';
+import { NavLink } from 'react-router-dom';
 
 const ALL_MODE = 'all';
 const SYMBOL_MODE = 'symbol';
@@ -159,9 +160,6 @@ class RatingChanges extends Component {
         return (
             <div>
                 <br/>
-                {isLoading ? <div>
-                    Loading...
-                </div> :
                 <div>
                     <div className="container">
                         <div className="btn-group" role="group" aria-label="...">
@@ -183,58 +181,64 @@ class RatingChanges extends Component {
                             </button>
                         </div>
                         <br/>
-                        {isSymbolMode && <div>
-                            <input
-                                className="individualStockSearch"
-                                id="individualStockSearch"
-                                onKeyDown={this.onSymbolInput}
-                                onChange={this.onSymbolInputChange}
-                            />
-                            <div id="individualStockSearchResults">{this.renderSearchResults()}</div>
-                            {this.state.symbol && <div>
-                                Selected symbol: {this.state.symbol}
+                        {isLoading ? <div>
+                            Loading...
+                        </div> : <div>
+                            {isSymbolMode && <div>
+                                <input
+                                    className="individualStockSearch"
+                                    id="individualStockSearch"
+                                    onKeyDown={this.onSymbolInput}
+                                    onChange={this.onSymbolInputChange}
+                                />
+                                <div id="individualStockSearchResults">{this.renderSearchResults()}</div>
+                                {this.state.symbol && <div>
+                                    Selected symbol: {this.state.symbol}
+                                </div>}
                             </div>}
+                            Displaying {this.state.ratingChanges.length} rating changes within the last {StocksReactUtils.ratingChangesLookbackMonths} months
+
+                            {' '}
+                            <button type='button' className={_b} onClick={this.exportCSV}>
+                                Export as a CSV
+                            </button>
+                            <br/>
+                            To view more, <NavLink to="/contact" >Contact Us</NavLink>
+                            <table id='ratingChanges'>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Symbol</th>
+                                        <th>Research Firm</th>
+                                        <th>Old Rating</th>
+                                        <th>New Rating</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {ratingChanges.map((row) => {
+                                        const {
+                                            dateString,
+                                            symbol,
+                                            researchFirmName,
+                                            oldRating,
+                                            newRating,
+                                        } = row;
+                                        const rowKey = dateString + symbol + researchFirmName;
+
+                                        return <tr key={rowKey}>
+                                            <td>{dateString}</td>
+                                            <td>{symbol}</td>
+                                            <td>{researchFirmName}</td>
+                                            <td>{oldRating}</td>
+                                            <td>{newRating}</td>
+                                        </tr>;
+                                    })}
+                                </tbody>
+                            </table>
                         </div>}
-                        Displaying {this.state.ratingChanges.length} rating changes within the last {StocksReactUtils.ratingChangesLookbackMonths} months
-
-                        <button type='button' className={_b} onClick={this.exportCSV}>
-                            Export as a CSV
-                        </button>
-                        <table id='ratingChanges'>
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Symbol</th>
-                                    <th>Research Firm</th>
-                                    <th>Old Rating</th>
-                                    <th>New Rating</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {ratingChanges.map((row) => {
-                                    const {
-                                        dateString,
-                                        symbol,
-                                        researchFirmName,
-                                        oldRating,
-                                        newRating,
-                                    } = row;
-                                    const rowKey = dateString + symbol + researchFirmName;
-
-                                    return <tr key={rowKey}>
-                                        <td>{dateString}</td>
-                                        <td>{symbol}</td>
-                                        <td>{researchFirmName}</td>
-                                        <td>{oldRating}</td>
-                                        <td>{newRating}</td>
-                                    </tr>;
-                                })}
-                            </tbody>
-                        </table>
                     </div>
                 </div>
-                }
             </div>
         );
     }
