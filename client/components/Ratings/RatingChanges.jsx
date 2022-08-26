@@ -2,6 +2,9 @@ import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import _ from 'underscore';
 import { NavLink } from 'react-router-dom';
+import {
+    Table,
+} from 'reactstrap';
 
 const ALL_MODE = 'all';
 const SYMBOL_MODE = 'symbol';
@@ -124,8 +127,10 @@ class RatingChanges extends Component {
         }
     }
 
-    componentWillMount() {
+    async componentWillMount() {
         // initial load
+        const stats = await Meteor.callNoCb('getRatingChangeMetadata');
+        this.setState(stats);
         this.loadRatingChanges(ALL_MODE);
     }
 
@@ -203,8 +208,9 @@ class RatingChanges extends Component {
                                 Export as a CSV
                             </button>
                             <br/>
-                            To view more, <NavLink to="/contact" >Contact Us</NavLink>
-                            <table id='ratingChanges'>
+                            To view more (<b>{this.state.numChanges}</b> rating changes across <b>{this.state.numFirms}</b> analyst firms), <NavLink to="/contact" >Contact Us</NavLink>
+                            <br/><br/>
+                            <Table id='ratingChanges' bordered>
                                 <thead>
                                     <tr>
                                         <th>Date</th>
@@ -235,7 +241,7 @@ class RatingChanges extends Component {
                                         </tr>;
                                     })}
                                 </tbody>
-                            </table>
+                            </Table>
                         </div>}
                     </div>
                 </div>

@@ -7,6 +7,7 @@ var _maxStocksAllowedPerUnregisteredUser = 5;
 const dateStringSortDesc = {dateString: -1};
 const researchFirmIDsToExclude = [
     'vt29AuAATaAu7r3rS',
+    'TMbx3pyYK8gSqH3W6',
 ];
 const getRatingChangesQuery = () => {
     return {
@@ -187,6 +188,13 @@ Meteor.methods({
         }).fetch();
 
         return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
+    getRatingChangeMetadata() {
+        return {
+            numChanges: RatingChanges.find().count(),
+            numFirms: ResearchCompanies.find().count(),
+        };
     },
 
     getPricesForSymbol: function (symbol) {
@@ -695,11 +703,13 @@ if (Meteor.isServer) {
         getSimilarSymbols(symbol) {
             check(symbol, String);
 
+            if (symbol.length < 1) return [];
+
             const symbols = Stocks.find({
                 _id: {$regex: symbol.toUpperCase()},
             }, {
                 fields: {_id: 1},
-                limit: 5,
+                limit: 25,
             }).fetch();
             return _.pluck(symbols, '_id');
         },
