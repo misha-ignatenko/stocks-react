@@ -206,6 +206,5 @@ export default withTracker(() => {
     let _user = Meteor.user();
     return {
         currentUser: _user
-        , allStockNames: Meteor.subscribe("allStockNames").ready() && Stocks.find().fetch()
     }
 })(IndividualStock);

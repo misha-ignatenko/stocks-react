@@ -24,42 +24,6 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
         this.previousEarningsRelease = this.previousEarningsRelease.bind(this);
     }
 
-    getMeteorData() {
-        let _earningReleases = EarningsReleases.find().fetch();
-        let _earningsReleasesSorted = _.sortBy(_earningReleases, function (obj) {
-            var _composite = obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 );
-            return _composite;
-        });
-        let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
-        //todo this should come from settings
-        let _limit = 3;
-        let _selectedIndex = this.state.selectedSymbolIndex;
-        let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1 < 0 ? 0 : _selectedIndex - 1, _selectedIndex - 1 + _limit);
-        let _ratingsChangesSubsStatuses = {};
-
-        let _currentUser = Meteor.user();
-        let _settings = Settings.findOne();
-
-        let _startDateForRatingChangesSubscription =
-            _currentUser ?
-                this.state.startDateRatingChanges :
-                moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
-        let _endDateRatingChanges = this.state.endDateRatingChanges;
-
-        _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
-            // var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
-            _ratingsChangesSubsStatuses[symbol] = true;
-        });
-
-        return {
-            earningReleases: _earningsReleasesSorted
-            , ratingChanges: RatingChanges.find().fetch()
-            , currentUser: _currentUser
-            , uniqueSymbols: _uniqueSymbols
-            , ratingsChangesSubsStatuses: _ratingsChangesSubsStatuses
-        };
-    }
-
     setNewSelectedSymbol(symbol, index) {
         selectedSymbolIndex.set(index);
     }

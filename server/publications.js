@@ -29,11 +29,6 @@ Meteor.publish("specificRatingScales", function(ratingScaleIdsArr) {
 Meteor.publish("ratingScales", function() {
     console.log("inside ratingScales publication");
     return RatingScales.find({}, {fields: {_id: 1, universalScaleValue: 1, researchFirmId: 1}});
-})
-
-Meteor.publish("allStockNames", function() {
-    return Stocks.find({}, {fields: {_id: 1, "delisted.type": 1, "delisted.dateString": 1, "delisted.updatedOn": 1,
-        minRequestedStartDate: 1, maxRequestedEndDate: 1}});
 });
 
 Meteor.publish("getPortfolioById", function(portfId) {

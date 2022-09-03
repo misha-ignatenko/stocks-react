@@ -118,19 +118,22 @@ class UpcomingEarningsReleases extends Component {
 }
 
 export default withTracker((props) => {
+    const user = Meteor.user();
+    const settings = Settings.findOne();
     //check if EXP_RPT_DATE_QR1 or EXP_RPT_DATE_QR2 exist inside earningreleases collection
     //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
 
-    var data = {};
-    data.currentUser = Meteor.user();
-    data.settings = Settings.findOne();
-    if (data.settings) {
+    var data = {
+        currentUser: user,
+        settings,
+    };
+    if (settings) {
         var _endDateForEarningsReleasesSubscription =
             data.currentUser ?
                 endEarningsReleaseDateInteger.get() :
                 parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
         var _handle1 = Meteor.subscribe("earningsReleases", startEarningsReleaseDateInteger.get(), _endDateForEarningsReleasesSubscription, companyConfirmedEarnRelOnly.get());
-        if (_handle1.ready() && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("allStockNames").ready()) {
+        if (_handle1.ready()) {
             data.earningsReleasesSubscriptionReady = true;
         }
     }
