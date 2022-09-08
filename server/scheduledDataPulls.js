@@ -9,21 +9,19 @@ Meteor.startup(function() {
     //var _timeEveryDayInIsoToPull = "06:30:00.000";
 
     Meteor.setInterval(function(){
-        var _quandlSettings = Settings.findOne().serverSettings.quandl;
+        var _quandlSettings = StocksReactServerUtils.getSetting('serverSettings.quandl');
         var _timeEveryDayInIsoToPull = _quandlSettings.canPullFromQuandlEveryDayAtThisTimeInEasternTime;
         var _lastQuandlDatePull = _quandlSettings.dateOfLastPullFromQuandl;
         var _dateRightNowString = new Date().toISOString();
         var _dateString = _dateRightNowString.substring(0,10);
         var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
 
-        var _setting = Settings.findOne();
-        var _dataAutoPullIsOn = _setting && _setting.dataImports && _setting.dataImports.autoDataImportsTurnedOn;
+        var _dataAutoPullIsOn = StocksReactServerUtils.getSetting('dataImports.autoDataImportsTurnedOn');
 
         if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
-            var _previousSettings = Settings.findOne();
-            var _previousServerSettings = _previousSettings.serverSettings;
-            _previousServerSettings.quandl.dateOfLastPullFromQuandl = _dateString;
-            Settings.update({_id: _previousSettings._id}, {$set: {serverSettings: _previousServerSettings}});
+            Settings.update(StocksReactServerUtils.getSetting('_id'), {$set: {
+                'serverSettings.quandl.dateOfLastPullFromQuandl': _dateString,
+            }});
 
             Meteor.call('importData', [], 'earnings_releases_new', true);
 

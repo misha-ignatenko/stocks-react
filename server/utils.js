@@ -20,6 +20,7 @@ const getSetting = (setting) => {
 
 StocksReactServerUtils = {
 
+    getSetting,
     ratingsChangesLimitGlobal() {
         return getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
