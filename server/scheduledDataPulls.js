@@ -9,17 +9,17 @@ Meteor.startup(function() {
     //var _timeEveryDayInIsoToPull = "06:30:00.000";
 
     Meteor.setInterval(function(){
-        var _quandlSettings = StocksReactServerUtils.getSetting('serverSettings.quandl');
+        var _quandlSettings = Utils.getSetting('serverSettings.quandl');
         var _timeEveryDayInIsoToPull = _quandlSettings.canPullFromQuandlEveryDayAtThisTimeInEasternTime;
         var _lastQuandlDatePull = _quandlSettings.dateOfLastPullFromQuandl;
         var _dateRightNowString = new Date().toISOString();
         var _dateString = _dateRightNowString.substring(0,10);
         var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
 
-        var _dataAutoPullIsOn = StocksReactServerUtils.getSetting('dataImports.autoDataImportsTurnedOn');
+        var _dataAutoPullIsOn = Utils.getSetting('dataImports.autoDataImportsTurnedOn');
 
         if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
-            Settings.update(StocksReactServerUtils.getSetting('_id'), {$set: {
+            Settings.update(Utils.getSetting('_id'), {$set: {
                 'serverSettings.quandl.dateOfLastPullFromQuandl': _dateString,
             }});
 
@@ -37,8 +37,8 @@ Meteor.startup(function() {
                 Meteor.setTimeout(() => {
                     const symbols = _.uniq(chunk);
                     Email.send({
-                        to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
-                        from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+                        to: ServerUtils.getEmailTo(),
+                        from: ServerUtils.getEmailTo(),
                         subject: 'getting earnings releases for chunk ' + index,
                         text: JSON.stringify({
                             hostname: Meteor.absoluteUrl(),
@@ -85,8 +85,8 @@ Meteor.methods({
 
 
         Email.send({
-            to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
-            from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
+            to: ServerUtils.getEmailTo(),
+            from: ServerUtils.getEmailTo(),
             subject: 'MISSING earnings release symbols',
             text: JSON.stringify({
                 timeNow: new Date(),
