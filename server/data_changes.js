@@ -15,3 +15,21 @@ RatingChanges.find(
 
     RatingChanges.update(ratingChange._id, {$set: {addedOn: correctDate}});
 });
+
+// correct `date` date formats
+RatingChanges.find(
+    {
+        date: {$type: 2},
+    },
+    {
+        limit: 5,
+        fields: {
+            date: 1,
+        },
+    }
+).forEach(ratingChange => {
+    const correctDate = new Date(ratingChange.date);
+    console.log(ratingChange._id, ratingChange.date, correctDate);
+
+    RatingChanges.update(ratingChange._id, {$set: {date: correctDate}});
+});
