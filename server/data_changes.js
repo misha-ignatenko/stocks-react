@@ -1,6 +1,7 @@
 import { EJSON } from 'meteor/ejson';
 import _ from 'underscore';
 
+/*
 Utils.migrateAddedOnDate = (startDate, endDate) => {
     // correct `addedOn` date formats
     RatingChanges.find(
@@ -55,3 +56,4 @@ Stocks.find({
 
     Stocks.update(s._id, {$unset: {quote: 1}});
 });
+*/
