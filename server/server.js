@@ -1,6 +1,7 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
 import { check, Match } from 'meteor/check';
+import { EJSON } from 'meteor/ejson';
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
@@ -207,15 +208,32 @@ Meteor.methods({
         return _r && _r.dateString;
     },
 
-    getEarningsReleases(startDate, endDate, companyConfirmedOnly) {
-        check(startDate, Number);
-        check(endDate, Number);
-        check(companyConfirmedOnly, Match.Maybe(Boolean));
+    getUpcomingEarningsReleases(options) {
+        check(options, {
+            startDate: Number,
+            endDate: Number,
+            companyConfirmedOnly: Match.Maybe(Boolean),
+        });
+        const {
+            startDate,
+            endDate,
+            companyConfirmedOnly,
+        } = options;
 
         const query = {
-            reportDateNextFiscalQuarter: {
-                $gte: startDate, $lte: endDate,
-            },
+            $and: [
+                {
+                    // make sure to only ever look forward
+                    reportDateNextFiscalQuarter: {
+                        $gte: parseInt(moment().format("YYYYMMDD")),
+                    }
+                },
+                {
+                    reportDateNextFiscalQuarter: {
+                        $gte: startDate, $lte: endDate,
+                    },
+                },
+            ],
             ...(companyConfirmedOnly ? {reportSourceFlag: 1} : {}),
         };
 

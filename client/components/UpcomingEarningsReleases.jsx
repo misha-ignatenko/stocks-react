@@ -9,6 +9,23 @@ const companyConfirmedEarnRelOnly = new ReactiveVar(true);
 const startEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).format("YYYYMMDD")));
 const endEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")));
 
+const getEndDate = (data) => {
+    return data.currentUser ?
+        endEarningsReleaseDateInteger.get() :
+        parseInt(moment(new Date().toISOString())
+            .add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days')
+            .format("YYYYMMDD")
+        );
+};
+
+const getEarnRelParams = (data) => {
+    return {
+        startDate: startEarningsReleaseDateInteger.get(),
+        endDate: getEndDate(data),
+        companyConfirmedOnly: companyConfirmedEarnRelOnly.get(),
+    };
+};
+
 class UpcomingEarningsReleases extends Component {
 
     constructor(props) {
@@ -146,15 +163,9 @@ export default withTracker((props) => {
         settings,
     };
     if (settings) {
-        var _endDateForEarningsReleasesSubscription =
-            data.currentUser ?
-                endEarningsReleaseDateInteger.get() :
-                parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
         data.earnRelPromise = Meteor.callNoCb(
-            'getEarningsReleases',
-            startEarningsReleaseDateInteger.get(),
-            _endDateForEarningsReleasesSubscription,
-            companyConfirmedEarnRelOnly.get(),
+            'getUpcomingEarningsReleases',
+            getEarnRelParams(data)
         );
     }
 
