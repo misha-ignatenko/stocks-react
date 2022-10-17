@@ -492,7 +492,7 @@ export default withTracker((props) => {
                 }
 
                 //todo: make sure we are already subscribed to EarningsReleases
-                let _allEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol, reportDateNextFiscalQuarter: {$exists: true}}).fetch();
+                let _allEarningsReleasesForSymbol = props.earningsReleases;
 
                 _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
                 _data.ratingChanges = RatingChanges.find({symbol: _symbol}).fetch();

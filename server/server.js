@@ -1,6 +1,6 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
-import { check } from 'meteor/check';
+import { check, Match } from 'meteor/check';
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
@@ -205,6 +205,26 @@ Meteor.methods({
     getEarliestRatingChange: function (symbol) {
         var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
         return _r && _r.dateString;
+    },
+
+    getEarningsReleases(startDate, endDate, companyConfirmedOnly) {
+        check(startDate, Number);
+        check(endDate, Number);
+        check(companyConfirmedOnly, Match.Maybe(Boolean));
+
+        const query = {
+            reportDateNextFiscalQuarter: {
+                $gte: startDate, $lte: endDate,
+            },
+            ...(companyConfirmedOnly ? {reportSourceFlag: 1} : {}),
+        };
+
+        var earningsReleases = EarningsReleases.find(
+            query,
+            {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
+        ).fetch();
+
+        return earningsReleases;
     },
 
     getPricesFromApi: function (datesAndSymbolsMap) {
@@ -597,28 +617,6 @@ Meteor.methods({
 // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
 
 if (Meteor.isServer) {
-    Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
-        check(startDate, Number);
-        check(endDate, Number);
-        check(companyConfirmedOnly, Boolean);
-        console.log("inside earningsReleases publication")
-
-        var _query = {
-            reportDateNextFiscalQuarter: {
-                $gte: startDate, $lte: endDate,
-            }
-        };
-
-        if (companyConfirmedOnly) {
-            _query = _.extend(_query, {
-                reportSourceFlag: 1
-            });
-        };
-
-        var _allEarningsReleases = EarningsReleases.find(_query, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
-
-        return _allEarningsReleases;
-    });
 
     Meteor.publish("portfolios", function() {
         if (this.userId) {

@@ -188,6 +188,7 @@ class IndividualStock extends Component {
                     {this.state.selectedStock ?
                         <div className="container">
                             <AverageAndWeightedRatings
+                                earningsReleases={[]}
                                 symbol={this.state.selectedStock}
                                 showAvgRatings={this.state.showAvgRatings}
                                 showWeightedRating={this.state.showWeightedRating}/>

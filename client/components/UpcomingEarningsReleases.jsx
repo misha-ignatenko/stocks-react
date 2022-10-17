@@ -17,6 +17,8 @@ class UpcomingEarningsReleases extends Component {
         let _ratingChangesDateFormat = "YYYY-MM-DD";
 
         this.state = {
+            earningsReleasesSubscriptionReady: false,
+            earningsReleases: [],
             startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
             endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
             ratingChangesSubscriptionHandles: {}
@@ -87,6 +89,17 @@ class UpcomingEarningsReleases extends Component {
     toggleCompanyConfirmedOnly() {
         companyConfirmedEarnRelOnly.set(!companyConfirmedEarnRelOnly.get());
     }
+    componentWillReceiveProps(nextProps) {
+        const that = this;
+        if (nextProps.earnRelPromise) {
+            nextProps.earnRelPromise.then(res => {
+                that.setState({
+                    earningsReleases: res,
+                    earningsReleasesSubscriptionReady: true,
+                });
+            })
+        }
+    }
 
     render() {
         let _compOnlyBtnClass = "btn btn-light" + (companyConfirmedEarnRelOnly.get() ? " active" : "");
@@ -110,7 +123,12 @@ class UpcomingEarningsReleases extends Component {
                         </div>
                     ) : null
                 ) : null}
-                {this.props.earningsReleasesSubscriptionReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases."}
+                {this.state.earningsReleasesSubscriptionReady ?
+                    <UpcomingEarningsButtonsAndSelectedSymbol
+                        earningsReleases={this.state.earningsReleases}
+                    /> :
+                    "getting upcoming earnings releases."
+                }
                 <br/>
             </div>
         );
@@ -118,7 +136,7 @@ class UpcomingEarningsReleases extends Component {
 }
 
 export default withTracker((props) => {
-    const user = Meteor.user();
+    const user = Meteor.user({fields: {registered: 1}});
     const settings = Settings.findOne();
     //check if EXP_RPT_DATE_QR1 or EXP_RPT_DATE_QR2 exist inside earningreleases collection
     //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
@@ -132,10 +150,12 @@ export default withTracker((props) => {
             data.currentUser ?
                 endEarningsReleaseDateInteger.get() :
                 parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
-        var _handle1 = Meteor.subscribe("earningsReleases", startEarningsReleaseDateInteger.get(), _endDateForEarningsReleasesSubscription, companyConfirmedEarnRelOnly.get());
-        if (_handle1.ready()) {
-            data.earningsReleasesSubscriptionReady = true;
-        }
+        data.earnRelPromise = Meteor.callNoCb(
+            'getEarningsReleases',
+            startEarningsReleaseDateInteger.get(),
+            _endDateForEarningsReleasesSubscription,
+            companyConfirmedEarnRelOnly.get(),
+        );
     }
 
     return data;

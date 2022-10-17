@@ -3,6 +3,7 @@ import { withTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
 
 import AverageAndWeightedRatings from "../Ratings/AverageAndWeightedRatings.jsx";
+import _ from 'underscore';
 
 let _ratingChangesDateFormat = "YYYY-MM-DD";
 const selectedSymbolIndex = new ReactiveVar(1);
@@ -29,7 +30,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
     }
 
     renderButtons() {
-        let _earnRel = this.props.earningReleases;
+        let _earnRel = this.props.earningsReleases;
         let _symbols = _.map(this.props.uniqueSymbols, function (symbolStr) {
             let _earnRelPerSymbol = _earnRel.filter(function (obj) {
                 return obj.symbol === symbolStr;
@@ -189,6 +190,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
 
     render() {
         let _symbol = this.props.uniqueSymbols ? this.props.uniqueSymbols[selectedSymbolIndex.get()] : "";
+        const earningsReleasesPerSymbol = this.props.earningsReleases.filter(rel => rel.symbol === _symbol && _.has(rel, 'reportDateNextFiscalQuarter'));
 
         return (
             <div className="container">
@@ -206,6 +208,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
                     {this.renderButtons()}
                     <br/>
                     <AverageAndWeightedRatings
+                        earningsReleases={earningsReleasesPerSymbol}
                         symbol={_symbol}
                         showAvgRatings={true}
                         showWeightedRating={true}/>
@@ -217,8 +220,8 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
 
 export default withTracker((props) => {
 
-    let _earningReleases = EarningsReleases.find().fetch();
-    let _earningsReleasesSorted = _.sortBy(_earningReleases, function (obj) {
+    let _earningsReleases = props.earningsReleases;
+    let _earningsReleasesSorted = _.sortBy(_earningsReleases, function (obj) {
         var _composite = obj.reportDateNextFiscalQuarter * 10 + (obj.reportTimeOfDayCode === 2 ? 1 : obj.reportTimeOfDayCode === 3 ? 2 : obj.reportTimeOfDayCode === 1 ? 3 : 4 );
         return _composite;
     });
@@ -244,7 +247,7 @@ export default withTracker((props) => {
     });
 
     return {
-        earningReleases: _earningsReleasesSorted
+        earningsReleases: _earningsReleasesSorted
         , ratingChanges: RatingChanges.find().fetch()
         , currentUser: _currentUser
         , uniqueSymbols: _uniqueSymbols
