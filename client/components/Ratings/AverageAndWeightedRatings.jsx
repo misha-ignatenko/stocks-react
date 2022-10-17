@@ -425,7 +425,7 @@ export default withTracker((props) => {
             _avgRatingStartDate :
             moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
     let _endDateRatingChanges = _avgRatingEndDate;
-    let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbols", [_symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
+    let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbol", _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
     if (_ratingChangesHandle.ready()) {
 

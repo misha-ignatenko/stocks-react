@@ -242,7 +242,6 @@ export default withTracker((props) => {
     let _endDateRatingChanges = endDateRatingChanges.get();
 
     _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
-        // var _handle = Meteor.subscribe("ratingChangesForSymbols", [symbol], _startDateForRatingChangesSubscription, _endDateRatingChanges);
         _ratingsChangesSubsStatuses[symbol] = true;
     });
 

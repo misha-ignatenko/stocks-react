@@ -527,53 +527,7 @@ Meteor.methods({
         };
     },
 
-    ensureRatingChangesSymbolsDefinedInStocksCollection: function () {
-        var _uniqRatingChangesSymbols = _.uniq(_.pluck(RatingChanges.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
-
-        // make sure that all these unique symbols in RatingChanges collection exist in Stocks collection
-        var _uniqStocks = _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), "_id"));
-
-        var _symbolsNotInStocksCollection = _.difference(_uniqRatingChangesSymbols, _uniqStocks);
-
-        var _thisArrShouldBeEmpty = [];
-        _.each(_symbolsNotInStocksCollection, function (symbol) {
-            // look up each symbol in symbol mapping collection. if it's not there with "rating_changes" flag, then
-            // push to _thisArrShouldBeEmpty
-
-            var _symbolMapping = SymbolMappings.findOne({
-                "symbolStr" : symbol,
-                "from" : "rating_change"
-            });
-            if (_symbolMapping) {
-                // do nothing
-            } else {
-                _thisArrShouldBeEmpty.push({
-                    symbol: symbol,
-                    ratingChangesDates: _.pluck(RatingChanges.find({symbol: symbol}, {fields: {dateString: 1}}).fetch(), "dateString")
-                });
-            }
-        });
-
-        return _thisArrShouldBeEmpty;
-    }
-
-    , getRatingChangeHistoryForSymbolAndFirm(symbol, firmName) {
-        var _firm = ResearchCompanies.find({name: firmName}).fetch();
-        if (_firm.length === 1) {
-            var _firmId = _firm[0]._id;
-            var _ratingChanges = RatingChanges.find({symbol: symbol, researchFirmId: _firmId}, {sort: {dateString: 1}}).fetch();
-            _.each(_ratingChanges, function (rCh) {
-                console.log("date: ", rCh.dateString);
-                console.log("old: ", RatingScales.findOne(rCh.oldRatingId).universalScaleValue);
-                console.log("new: ", RatingScales.findOne(rCh.newRatingId).universalScaleValue);
-                console.log("--------------------------------------");
-            })
-        } else {
-            console.log("cannot find the needed firm: ", _firm);
-        }
-    }
-
-    , insertNewRollingPortfolioItem: function (obj) {
+    insertNewRollingPortfolioItem: function (obj) {
         // check that the symbol exists
         var _p = Portfolios.findOne(obj.portfolioId);
         if (!_p || !_p.rolling) {
@@ -617,24 +571,6 @@ Meteor.methods({
 // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
 
 if (Meteor.isServer) {
-
-    Meteor.publish("portfolios", function() {
-        if (this.userId) {
-            // TODO: add logic here to also return portfolios that you have either view or edit access in PortfolioPermissions collection
-            //portfolios that are either public or the user is owner
-            return Portfolios.find(
-                { $or: [ {private: false}, {ownerId: this.userId} ] },
-                {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1}}
-                );
-        } else {
-            return Portfolios.find({private: false}, {fields: {_id: 1, name: 1}});
-        }
-    });
-
-    Meteor.publish(null, function() {
-        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
-        return _user;
-    });
 
     Accounts.onCreateUser(function(options, user) {
         var _createdUser;
