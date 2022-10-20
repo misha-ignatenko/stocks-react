@@ -8,6 +8,9 @@ var _serverSideVarCount = 0;
 Meteor.startup(function() {
     //var _timeEveryDayInIsoToPull = "06:30:00.000";
 
+    // skip data pull if dev env
+    if (Meteor.isDevelopment) return;
+
     Meteor.setInterval(function(){
         var _quandlSettings = Utils.getSetting('serverSettings.quandl');
         var _timeEveryDayInIsoToPull = _quandlSettings.canPullFromQuandlEveryDayAtThisTimeInEasternTime;
