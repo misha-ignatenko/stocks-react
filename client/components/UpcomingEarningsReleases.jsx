@@ -106,7 +106,21 @@ class UpcomingEarningsReleases extends Component {
     toggleCompanyConfirmedOnly() {
         companyConfirmedEarnRelOnly.set(!companyConfirmedEarnRelOnly.get());
     }
+    attachPromise(props, context) {
+        if (props.earnRelPromise) {
+            console.log('attaching promise', props);
+            props.earnRelPromise.then(res => {
+                context.setState({
+                    earningsReleases: res,
+                    earningsReleasesSubscriptionReady: true,
+                });
+            })
+        }
+    }
     componentWillReceiveProps(nextProps) {
+        this.attachPromise(nextProps, this);
+        return;
+
         const that = this;
         if (nextProps.earnRelPromise) {
             nextProps.earnRelPromise.then(res => {
@@ -116,6 +130,9 @@ class UpcomingEarningsReleases extends Component {
                 });
             })
         }
+    }
+    componentDidMount() {
+        this.attachPromise(this.props, this);
     }
 
     render() {
