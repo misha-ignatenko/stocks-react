@@ -170,6 +170,7 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 
 Meteor.methods({
     getLatestRatingChanges() {
+        console.log('getLatestRatingChanges');
         const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
             limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
@@ -214,6 +215,7 @@ Meteor.methods({
             endDate: Number,
             companyConfirmedOnly: Match.Maybe(Boolean),
         });
+        console.log('getUpcomingEarningsReleases', options);
         const {
             startDate,
             endDate,

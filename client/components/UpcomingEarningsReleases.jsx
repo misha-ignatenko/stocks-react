@@ -4,7 +4,6 @@ import moment from 'moment-timezone';
 
 import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
 
-let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
 const companyConfirmedEarnRelOnly = new ReactiveVar(true);
 const startEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).format("YYYYMMDD")));
 const endEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")));
