@@ -1,5 +1,6 @@
-import React, { Component } from 'react';
+import React, { Component, useState, useEffect } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
+import { useTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
 
 import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
@@ -25,19 +26,14 @@ const getEarnRelParams = (data) => {
     };
 };
 
-class UpcomingEarningsReleases extends Component {
+class UpcomingEarningsReleasesDeprecated extends Component {
 
     constructor(props) {
         super(props);
 
-        let _ratingChangesDateFormat = "YYYY-MM-DD";
-
         this.state = {
             earningsReleasesSubscriptionReady: false,
             earningsReleases: [],
-            startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
-            endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
-            ratingChangesSubscriptionHandles: {}
         };
 
         this.convertQuandlFormatNumberDateToDateStringWithSlashes = this.convertQuandlFormatNumberDateToDateStringWithSlashes.bind(this);
@@ -71,35 +67,6 @@ class UpcomingEarningsReleases extends Component {
         var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
         var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
         return _month + "/" + _day + "/" + _year;
-    }
-
-    focusStocks(stocksArr) {
-        var _alreadyAvailableRatingChangesForSymbols = _.pluck(RatingChanges.find().fetch(), "symbol");
-        var _additionalSymbolsToSubscribeForRatingChangesFor = _.difference(stocksArr, _alreadyAvailableRatingChangesForSymbols);
-
-        var _existingHandles = this.state.ratingChangesSubscriptionHandles;
-        _additionalSymbolsToSubscribeForRatingChangesFor.forEach(function(symbol) {
-            var _handle = Meteor.subscribe("ratingChangesForSymbol", symbol);
-            _existingHandles[symbol] = _handle;
-        });
-
-
-        //STOP ALL UNNECESSARY ONES if no user
-        if (!Meteor.user()) {
-            var _stopTheseSubs = _.uniq(_.difference(_alreadyAvailableRatingChangesForSymbols, stocksArr));
-            if (_stopTheseSubs.length > 0) {
-                _stopTheseSubs.forEach(function(symbol) {
-                    if (_existingHandles[symbol]) {
-                        _existingHandles[symbol].stop();
-                    }
-                });
-            }
-        }
-
-        this.setState({
-            ratingChangesSubscriptionHandles: _existingHandles
-        });
-
     }
 
     toggleCompanyConfirmedOnly() {
@@ -174,4 +141,71 @@ export default withTracker((props) => {
     }
 
     return data;
-})(UpcomingEarningsReleases);
+})(UpcomingEarningsReleasesDeprecated);
+
+export const UpcomingEarningsReleases = (props) => {
+    const [earningsReleases, setEarningsReleases] = useState([]);
+    const [loadingEarningsReleases, setLoadingEarningsReleases] = useState(true);
+
+    const user = useTracker(() => Meteor.user({fields: {registered: 1}}), []);
+    const settings = useTracker(() => Settings.findOne(), []);
+
+    const format = 'YYYYMMDD';
+    const [startDate, setStartDate] = useState(+moment().format(format));
+    const [endDate, setEndDate] = useState(undefined);
+    const [companyConfirmedOnly, setCompanyConfirmedOnly] = useState(true);
+
+    useTracker(() => {
+        if (user || settings) {
+            setEndDate(+moment().add(
+                user ? 10 : settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser,
+                'days'
+            ).format(format));
+        }
+    }, [
+        user,
+        settings,
+    ]);
+
+    useEffect(() => {
+        if (settings && endDate) {
+            setLoadingEarningsReleases(true);
+            Meteor.call(
+                'getUpcomingEarningsReleases',
+                {
+                    startDate,
+                    endDate,
+                    companyConfirmedOnly,
+                },
+                (err, res) => {
+                    if (!err) {
+                        setEarningsReleases(res);
+                        setLoadingEarningsReleases(false);
+                    }
+                }
+            );
+        }
+    }, [
+        user,
+        settings,
+        startDate,
+        endDate,
+        companyConfirmedOnly,
+    ]);
+
+    const toggleCompanyConfirmedOnly = () => setCompanyConfirmedOnly(!companyConfirmedOnly);
+
+    if (loadingEarningsReleases) return 'getting upcoming earnings releases.';
+
+    return (<div>
+        {user?.registered && <button
+            className={ 'btn btn-light' + (companyConfirmedOnly ? ' active' : '') }
+            onClick={toggleCompanyConfirmedOnly}>
+                Company Confirmed Only
+            </button>
+        }
+        <UpcomingEarningsButtonsAndSelectedSymbol
+            earningsReleases={earningsReleases}
+        />
+    </div>);
+};
