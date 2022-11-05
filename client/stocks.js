@@ -4,9 +4,6 @@ import moment from 'moment-timezone';
         passwordSignupFields: "USERNAME_ONLY"
     });
 
-    // Meteor.subscribe("pickLists");
-    // Meteor.subscribe("pickListItems");
-
     Meteor.subscribe("settings");
 
     //Meteor.startup(function () {
