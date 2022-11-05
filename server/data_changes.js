@@ -1,5 +1,6 @@
 import { EJSON } from 'meteor/ejson';
 import _ from 'underscore';
+import { MongoInternals } from 'meteor/mongo';
 
 /*
 Utils.migrateAddedOnDate = (startDate, endDate) => {
@@ -56,4 +57,16 @@ Stocks.find({
 
     Stocks.update(s._id, {$unset: {quote: 1}});
 });
+*/
+
+/*
+Utils.removePickListItems = function () {
+    const driver = MongoInternals.defaultRemoteCollectionDriver();
+    driver.mongo.db.dropCollection('pickListItems').then(result => {
+        console.log('result: ', result);
+    }).catch(error => {
+        console.log('there was an error: ', error);
+    });
+};
+// Utils.removePickListItems();
 */
