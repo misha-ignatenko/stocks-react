@@ -4,27 +4,20 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
 
-const settingsQuery = {type: "main"};
-const getSetting = (setting) => {
-    const settingsObject = Settings.findOne(settingsQuery, {fields: {[setting]: 1}});
-    let s = settingsObject;
-    setting.split('.').forEach(interimField => {
-        if (_.isObject(s) && _.has(s, interimField)) {
-            s = s[interimField];
-        } else {
-            s = undefined;
-        }
-    });
-    return s;
-};
-
 StocksReactServerUtils = {
 
+    getEmailTo() {
+        return Utils.getSetting('serverSettings.ratingsChanges.emailTo');
+    },
+    getEmailFrom() {
+        return Utils.getSetting('serverSettings.ratingsChanges.emailFrom');
+    },
+
     ratingsChangesLimitGlobal() {
-        return getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+        return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
     ratingsChangesLimitSymbol() {
-        return getSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+        return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
     },
     getExtraRatingChangeData(ratingChanges) {
         let firmMap = new Map();
@@ -72,7 +65,7 @@ StocksReactServerUtils = {
     },
 
     apiKey: function () {
-        return Settings.findOne({type: "main"}, {fields: {'dataImports.earningsReleases.quandlZeaAuthToken': 1}}).dataImports.earningsReleases.quandlZeaAuthToken;
+        return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
     newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
 
@@ -239,3 +232,5 @@ StocksReactServerUtils = {
         }
     }
 };
+
+ServerUtils = StocksReactServerUtils;

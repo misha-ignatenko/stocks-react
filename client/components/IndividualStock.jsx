@@ -188,6 +188,7 @@ class IndividualStock extends Component {
                     {this.state.selectedStock ?
                         <div className="container">
                             <AverageAndWeightedRatings
+                                earningsReleases={[]}
                                 symbol={this.state.selectedStock}
                                 showAvgRatings={this.state.showAvgRatings}
                                 showWeightedRating={this.state.showWeightedRating}/>
@@ -206,6 +207,5 @@ export default withTracker(() => {
     let _user = Meteor.user();
     return {
         currentUser: _user
-        , allStockNames: Meteor.subscribe("allStockNames").ready() && Stocks.find().fetch()
     }
 })(IndividualStock);

@@ -1,6 +1,7 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
-import { check } from 'meteor/check';
+import { check, Match } from 'meteor/check';
+import { EJSON } from 'meteor/ejson';
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
@@ -169,6 +170,7 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 
 Meteor.methods({
     getLatestRatingChanges() {
+        console.log('getLatestRatingChanges');
         const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
             limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
@@ -205,6 +207,44 @@ Meteor.methods({
     getEarliestRatingChange: function (symbol) {
         var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
         return _r && _r.dateString;
+    },
+
+    getUpcomingEarningsReleases(options) {
+        check(options, {
+            startDate: Number,
+            endDate: Number,
+            companyConfirmedOnly: Match.Maybe(Boolean),
+        });
+        console.log('getUpcomingEarningsReleases', options);
+        const {
+            startDate,
+            endDate,
+            companyConfirmedOnly,
+        } = options;
+
+        const query = {
+            $and: [
+                {
+                    // make sure to only ever look forward
+                    reportDateNextFiscalQuarter: {
+                        $gte: parseInt(moment().format("YYYYMMDD")),
+                    }
+                },
+                {
+                    reportDateNextFiscalQuarter: {
+                        $gte: startDate, $lte: endDate,
+                    },
+                },
+            ],
+            ...(companyConfirmedOnly ? {reportSourceFlag: 1} : {}),
+        };
+
+        var earningsReleases = EarningsReleases.find(
+            query,
+            {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
+        ).fetch();
+
+        return earningsReleases;
     },
 
     getPricesFromApi: function (datesAndSymbolsMap) {
@@ -507,53 +547,7 @@ Meteor.methods({
         };
     },
 
-    ensureRatingChangesSymbolsDefinedInStocksCollection: function () {
-        var _uniqRatingChangesSymbols = _.uniq(_.pluck(RatingChanges.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
-
-        // make sure that all these unique symbols in RatingChanges collection exist in Stocks collection
-        var _uniqStocks = _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), "_id"));
-
-        var _symbolsNotInStocksCollection = _.difference(_uniqRatingChangesSymbols, _uniqStocks);
-
-        var _thisArrShouldBeEmpty = [];
-        _.each(_symbolsNotInStocksCollection, function (symbol) {
-            // look up each symbol in symbol mapping collection. if it's not there with "rating_changes" flag, then
-            // push to _thisArrShouldBeEmpty
-
-            var _symbolMapping = SymbolMappings.findOne({
-                "symbolStr" : symbol,
-                "from" : "rating_change"
-            });
-            if (_symbolMapping) {
-                // do nothing
-            } else {
-                _thisArrShouldBeEmpty.push({
-                    symbol: symbol,
-                    ratingChangesDates: _.pluck(RatingChanges.find({symbol: symbol}, {fields: {dateString: 1}}).fetch(), "dateString")
-                });
-            }
-        });
-
-        return _thisArrShouldBeEmpty;
-    }
-
-    , getRatingChangeHistoryForSymbolAndFirm(symbol, firmName) {
-        var _firm = ResearchCompanies.find({name: firmName}).fetch();
-        if (_firm.length === 1) {
-            var _firmId = _firm[0]._id;
-            var _ratingChanges = RatingChanges.find({symbol: symbol, researchFirmId: _firmId}, {sort: {dateString: 1}}).fetch();
-            _.each(_ratingChanges, function (rCh) {
-                console.log("date: ", rCh.dateString);
-                console.log("old: ", RatingScales.findOne(rCh.oldRatingId).universalScaleValue);
-                console.log("new: ", RatingScales.findOne(rCh.newRatingId).universalScaleValue);
-                console.log("--------------------------------------");
-            })
-        } else {
-            console.log("cannot find the needed firm: ", _firm);
-        }
-    }
-
-    , insertNewRollingPortfolioItem: function (obj) {
+    insertNewRollingPortfolioItem: function (obj) {
         // check that the symbol exists
         var _p = Portfolios.findOne(obj.portfolioId);
         if (!_p || !_p.rolling) {
@@ -597,46 +591,6 @@ Meteor.methods({
 // inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
 
 if (Meteor.isServer) {
-    Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
-        check(startDate, Number);
-        check(endDate, Number);
-        check(companyConfirmedOnly, Boolean);
-        console.log("inside earningsReleases publication")
-
-        var _query = {
-            reportDateNextFiscalQuarter: {
-                $gte: startDate, $lte: endDate,
-            }
-        };
-
-        if (companyConfirmedOnly) {
-            _query = _.extend(_query, {
-                reportSourceFlag: 1
-            });
-        };
-
-        var _allEarningsReleases = EarningsReleases.find(_query, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
-
-        return _allEarningsReleases;
-    });
-
-    Meteor.publish("portfolios", function() {
-        if (this.userId) {
-            // TODO: add logic here to also return portfolios that you have either view or edit access in PortfolioPermissions collection
-            //portfolios that are either public or the user is owner
-            return Portfolios.find(
-                { $or: [ {private: false}, {ownerId: this.userId} ] },
-                {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1}}
-                );
-        } else {
-            return Portfolios.find({private: false}, {fields: {_id: 1, name: 1}});
-        }
-    });
-
-    Meteor.publish(null, function() {
-        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
-        return _user;
-    });
 
     Accounts.onCreateUser(function(options, user) {
         var _createdUser;

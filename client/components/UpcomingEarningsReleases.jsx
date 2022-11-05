@@ -4,10 +4,26 @@ import moment from 'moment-timezone';
 
 import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
 
-let _allowQuandlPullEveryNdaysFromPreviousForThatStock = 3;
 const companyConfirmedEarnRelOnly = new ReactiveVar(true);
 const startEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).format("YYYYMMDD")));
 const endEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")));
+
+const getEndDate = (data) => {
+    return data.currentUser ?
+        endEarningsReleaseDateInteger.get() :
+        parseInt(moment(new Date().toISOString())
+            .add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days')
+            .format("YYYYMMDD")
+        );
+};
+
+const getEarnRelParams = (data) => {
+    return {
+        startDate: startEarningsReleaseDateInteger.get(),
+        endDate: getEndDate(data),
+        companyConfirmedOnly: companyConfirmedEarnRelOnly.get(),
+    };
+};
 
 class UpcomingEarningsReleases extends Component {
 
@@ -17,6 +33,8 @@ class UpcomingEarningsReleases extends Component {
         let _ratingChangesDateFormat = "YYYY-MM-DD";
 
         this.state = {
+            earningsReleasesSubscriptionReady: false,
+            earningsReleases: [],
             startDateRatingChanges: moment(new Date().toISOString()).subtract(90, 'days').format(_ratingChangesDateFormat),
             endDateRatingChanges: moment(new Date().toISOString()).format(_ratingChangesDateFormat),
             ratingChangesSubscriptionHandles: {}
@@ -87,6 +105,22 @@ class UpcomingEarningsReleases extends Component {
     toggleCompanyConfirmedOnly() {
         companyConfirmedEarnRelOnly.set(!companyConfirmedEarnRelOnly.get());
     }
+    attachPromise(props, context) {
+        if (props.earnRelPromise) {
+            props.earnRelPromise.then(res => {
+                context.setState({
+                    earningsReleases: res,
+                    earningsReleasesSubscriptionReady: true,
+                });
+            })
+        }
+    }
+    componentWillReceiveProps(nextProps) {
+        this.attachPromise(nextProps, this);
+    }
+    componentDidMount() {
+        this.attachPromise(this.props, this);
+    }
 
     render() {
         let _compOnlyBtnClass = "btn btn-light" + (companyConfirmedEarnRelOnly.get() ? " active" : "");
@@ -110,7 +144,12 @@ class UpcomingEarningsReleases extends Component {
                         </div>
                     ) : null
                 ) : null}
-                {this.props.earningsReleasesSubscriptionReady ? <UpcomingEarningsButtonsAndSelectedSymbol /> : "getting upcoming earnings releases."}
+                {this.state.earningsReleasesSubscriptionReady ?
+                    <UpcomingEarningsButtonsAndSelectedSymbol
+                        earningsReleases={this.state.earningsReleases}
+                    /> :
+                    "getting upcoming earnings releases."
+                }
                 <br/>
             </div>
         );
@@ -118,21 +157,20 @@ class UpcomingEarningsReleases extends Component {
 }
 
 export default withTracker((props) => {
+    const user = Meteor.user({fields: {registered: 1}});
+    const settings = Settings.findOne();
     //check if EXP_RPT_DATE_QR1 or EXP_RPT_DATE_QR2 exist inside earningreleases collection
     //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
 
-    var data = {};
-    data.currentUser = Meteor.user();
-    data.settings = Settings.findOne();
-    if (data.settings) {
-        var _endDateForEarningsReleasesSubscription =
-            data.currentUser ?
-                endEarningsReleaseDateInteger.get() :
-                parseInt(moment(new Date().toISOString()).add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days').format("YYYYMMDD"));
-        var _handle1 = Meteor.subscribe("earningsReleases", startEarningsReleaseDateInteger.get(), _endDateForEarningsReleasesSubscription, companyConfirmedEarnRelOnly.get());
-        if (_handle1.ready() && Meteor.subscribe("ratingScales").ready() && Meteor.subscribe("allStockNames").ready()) {
-            data.earningsReleasesSubscriptionReady = true;
-        }
+    var data = {
+        currentUser: user,
+        settings,
+    };
+    if (settings) {
+        data.earnRelPromise = Meteor.callNoCb(
+            'getUpcomingEarningsReleases',
+            getEarnRelParams(data)
+        );
     }
 
     return data;
