@@ -200,11 +200,13 @@ Meteor.methods({
     },
 
     getPricesForSymbol: function (symbol) {
+        check(symbol, String);
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
     },
 
     getEarliestRatingChange: function (symbol) {
+        check(symbol, String);
         var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
         return _r && _r.dateString;
     },
@@ -329,6 +331,9 @@ Meteor.methods({
     },
 
     getRegressionPerformance: function (symbol, maxRatingChangeDate, priceCheckDate) {
+        check(symbol, String);
+        check(maxRatingChangeDate, String);
+        check(priceCheckDate, String);
 
         // step 1. get all rating changes for symbol up to maxRatingChangeDate
         var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
@@ -485,6 +490,8 @@ Meteor.methods({
     },
 
     getDefaultPerformanceDatesFor: function(portfolioId) {
+        check(portfolioId, String);
+
         var _p = Portfolios.findOne(portfolioId);
         var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});
         var _minDateStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: 1}}).dateString : "";
@@ -611,22 +618,14 @@ if (Meteor.isServer) {
     Meteor.methods({
 
         registerRealAccountFromDummy: function(newUsername, newPassword) {
+            check(newUsername, String);
+            check(newPassword, String);
+
             var dummyUserId = Meteor.userId();
             Accounts.setUsername(dummyUserId, newUsername);
             Accounts.setPassword(dummyUserId, newPassword);
             Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
             return {username: newUsername, password: newPassword};
-        },
-        addIndividualStockToUser: function(userId, symbol) {
-            var _user = Meteor.users.findOne(userId);
-            if (_user.individualStocksAccess &&
-                (_user.individualStocksAccess.length < _maxStocksAllowedPerUnregisteredUser || _user.registered) &&
-                _.indexOf(_user.individualStocksAccess, symbol) === -1
-            ) {
-                Meteor.users.update({_id: userId}, {$push: { individualStocksAccess: symbol }});
-            } else if (!_user.individualStocksAccess) {
-                Meteor.users.update({_id: userId}, {$set: { individualStocksAccess: [symbol]}});
-            }
         },
         createNewPortfolio: function (name) {
             // Make sure the user is logged in before inserting a portfolio
@@ -643,15 +642,6 @@ if (Meteor.isServer) {
                 lastModifiedBy: Meteor.userId(),
                 ownerName: Meteor.user().username
             });
-        },
-        removeStockFromPickList: function(pickListItemId, dateRemoved) {
-            var _pickListItem = PickListItems.findOne(pickListItemId);
-            if (_pickListItem && !_pickListItem.dateRemoved) {
-                PickListItems.update({_id: pickListItemId}, {$set: {dateRemoved: dateRemoved}})
-            }
-        },
-        removePickListItem: function(pickListItemId) {
-            PickListItems.remove(pickListItemId);
         },
 
         getSimilarSymbols(symbol) {
