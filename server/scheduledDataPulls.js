@@ -1,4 +1,3 @@
-import Future from 'fibers/future';
 import moment from 'moment-timezone';
 import _ from 'underscore';
 import { Random } from 'meteor/random';
@@ -27,41 +26,6 @@ Meteor.startup(function() {
             }});
 
             Meteor.call('importData', [], 'earnings_releases_new', true);
-
-            /*
-            var _allStockSymbols = StocksReactUtils.symbols.getLiveSymbols();
-
-            // the API allows up to 5000 calls per 10 min
-            const n = 5000;
-            const chunks = _.range(_allStockSymbols.length / n).map(i => _allStockSymbols.slice(i * n, (i + 1) * n));
-
-            const futures = chunks.map((chunk, index) => {
-                const future = new Future();
-                Meteor.setTimeout(() => {
-                    const symbols = _.uniq(chunk);
-                    Email.send({
-                        to: ServerUtils.getEmailTo(),
-                        from: ServerUtils.getEmailTo(),
-                        subject: 'getting earnings releases for chunk ' + index,
-                        text: JSON.stringify({
-                            hostname: Meteor.absoluteUrl(),
-                            timeNow: new Date(),
-                            symbols: symbols,
-                        })
-                    });
-
-                    Meteor.call("importData", symbols, "earnings_releases", true, (err, res) => {
-                        future.return(index);
-                    });
-
-                }, index * 11 * 60 * 1000); // space each chunk call by 11 minutes (1000 ms/sec * 60 sec/min * 11 min)
-                return future;
-            });
-
-            const results = futures.map((future, index) => {
-                return future.wait();
-            });
-            */
 
             Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
         }
