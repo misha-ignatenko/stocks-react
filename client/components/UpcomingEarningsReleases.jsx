@@ -1,6 +1,8 @@
 import React, { Component, useState, useEffect } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
-import { useTracker } from 'meteor/react-meteor-data';
+import {
+    withTracker,
+    useTracker,
+} from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
 
 import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
