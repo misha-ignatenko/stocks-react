@@ -10,6 +10,7 @@ const researchFirmIDsToExclude = [
     'vt29AuAATaAu7r3rS',
     'TMbx3pyYK8gSqH3W6',
 ];
+const YYYYMMDD = 'YYYYMMDD';
 const getRatingChangesQuery = () => {
     return {
         researchFirmId: {$nin: researchFirmIDsToExclude},
@@ -229,7 +230,7 @@ Meteor.methods({
                 {
                     // make sure to only ever look forward
                     reportDateNextFiscalQuarter: {
-                        $gte: parseInt(moment().format("YYYYMMDD")),
+                        $gte: +moment().format(YYYYMMDD),
                     }
                 },
                 {
