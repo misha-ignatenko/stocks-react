@@ -1,6 +1,7 @@
 import { EJSON } from 'meteor/ejson';
 import _ from 'underscore';
 import { MongoInternals } from 'meteor/mongo';
+import { Meteor } from 'meteor/meteor';
 
 /*
 Utils.migrateAddedOnDate = (startDate, endDate) => {
@@ -69,4 +70,19 @@ Utils.removePickListItems = function () {
     });
 };
 // Utils.removePickListItems();
+
+Utils.removeIndividualStocksAccess = () => {
+    Meteor.users.find({
+        individualStocksAccess: {$exists: true},
+    }, {
+        fields: {
+            individualStocksAccess: 1,
+            username: 1,
+        },
+    }).forEach(user => {
+        console.log('user with individualStocksAccess', user);
+        Meteor.users.update(user._id, {$unset: {individualStocksAccess: 1}});
+    });
+};
+Utils.removeIndividualStocksAccess();
 */

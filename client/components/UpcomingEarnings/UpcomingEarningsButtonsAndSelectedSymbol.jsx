@@ -20,6 +20,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
         this.changeShowAllBtnsSetting = this.changeShowAllBtnsSetting.bind(this);
         this.nextEarningsRelease = this.nextEarningsRelease.bind(this);
         this.previousEarningsRelease = this.previousEarningsRelease.bind(this);
+        this.handleKeyDown = this.handleKeyDown.bind(this);
     }
 
     setNewSelectedSymbol(symbol, index) {
@@ -146,7 +147,7 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
                 {this.props.startDate}
                 {this.props.endDate}
                 <br/>
-                {!this.props.ratingsChangesSubsStatuses[_symbol] ? "ratings changes loading for " + _symbol : <div className="row">
+                {_symbol && <div className="row">
                     {this.props.currentUser ?
                         <button className="btn btn-light" onClick={this.changeShowAllBtnsSetting}>
                             {this.state.showAllButtons ? "hide individual buttons" : "show all individual buttons"}
@@ -175,22 +176,11 @@ export default withTracker((props) => {
         return _composite;
     });
     let _uniqueSymbols = _.uniq(_.pluck(_earningsReleasesSorted, "symbol"));
-    //todo this should come from settings
-    let _limit = 3;
-    let _selectedIndex = selectedSymbolIndex.get();
-    let _getRatingsChangesForTheseSymbols = _uniqueSymbols.slice(_selectedIndex - 1 < 0 ? 0 : _selectedIndex - 1, _selectedIndex - 1 + _limit);
-    let _ratingsChangesSubsStatuses = {};
-
     let _currentUser = Meteor.user();
-
-    _getRatingsChangesForTheseSymbols.forEach(function(symbol) {
-        _ratingsChangesSubsStatuses[symbol] = true;
-    });
 
     return {
         earningsReleases: _earningsReleasesSorted,
         currentUser: _currentUser,
         uniqueSymbols: _uniqueSymbols,
-        ratingsChangesSubsStatuses: _ratingsChangesSubsStatuses,
     };
 })(UpcomingEarningsButtonsAndSelectedSymbol);
