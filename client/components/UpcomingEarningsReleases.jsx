@@ -5,11 +5,14 @@ import 'react-dates/initialize';
 import { DateRangePicker } from 'react-dates';
 import 'react-dates/lib/css/_datepicker.css';
 
-import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
+import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings';
+import _ from 'underscore';
 
 export const UpcomingEarningsReleases = (props) => {
     const [earningsReleases, setEarningsReleases] = useState([]);
+    const [groupedEarningsReleases, setGroupedEarningsReleases] =  useState([]);
     const [loadingEarningsReleases, setLoadingEarningsReleases] = useState(false);
+    const [showAll, setShowAll] = useState(true);
 
     const user = useTracker(() => Meteor.user({fields: {registered: 1}}), []);
     const settings = useTracker(() => Settings.findOne(), []);
@@ -19,6 +22,9 @@ export const UpcomingEarningsReleases = (props) => {
     const [endDate, setEndDate] = useState(undefined);
     const [companyConfirmedOnly, setCompanyConfirmedOnly] = useState(true);
     const [focusedInput, setFocusedInput] = useState(null);
+
+    const [selectedStock, setSelectedStock] = useState(undefined);
+    const [relevantEarningsReleases, setRelevantEarningsReleases] = useState([]);
 
     useTracker(() => {
         if (user || settings) {
@@ -33,16 +39,27 @@ export const UpcomingEarningsReleases = (props) => {
     useEffect(() => {
         if (settings && endDate && !loadingEarningsReleases && !focusedInput) {
             setLoadingEarningsReleases(true);
+            setSelectedStock(undefined);
+            setRelevantEarningsReleases([]);
             Meteor.call(
                 'getUpcomingEarningsReleases',
                 {
                     startDate: +startDate.format(format),
                     endDate: +endDate.format(format),
                     companyConfirmedOnly,
+                    sortDirection: 'ascReportDate',
                 },
                 (err, res) => {
                     if (!err) {
                         setEarningsReleases(res);
+
+                        const stocks = _.pluck(res, 'symbol');
+                        const stock = stocks[0];
+                        setSelected(stock, res);
+
+                        const grouped = _.values(_.groupBy(res, e => e.index));
+                        setGroupedEarningsReleases(grouped);
+
                         setLoadingEarningsReleases(false);
                     }
                 }
@@ -57,7 +74,14 @@ export const UpcomingEarningsReleases = (props) => {
         focusedInput,
     ]);
 
+    const setSelected = (stock, releases=earningsReleases) => {
+        const releasesPerStock = stock ? releases.filter(e => e.symbol === stock) : [];
+        setSelectedStock(stock);
+        setRelevantEarningsReleases(releasesPerStock);
+    }
+
     const toggleCompanyConfirmedOnly = () => setCompanyConfirmedOnly(!companyConfirmedOnly);
+    const toggleShowAll = () => setShowAll(!showAll);
 
     if (loadingEarningsReleases) return 'getting upcoming earnings releases.';
 
@@ -79,8 +103,41 @@ export const UpcomingEarningsReleases = (props) => {
                 Company Confirmed Only
             </button>
         }
-        <UpcomingEarningsButtonsAndSelectedSymbol
-            earningsReleases={earningsReleases}
-        />
+        <button
+            className={ 'btn btn-light' + (showAll ? ' active' : '') }
+            onClick={toggleShowAll}>
+                Show All Symbols
+            </button>
+        {showAll ?
+            <div>
+                {groupedEarningsReleases.map((group, index) => {
+                    const uniqueRel = _.uniq(group, false, e=>e.symbol);
+                    return <div key={index}>
+                        <h5>{group[0].fullTimeOfDayDescription} ({uniqueRel.length})</h5>
+                        <div style={{display: 'flex', overflowX: 'scroll'}}>
+                        {uniqueRel.map((e) => {
+                            const stock = e.symbol;
+                            const isSelected = stock === selectedStock;
+                            const className = 'btn btn-light' + (isSelected ? ' active' : '');
+                            return <button key={stock} className={className} onClick={() => setSelected(stock)}>
+                                {stock}
+                            </button>;
+                        })}
+                        </div>
+                    </div>;
+                })}
+            </div> : null
+        }
+        {earningsReleases.length ?
+            null :
+            <h3>there are no earnings releases.</h3>
+        }
+        {relevantEarningsReleases.length ? <AverageAndWeightedRatings
+            earningsReleases={relevantEarningsReleases}
+            symbol={selectedStock}
+            showAvgRatings={true}
+            showWeightedRating={true}
+            /> : null
+        }
     </div>);
 };

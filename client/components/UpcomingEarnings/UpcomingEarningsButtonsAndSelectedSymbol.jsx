@@ -140,12 +140,9 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
 
     render() {
         let _symbol = this.props.uniqueSymbols ? this.props.uniqueSymbols[selectedSymbolIndex.get()] : "";
-        const earningsReleasesPerSymbol = this.props.earningsReleases.filter(rel => rel.symbol === _symbol && _.has(rel, 'reportDateNextFiscalQuarter'));
 
         return (
             <div className="container">
-                {this.props.startDate}
-                {this.props.endDate}
                 <br/>
                 {_symbol && <div className="row">
                     {this.props.currentUser ?
@@ -157,11 +154,6 @@ class UpcomingEarningsButtonsAndSelectedSymbol extends Component {
                     <br/>
                     {this.renderButtons()}
                     <br/>
-                    <AverageAndWeightedRatings
-                        earningsReleases={earningsReleasesPerSymbol}
-                        symbol={_symbol}
-                        showAvgRatings={true}
-                        showWeightedRating={true}/>
                 </div>}
             </div>
         );

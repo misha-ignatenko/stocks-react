@@ -217,12 +217,14 @@ Meteor.methods({
             startDate: Number,
             endDate: Number,
             companyConfirmedOnly: Match.Maybe(Boolean),
+            sortDirection: Match.Maybe(String),
         });
         console.log('getUpcomingEarningsReleases', options);
         const {
             startDate,
             endDate,
             companyConfirmedOnly,
+            sortDirection,
         } = options;
 
         const query = {
@@ -238,14 +240,46 @@ Meteor.methods({
                         $gte: startDate, $lte: endDate,
                     },
                 },
+                {
+                    currencyCode: {$nin: ['CND']},
+                },
+                {
+                    // exclude toronto
+                    symbol: {$not: new RegExp('^T\\.')},
+                },
             ],
             ...(companyConfirmedOnly ? {reportSourceFlag: 1} : {}),
         };
 
-        var earningsReleases = EarningsReleases.find(
+        const earningsReleases = EarningsReleases.find(
             query,
             {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
         ).fetch();
+        const timeOfDayMap = {
+            1: 'After market close',
+            2: 'Before the open',
+            3: 'During market trading',
+            4: 'Unknown',
+        };
+
+        if (sortDirection === 'ascReportDate') {
+            const sorted = _.sortBy(earningsReleases, (e) => {
+                // see _convertQuandlZEAfieldName for more info
+                return e.reportDateNextFiscalQuarter * 10 + (e.reportTimeOfDayCode === 2 ? 1 : e.reportTimeOfDayCode === 3 ? 2 : e.reportTimeOfDayCode === 1 ? 3 : 4 );
+            });
+            let currentTimePeriodIndex = -1;
+            let lastFullDescription;
+            sorted.forEach((e) => {
+                const timeOfDay = timeOfDayMap[e.reportTimeOfDayCode];
+                e.fullTimeOfDayDescription = `${e.reportDateNextFiscalQuarter}, ${timeOfDay}`;
+                if (e.fullTimeOfDayDescription !== lastFullDescription) {
+                    lastFullDescription = e.fullTimeOfDayDescription;
+                    currentTimePeriodIndex += 1;
+                }
+                e.index = currentTimePeriodIndex;
+            });
+            return sorted;
+        }
 
         return earningsReleases;
     },
