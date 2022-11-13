@@ -382,7 +382,7 @@ Meteor.methods({
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
-        var _availablePricesEnd = _pricesForRegr[_pricesForRegr.length - 1].dateString;
+        var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
             var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd);
             var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
@@ -405,12 +405,12 @@ Meteor.methods({
             console.log("length 1: ", _futurePrices.length);
 
             // step 6. make sure all the needed future prices are in the db
-            if (_futurePrices[0].dateString !== _regrEnd || _futurePrices[_futurePrices.length - 1].dateString !== priceCheckDate) {
+            if (_futurePrices[0].dateString !== _regrEnd || _.last(_futurePrices).dateString !== priceCheckDate) {
                 throw new Meteor.Error("make sure there are prices for " + symbol + " from " + _regrEnd + " to " + priceCheckDate);
             }
 
             // step 7.1: project last item in _avgRatingsSeriesEveryDay to all future prices
-            var _lastAvg = _avgRatingsSeriesEveryDay[_avgRatingsSeriesEveryDay.length - 1];
+            var _lastAvg = _.last(_avgRatingsSeriesEveryDay);
             var _futureAvgProjection = _.map(_futurePrices, function (p) {
                 return {date: p.date, rating: _lastAvg.avg, dateString: p.dateString};
             });
@@ -420,7 +420,7 @@ Meteor.methods({
                 _futureAvgProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
-            var _lastWgt = _weightedRatingsSeriesEveryDay[_weightedRatingsSeriesEveryDay.length - 1];
+            var _lastWgt = _.last(_weightedRatingsSeriesEveryDay);
             var _futureWgtProjection = _.map(_futurePrices, function (p) {
                 return {date: p.date, rating: _lastWgt.weightedRating, dateString: p.dateString};
             });
@@ -435,7 +435,7 @@ Meteor.methods({
             console.log("length 2: ", _regrAndFuturePrices.length);
 
             // step 6*. make sure have all the needed prices
-            if (_regrAndFuturePrices[0].dateString !== _regrStart || _regrAndFuturePrices[_regrAndFuturePrices.length - 1].dateString !== priceCheckDate) {
+            if (_regrAndFuturePrices[0].dateString !== _regrStart || _.last(_regrAndFuturePrices).dateString !== priceCheckDate) {
                 throw new Meteor.Error("make sure there are prices for " + symbol + " from " + _regrStart + " to " + priceCheckDate);
             }
 
@@ -494,9 +494,10 @@ Meteor.methods({
                 wgt: _predictionsBasedOnWeightedRatings,
                 altAvg: _predictOnAvgRegrAndFut,
                 altWgt: _predictOnWgtRegrAndFut,
-                actualStart: _futurePrices[0],
-                actualEnd: _futurePrices[_futurePrices.length - 1],
-                rCh: _ratingChangesForRegr,
+                actualStart: _.first(_futurePrices),
+                actualEnd: _.last(_futurePrices),
+                earliestRatingChangeDate: _ratingChangesForRegr[0]?.dateString,
+                latestRatingChangeDate: _.last(_ratingChangesForRegr)?.dateString,
                 avgRatingsDaily: _avgRatingsSeriesEveryDay,
                 wgtRatingsDaily: _weightedRatingsSeriesEveryDay,
                 rollingRegrStart: _rollingPx,
@@ -510,6 +511,10 @@ Meteor.methods({
     },
 
     portfolioItems: function (portfolioIds, startStr, endStr) {
+        check(portfolioIds, [String]);
+        check(startStr, String);
+        check(endStr, String);
+
         return PortfolioItems.find({
             $or: [
                 {
