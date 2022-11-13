@@ -1,166 +1,35 @@
-import React, { Component, useState, useEffect } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
+import React, { useState, useEffect } from 'react';
 import { useTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
+import 'react-dates/initialize';
+import { DateRangePicker } from 'react-dates';
+import 'react-dates/lib/css/_datepicker.css';
 
-import UpcomingEarningsButtonsAndSelectedSymbol from "./UpcomingEarnings/UpcomingEarningsButtonsAndSelectedSymbol.jsx";
-
-const companyConfirmedEarnRelOnly = new ReactiveVar(true);
-const startEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).format("YYYYMMDD")));
-const endEarningsReleaseDateInteger = new ReactiveVar(parseInt(moment(new Date().toISOString()).add(10, 'days').format("YYYYMMDD")));
-
-const getEndDate = (data) => {
-    return data.currentUser ?
-        endEarningsReleaseDateInteger.get() :
-        parseInt(moment(new Date().toISOString())
-            .add(data.settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser, 'days')
-            .format("YYYYMMDD")
-        );
-};
-
-const getEarnRelParams = (data) => {
-    return {
-        startDate: startEarningsReleaseDateInteger.get(),
-        endDate: getEndDate(data),
-        companyConfirmedOnly: companyConfirmedEarnRelOnly.get(),
-    };
-};
-
-class UpcomingEarningsReleasesDeprecated extends Component {
-
-    constructor(props) {
-        super(props);
-
-        this.state = {
-            earningsReleasesSubscriptionReady: false,
-            earningsReleases: [],
-        };
-
-        this.convertQuandlFormatNumberDateToDateStringWithSlashes = this.convertQuandlFormatNumberDateToDateStringWithSlashes.bind(this);
-        this.setDatepickerOptions = this.setDatepickerOptions.bind(this);
-    }
-
-    setDatepickerOptions() {
-        let _datepickerOptions = {
-            autoclose: true,
-            todayHighlight: true,
-            orientation: "top auto"
-        };
-        $('#startEarningsReleaseDateInteger').datepicker(_datepickerOptions);
-        $('#endEarningsReleaseDateInteger').datepicker(_datepickerOptions);
-        $('#startEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(startEarningsReleaseDateInteger.get()));
-        $('#endEarningsReleaseDateInteger').val(this.convertQuandlFormatNumberDateToDateStringWithSlashes(endEarningsReleaseDateInteger.get()));
-        var _that = this;
-
-        $('.datepickerInput2').on('change', function() {
-            let _newVal = $(this).val();
-            let _momentDate = parseInt(moment(new Date(_newVal).toISOString()).format("YYYYMMDD"));
-            let _id = $(this).attr('id');
-            let _set = {};
-            _set[_id] = _momentDate;
-            _that.setState(_set);
-        });
-    }
-    convertQuandlFormatNumberDateToDateStringWithSlashes(_dateStringWithNoSlashesAsNumber) {
-        _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
-        var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
-        var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
-        var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
-        return _month + "/" + _day + "/" + _year;
-    }
-
-    toggleCompanyConfirmedOnly() {
-        companyConfirmedEarnRelOnly.set(!companyConfirmedEarnRelOnly.get());
-    }
-    attachPromise(props, context) {
-        if (props.earnRelPromise) {
-            props.earnRelPromise.then(res => {
-                context.setState({
-                    earningsReleases: res,
-                    earningsReleasesSubscriptionReady: true,
-                });
-            })
-        }
-    }
-    componentWillReceiveProps(nextProps) {
-        this.attachPromise(nextProps, this);
-    }
-    componentDidMount() {
-        this.attachPromise(this.props, this);
-    }
-
-    render() {
-        let _compOnlyBtnClass = "btn btn-light" + (companyConfirmedEarnRelOnly.get() ? " active" : "");
-
-        return (
-            <div className="container">
-                { this.props.currentUser ? (
-                    this.props.currentUser.registered ? (
-                        <div>
-                            <br/>
-                            <div className="datepickers" ref={this.setDatepickerOptions}>
-                                start date:
-                                <input className="datepickerInput2" id="startEarningsReleaseDateInteger"/>
-                                <br/>
-                                end date:
-                                <input className="datepickerInput2" id="endEarningsReleaseDateInteger" />
-                            </div>
-                            <button className={ _compOnlyBtnClass } onClick={this.toggleCompanyConfirmedOnly}>Company Confirmed Only</button>
-                            <br/>
-                            <br/>
-                        </div>
-                    ) : null
-                ) : null}
-                {this.state.earningsReleasesSubscriptionReady ?
-                    <UpcomingEarningsButtonsAndSelectedSymbol
-                        earningsReleases={this.state.earningsReleases}
-                    /> :
-                    "getting upcoming earnings releases."
-                }
-                <br/>
-            </div>
-        );
-    }
-}
-
-export default withTracker((props) => {
-    const user = Meteor.user({fields: {registered: 1}});
-    const settings = Settings.findOne();
-    //check if EXP_RPT_DATE_QR1 or EXP_RPT_DATE_QR2 exist inside earningreleases collection
-    //TODO: need code for EXP_RPT_DATE_QR3 and EXP_RPT_DATE_QR4
-
-    var data = {
-        currentUser: user,
-        settings,
-    };
-    if (settings) {
-        data.earnRelPromise = Meteor.callNoCb(
-            'getUpcomingEarningsReleases',
-            getEarnRelParams(data)
-        );
-    }
-
-    return data;
-})(UpcomingEarningsReleasesDeprecated);
+import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings';
+import _ from 'underscore';
 
 export const UpcomingEarningsReleases = (props) => {
     const [earningsReleases, setEarningsReleases] = useState([]);
-    const [loadingEarningsReleases, setLoadingEarningsReleases] = useState(true);
+    const [groupedEarningsReleases, setGroupedEarningsReleases] =  useState([]);
+    const [loadingEarningsReleases, setLoadingEarningsReleases] = useState(false);
+    const [showAll, setShowAll] = useState(true);
 
     const user = useTracker(() => Meteor.user({fields: {registered: 1}}), []);
     const settings = useTracker(() => Settings.findOne(), []);
 
     const format = 'YYYYMMDD';
-    const [startDate, setStartDate] = useState(+moment().format(format));
+    const [startDate, setStartDate] = useState(moment());
     const [endDate, setEndDate] = useState(undefined);
     const [companyConfirmedOnly, setCompanyConfirmedOnly] = useState(true);
+    const [focusedInput, setFocusedInput] = useState(null);
+
+    const [selectedStock, setSelectedStock] = useState(undefined);
+    const [relevantEarningsReleases, setRelevantEarningsReleases] = useState([]);
 
     useTracker(() => {
         if (user || settings) {
-            setEndDate(+moment().add(
-                user ? 10 : settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser,
-                'days'
-            ).format(format));
+            const daysToAdd = user ? 10 : settings.clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser;
+            setEndDate(moment().add(daysToAdd, 'days'));
         }
     }, [
         user,
@@ -168,18 +37,29 @@ export const UpcomingEarningsReleases = (props) => {
     ]);
 
     useEffect(() => {
-        if (settings && endDate) {
+        if (settings && endDate && !loadingEarningsReleases && !focusedInput) {
             setLoadingEarningsReleases(true);
+            setSelectedStock(undefined);
+            setRelevantEarningsReleases([]);
             Meteor.call(
                 'getUpcomingEarningsReleases',
                 {
-                    startDate,
-                    endDate,
+                    startDate: +startDate.format(format),
+                    endDate: +endDate.format(format),
                     companyConfirmedOnly,
+                    sortDirection: 'ascReportDate',
                 },
                 (err, res) => {
                     if (!err) {
                         setEarningsReleases(res);
+
+                        const stocks = _.pluck(res, 'symbol');
+                        const stock = stocks[0];
+                        setSelected(stock, res);
+
+                        const grouped = _.values(_.groupBy(res, e => e.index));
+                        setGroupedEarningsReleases(grouped);
+
                         setLoadingEarningsReleases(false);
                     }
                 }
@@ -191,21 +71,73 @@ export const UpcomingEarningsReleases = (props) => {
         startDate,
         endDate,
         companyConfirmedOnly,
+        focusedInput,
     ]);
 
+    const setSelected = (stock, releases=earningsReleases) => {
+        const releasesPerStock = stock ? releases.filter(e => e.symbol === stock) : [];
+        setSelectedStock(stock);
+        setRelevantEarningsReleases(releasesPerStock);
+    }
+
     const toggleCompanyConfirmedOnly = () => setCompanyConfirmedOnly(!companyConfirmedOnly);
+    const toggleShowAll = () => setShowAll(!showAll);
 
     if (loadingEarningsReleases) return 'getting upcoming earnings releases.';
 
     return (<div>
+        <DateRangePicker
+            startDate={startDate}
+            startDateId='s_id'
+            endDate={endDate}
+            endDateId='e_id'
+            onDatesChange={({ startDate, endDate }) => { setStartDate(startDate); setEndDate(endDate); }}
+            focusedInput={focusedInput}
+            onFocusChange={e => setFocusedInput(e)}
+            displayFormat='MM/DD/YYYY'
+            minimumNights={0}
+        />
         {user?.registered && <button
             className={ 'btn btn-light' + (companyConfirmedOnly ? ' active' : '') }
             onClick={toggleCompanyConfirmedOnly}>
                 Company Confirmed Only
             </button>
         }
-        <UpcomingEarningsButtonsAndSelectedSymbol
-            earningsReleases={earningsReleases}
-        />
+        <button
+            className={ 'btn btn-light' + (showAll ? ' active' : '') }
+            onClick={toggleShowAll}>
+                Show All Symbols
+            </button>
+        {showAll ?
+            <div>
+                {groupedEarningsReleases.map((group, index) => {
+                    const uniqueRel = _.uniq(group, false, e=>e.symbol);
+                    return <div key={index}>
+                        <h5>{group[0].fullTimeOfDayDescription} ({uniqueRel.length})</h5>
+                        <div style={{display: 'flex', overflowX: 'scroll'}}>
+                        {uniqueRel.map((e) => {
+                            const stock = e.symbol;
+                            const isSelected = stock === selectedStock;
+                            const className = 'btn btn-light' + (isSelected ? ' active' : '');
+                            return <button key={stock} className={className} onClick={() => setSelected(stock)}>
+                                {stock}
+                            </button>;
+                        })}
+                        </div>
+                    </div>;
+                })}
+            </div> : null
+        }
+        {earningsReleases.length ?
+            null :
+            <h3>there are no earnings releases.</h3>
+        }
+        {relevantEarningsReleases.length ? <AverageAndWeightedRatings
+            earningsReleases={relevantEarningsReleases}
+            symbol={selectedStock}
+            showAvgRatings={true}
+            showWeightedRating={true}
+            /> : null
+        }
     </div>);
 };

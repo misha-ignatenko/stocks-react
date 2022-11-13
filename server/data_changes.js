@@ -1,5 +1,7 @@
 import { EJSON } from 'meteor/ejson';
 import _ from 'underscore';
+import { MongoInternals } from 'meteor/mongo';
+import { Meteor } from 'meteor/meteor';
 
 /*
 Utils.migrateAddedOnDate = (startDate, endDate) => {
@@ -56,4 +58,31 @@ Stocks.find({
 
     Stocks.update(s._id, {$unset: {quote: 1}});
 });
+*/
+
+/*
+Utils.removePickListItems = function () {
+    const driver = MongoInternals.defaultRemoteCollectionDriver();
+    driver.mongo.db.dropCollection('pickListItems').then(result => {
+        console.log('result: ', result);
+    }).catch(error => {
+        console.log('there was an error: ', error);
+    });
+};
+// Utils.removePickListItems();
+
+Utils.removeIndividualStocksAccess = () => {
+    Meteor.users.find({
+        individualStocksAccess: {$exists: true},
+    }, {
+        fields: {
+            individualStocksAccess: 1,
+            username: 1,
+        },
+    }).forEach(user => {
+        console.log('user with individualStocksAccess', user);
+        Meteor.users.update(user._id, {$unset: {individualStocksAccess: 1}});
+    });
+};
+Utils.removeIndividualStocksAccess();
 */

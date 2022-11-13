@@ -18,7 +18,9 @@ class RegressionPerformance extends Component {
     componentWillMount() {
         console.log("mounting", this.props.symbol);
         let _maxDateForRatingChanges = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment().tz("America/New_York").subtract(70, "days"));
-        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false);
+        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(
+            this.props.settings.clientSettings.ratingChanges.fourPmInEstTimeString
+        );
 
         var _that = this;
         Meteor.call("getRegressionPerformance", this.props.symbol, _maxDateForRatingChanges, _lastPriceDate, function (err, res) {
@@ -88,7 +90,7 @@ class RegressionPerformance extends Component {
                 {_data && "Regression stats for: " + this.props.symbol || "Regression performance loading..."}
                 {_data && <p>If you ran a regression on <b>{_data.actualStart.dateString}</b> (avg rating <b>{_data && _data.avgRatingsDaily[_data.avgRatingsDaily.length - 1].avg.toFixed(2)}</b>),
                     weighted rating (calculated via regression) would have been: <b>{_data && _data.wgtRatingsDaily[_data.wgtRatingsDaily.length - 1].weightedRating.toFixed(2)}</b>
-                    <br/>Based on rating changes from <b>{_data && _data.rCh[0].dateString}</b> to {<b>{_data && _data.rCh[_data.rCh.length - 1].dateString}</b>}.
+                    <br/>Based on rating changes from <b>{_data && _data.earliestRatingChangeDate}</b> to {<b>{_data && _data.latestRatingChangeDate}</b>}.
                     <br/>With <b>0.5</b> max downside, <b>0.5</b> max upside per day and <b>{this.state.rollingNum}</b> rolling num, the prices predicted would be as follows:
                     </p>}
                 {_data && <table>
