@@ -229,7 +229,7 @@ Meteor.methods({
         return RatingChanges.find(query, {
             fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1},
             sort: {dateString: 1},
-        }).fetch();;
+        }).fetch();
     },
 
     getPricesForSymbol: function (symbol) {
@@ -241,7 +241,7 @@ Meteor.methods({
     getEarliestRatingChange: function (symbol) {
         check(symbol, String);
 
-        var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
+        var _r = RatingChanges.findOne({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
         return _r?.dateString;
     },
 
