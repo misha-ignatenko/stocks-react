@@ -241,8 +241,8 @@ Meteor.methods({
     getEarliestRatingChange: function (symbol) {
         check(symbol, String);
 
-        var _r = RatingChanges.findOne({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
-        return _r?.dateString;
+        const r = RatingChanges.findOne({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
+        return r?.dateString;
     },
 
     getUpcomingEarningsReleases(options) {
@@ -567,7 +567,7 @@ Meteor.methods({
     getDefaultPerformanceDatesFor: function(portfolioId) {
         check(portfolioId, String);
 
-        var _p = Portfolios.findOne(portfolioId);
+        var _p = Portfolios.findOne({_id: portfolioId});
         var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});
         var _minDateStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: 1}}).dateString : "";
         var _maxDatrStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: -1}}).dateString : "";

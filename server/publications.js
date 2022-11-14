@@ -1,7 +1,7 @@
 import { check } from 'meteor/check';
 
 Meteor.publish("settings", function () {
-    return Settings.find({type: "main"}, {fields: {_id: 1, clientSettings: 1}});
+    return Settings.find({type: 'main'}, {fields: {type: 1, clientSettings: 1}});
 });
 
 
