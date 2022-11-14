@@ -108,15 +108,6 @@ export default withTracker(() => {
     var _data = {
         currentUser: Meteor.user()
     };
-    if (this.state && this.state.selectedSymbol && Meteor.subscribe("allRatingChangesForSymbol", this.state.selectedSymbol).ready() && Meteor.subscribe("ratingScales").ready()) {
-        _data.allRatingChanges = RatingChanges.find({symbol: this.state.selectedSymbol}, {sort: {dateString: 1}}).fetch();
-        _data.uniqFirmIds = _.uniq(_.pluck(_data.allRatingChanges, "researchFirmId"));
-        _data.ratingScales = RatingScales.find().fetch();
-        var _firmId = this.state.selectedFirmId;
-        if (_firmId) {
-            _data.rChForFirm = _.filter(_data.allRatingChanges, function (rCh) { return rCh.researchFirmId === _firmId; })
-        }
-    }
 
     return _data;
 })(RatingChangesConsistency);

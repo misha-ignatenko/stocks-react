@@ -20,10 +20,9 @@ import moment from 'moment-timezone';
         }
     };
     StocksReact.functions = {
-        getRatingScalesHandleFromAvailableRatingChanges: function(optionalRatingChangesArray) {
-            var _shortedRatingChanges = optionalRatingChangesArray || RatingChanges.find({}, {fields: {oldRatingId: 1, newRatingId: 1}}).fetch();
-            var _uniqOldRatingIds = _.uniq(_.pluck(_shortedRatingChanges, 'oldRatingId'));
-            var _uniqNewRatingIds = _.uniq(_.pluck(_shortedRatingChanges, 'newRatingId'));
+        getRatingScalesHandleFromAvailableRatingChanges: function(ratingChanges) {
+            const _uniqOldRatingIds = _.uniq(_.pluck(ratingChanges, 'oldRatingId'));
+            const _uniqNewRatingIds = _.uniq(_.pluck(ratingChanges, 'newRatingId'));
             var _allUniqRatingIdsForSubscription = _.union(_uniqOldRatingIds, _uniqNewRatingIds);
 
             return Meteor.subscribe("specificRatingScales", _allUniqRatingIdsForSubscription);

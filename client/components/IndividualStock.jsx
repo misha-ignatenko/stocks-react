@@ -23,6 +23,7 @@ class IndividualStock extends Component {
         this.selectTab = this.selectTab.bind(this);
         this.searchingStock = this.searchingStock.bind(this);
         this.selectFirstSearchResult = this.selectFirstSearchResult.bind(this);
+        this.clearSelectedStock = this.clearSelectedStock.bind(this);
     }
 
     componentWillMount() {
