@@ -402,6 +402,7 @@ Meteor.methods({
         check(symbol, String);
         check(maxRatingChangeDate, String);
         check(priceCheckDate, String);
+        console.log('getRegressionPerformance', symbol, maxRatingChangeDate, priceCheckDate);
 
         // step 1. get all rating changes for symbol up to maxRatingChangeDate
         var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
