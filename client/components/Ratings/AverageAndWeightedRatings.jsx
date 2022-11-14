@@ -17,6 +17,8 @@ const pctUpPerDay = new ReactiveVar(0.5);
 const stepSizePow = new ReactiveVar(-7);
 const regrIterNum = new ReactiveVar(30);
 const simpleRollingPx = new ReactiveVar(undefined);
+const ratingChangesLoading = new ReactiveVar(false);
+const ratingChanges = new ReactiveVar([]);
 
 class AverageAndWeightedRatings extends Component {
 
@@ -51,6 +53,31 @@ class AverageAndWeightedRatings extends Component {
 
     componentWillMount() {
         this.getPricesForSymbolAndEarliestRatingsChangeDate(this.props.symbol);
+
+        Tracker.autorun(() => {
+            const symbol = this.props.symbol;
+            const startDate = avgRatingStartDate.get();
+            const endDate = avgRatingEndDate.get();
+
+            if (!Settings.findOne() || !startDate) {
+                return;
+            }
+
+            ratingChangesLoading.set(true);
+            ratingChanges.set([]);
+            Meteor.call(
+                'ratingChangesForSymbol',
+                {symbol, startDate, endDate},
+                (err, res) => {
+                    if (!err) {
+                        ratingChanges.set(res);
+                    } else {
+                        console.log('there was an error', err);
+                    }
+                    ratingChangesLoading.set(false);
+                }
+            );
+        });
     }
     // this is needed to keep the reactive vars and the local state in sync. the synced state is needed for shouldComponentUpdate
     syncReactiveVarsAndState(reactiveVars, values, stateKeys) {
@@ -425,13 +452,13 @@ export default withTracker((props) => {
             _avgRatingStartDate :
             moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
     let _endDateRatingChanges = _avgRatingEndDate;
-    let _ratingChangesHandle = Meteor.subscribe("ratingChangesForSymbol", _symbol, _startDateForRatingChangesSubscription, _endDateRatingChanges);
 
-    if (_ratingChangesHandle.ready()) {
+    if (_allStockPrices && !ratingChangesLoading.get()) {
+        const rC = ratingChanges.get();
 
-        let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges();
+        let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges(rC);
 
-        if (_allStockPrices && _ratingScalesHandle.ready()) {
+        if (_ratingScalesHandle.ready()) {
             var _allNewStockPricesArr = _allStockPrices;
             var _pricesWithNoAdjClose = _.filter(_allNewStockPricesArr, function (price) { return !price["adjClose"];})
             if (_pricesWithNoAdjClose.length > 0) {
@@ -443,7 +470,7 @@ export default withTracker((props) => {
                 historicalData: _allNewStockPricesArr
             };
 
-            if (RatingChanges.find().fetch().length > 0) {
+            if (rC.length > 0) {
 
                 let result = _.extend(_allAvailablePricesForSymbol, {historicalData: StocksReactUtils.stockPrices.getPricesBetween(_allAvailablePricesForSymbol.historicalData, _startDateForRatingChangesSubscription, _endDateRatingChanges)});
                 _data.stockPrices = result.historicalData;
@@ -451,7 +478,7 @@ export default withTracker((props) => {
                 _data.stocksToGraphObjs = [];
                 var _startDate = _startDateForRatingChangesSubscription;
                 var _endDate = _endDateRatingChanges;
-                var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate);
+                var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate, rC);
                 //TODO: start date and end date for regression are coming from a different date picker
                 var _startDateForRegression = _startDate;
                 var _endDateForRegression = _endDate;
@@ -495,7 +522,7 @@ export default withTracker((props) => {
                 let _allEarningsReleasesForSymbol = props.earningsReleases;
 
                 _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
-                _data.ratingChanges = RatingChanges.find({symbol: _symbol}).fetch();
+                _data.ratingChanges = rC;
                 _data.ratingScales = RatingScales.find().fetch()
                 _data.earningsReleases = _allEarningsReleasesForSymbol;
                 _data.allGraphData = _.extend(result, {

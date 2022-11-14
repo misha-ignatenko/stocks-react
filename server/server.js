@@ -11,6 +11,7 @@ const researchFirmIDsToExclude = [
     'TMbx3pyYK8gSqH3W6',
 ];
 const YYYYMMDD = 'YYYYMMDD';
+const YYYY_MM_DD = 'YYYY-MM-DD';
 const getRatingChangesQuery = () => {
     return {
         researchFirmId: {$nin: researchFirmIDsToExclude},
@@ -200,6 +201,37 @@ Meteor.methods({
         };
     },
 
+    ratingChangesForSymbol(options) {
+        check(options, {
+            symbol: String,
+            startDate: String,
+            endDate: String,
+        });
+        const {symbol, startDate, endDate} =  options;
+        console.log('calling ratingChangesForSymbol', options);
+        const user = Meteor.user();
+
+        let query = {
+            symbol,
+            $and: [
+                {dateString: {$gte: startDate, $lte: endDate}},
+            ],
+        };
+        if (!user?.registered) {
+            const lookback = Utils.getSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
+            const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
+
+            query.$and.push({
+                dateString: {$gte: noUserStartDate},
+            });
+        }
+
+        return RatingChanges.find(query, {
+            fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1},
+            sort: {dateString: 1},
+        }).fetch();;
+    },
+
     getPricesForSymbol: function (symbol) {
         check(symbol, String);
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
@@ -208,8 +240,9 @@ Meteor.methods({
 
     getEarliestRatingChange: function (symbol) {
         check(symbol, String);
-        var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
-        return _r && _r.dateString;
+
+        var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
+        return _r?.dateString;
     },
 
     getUpcomingEarningsReleases(options) {
@@ -384,7 +417,8 @@ Meteor.methods({
         var _availablePricesStart = _pricesForRegr[0].dateString;
         var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
-            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd);
+            const ratingChanges = RatingChanges.find({symbol}).fetch();
+            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
             var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
 
             var _priceReactionDelayInDays = 0;
