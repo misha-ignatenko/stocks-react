@@ -114,7 +114,7 @@ export const UpcomingEarningsReleases = (props) => {
                     const uniqueRel = _.uniq(group, false, e=>e.symbol);
                     return <div key={index}>
                         <h5>{group[0].fullTimeOfDayDescription} ({uniqueRel.length})</h5>
-                        <div style={{display: 'flex', overflowX: 'scroll'}}>
+                        <div style={{display: 'flex', overflowX: 'scroll'}} className='earningsButtons'>
                         {uniqueRel.map((e) => {
                             const stock = e.symbol;
                             const isSelected = stock === selectedStock;

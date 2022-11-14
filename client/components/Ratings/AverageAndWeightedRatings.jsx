@@ -429,6 +429,10 @@ export default withTracker((props) => {
 
 
     let _symbol = props.symbol;
+    const pricesReady = _allStockPrices?.[0].symbol === _symbol;
+    if (!pricesReady) {
+        return {};
+    }
     let _data = {};
     let _currentUser = Meteor.user();
     let _settings = Settings.findOne();
