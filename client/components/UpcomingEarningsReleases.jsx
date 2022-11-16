@@ -48,6 +48,7 @@ export const UpcomingEarningsReleases = (props) => {
                     endDate: +endDate.format(format),
                     companyConfirmedOnly,
                     sortDirection: 'ascReportDate',
+                    withRatingChangesCounts: true,
                 },
                 (err, res) => {
                     if (!err) {
@@ -116,11 +117,14 @@ export const UpcomingEarningsReleases = (props) => {
                         <h5>{group[0].fullTimeOfDayDescription} ({uniqueRel.length})</h5>
                         <div style={{display: 'flex', overflowX: 'scroll'}} className='earningsButtons'>
                         {uniqueRel.map((e) => {
+                            const {
+                                countRatingChanges,
+                            } = e;
                             const stock = e.symbol;
                             const isSelected = stock === selectedStock;
                             const className = 'btn btn-light' + (isSelected ? ' active' : '');
                             return <button key={stock} className={className} onClick={() => setSelected(stock)}>
-                                {stock}
+                                {stock}{countRatingChanges ? `(${countRatingChanges})` : ''}
                             </button>;
                         })}
                         </div>

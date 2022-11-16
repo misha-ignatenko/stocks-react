@@ -251,6 +251,7 @@ Meteor.methods({
             endDate: Number,
             companyConfirmedOnly: Match.Maybe(Boolean),
             sortDirection: Match.Maybe(String),
+            withRatingChangesCounts: Match.Maybe(Boolean),
         });
         console.log('getUpcomingEarningsReleases', options);
         const {
@@ -258,6 +259,7 @@ Meteor.methods({
             endDate,
             companyConfirmedOnly,
             sortDirection,
+            withRatingChangesCounts,
         } = options;
 
         const query = {
@@ -288,6 +290,19 @@ Meteor.methods({
             query,
             {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
         ).fetch();
+
+        if (withRatingChangesCounts) {
+            const symbols = _.uniq(_.pluck(earningsReleases, 'symbol'));
+
+            const counts = Object.fromEntries(Promise.await(RatingChanges.rawCollection().aggregate([
+                {$match: {symbol: {$in: symbols}}},
+                {$group : {_id: '$symbol', count: {$sum: 1}}},
+            ]).toArray()).map(({_id, count}) => [_id, count]));
+            earningsReleases.forEach(e => {
+                e.countRatingChanges = counts[e.symbol];
+            });
+        }
+
         const timeOfDayMap = {
             1: 'After market close',
             2: 'Before the open',
