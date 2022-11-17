@@ -267,7 +267,7 @@ Meteor.methods({
                 {
                     // make sure to only ever look forward
                     reportDateNextFiscalQuarter: {
-                        $gte: +moment().format(YYYYMMDD),
+                        $gte: +StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
                     }
                 },
                 {
