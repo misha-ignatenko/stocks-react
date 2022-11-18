@@ -461,23 +461,9 @@ Meteor.methods({
 
             // step 7.1: project last item in _avgRatingsSeriesEveryDay to all future prices
             var _lastAvg = _.last(_avgRatingsSeriesEveryDay);
-            var _futureAvgProjection = _.map(_futurePrices, function (p) {
-                return {date: p.date, rating: _lastAvg.avg, dateString: p.dateString};
-            });
-
-            // step 7.2: get predictions based on projected future avg ratings.
-            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureAvgProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
             var _lastWgt = _.last(_weightedRatingsSeriesEveryDay);
-            var _futureWgtProjection = _.map(_futurePrices, function (p) {
-                return {date: p.date, rating: _lastWgt.weightedRating, dateString: p.dateString};
-            });
-
-            // step 8.2: get predictions based on projected future wgt ratings.
-            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureWgtProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
             // figure out the same but if predictions were based on the entire date range (regr + future)
             // step 5*. get all prices
@@ -540,8 +526,6 @@ Meteor.methods({
                 avgRatingsExtended: _regrAndFutureAvgRatingsEveryDay,
                 wgtRatingsExtended: _regrAndFutureWgtRatingsEveryDay,
                 px: _regrAndFuturePrices,
-                avg: _predictionsBasedOnAvgRatings,
-                wgt: _predictionsBasedOnWeightedRatings,
                 altAvg: _predictOnAvgRegrAndFut,
                 altWgt: _predictOnWgtRegrAndFut,
                 actualStart: _.first(_futurePrices),

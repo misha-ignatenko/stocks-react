@@ -34,20 +34,13 @@ class RegressionPerformance extends Component {
 
     render() {
         var _data = this.state.regressionPerformance;
-        var _wgt = _data && _data.wgt;
-        var _avg = _data && _data.avg;
         var _altAvg = _data && _data.altAvg;
         var _altWgt = _data && _data.altWgt;
         var _regrStartDate = _data && _data.regrStartDate;
         var _regrStartPxActual = _data && _.find(_data.px, function (p) {return p.dateString === _regrStartDate;}).adjClose;
         var _actualStartPrice = _data && _data.actualStart.adjClose;
         var _actualEndPrice = _data && _data.actualEnd.adjClose;
-        var _noRegressionEnd = _data && _avg[_avg.length -  1].price.toFixed(2);
-        var _regressionEnd = _data && _wgt[_wgt.length - 1].price.toFixed(2);
-        var _noRegrPct = _data && ((_noRegressionEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
-        var _regrPct = _data && ((_regressionEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
         var _actualPct = _data && ((_actualEndPrice - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
-        var _actualPct2 = _data && ((_actualEndPrice - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
 
 
         // rolling
