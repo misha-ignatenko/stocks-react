@@ -1,3 +1,4 @@
+import { Meteor } from 'meteor/meteor';
 import moment from 'moment-timezone';
 import _ from 'underscore';
 import { check, Match } from 'meteor/check';
@@ -12,6 +13,7 @@ const researchFirmIDsToExclude = [
 ];
 const YYYYMMDD = 'YYYYMMDD';
 const YYYY_MM_DD = 'YYYY-MM-DD';
+const ADJ_CLOSE = 'adjClose';
 const getRatingChangesQuery = () => {
     return {
         researchFirmId: {$nin: researchFirmIDsToExclude},
@@ -252,6 +254,7 @@ Meteor.methods({
             companyConfirmedOnly: Match.Maybe(Boolean),
             sortDirection: Match.Maybe(String),
             withRatingChangesCounts: Match.Maybe(Boolean),
+            symbols: Match.Maybe([String]),
         });
         console.log('getUpcomingEarningsReleases', options);
         const {
@@ -260,6 +263,7 @@ Meteor.methods({
             companyConfirmedOnly,
             sortDirection,
             withRatingChangesCounts,
+            symbols,
         } = options;
 
         const query = {
@@ -285,6 +289,12 @@ Meteor.methods({
             ],
             ...(companyConfirmedOnly ? {reportSourceFlag: 1} : {}),
         };
+
+        if (!_.isEmpty(symbols)) {
+            query.$and.push({
+                symbol: {$in: symbols},
+            });
+        }
 
         const earningsReleases = EarningsReleases.find(
             query,
@@ -542,6 +552,154 @@ Meteor.methods({
         } else {
             console.log("mismatch with prices history: ", _regrStart, _availablePricesStart, _regrEnd, _availablePricesEnd);
         }
+    },
+
+    generatePrediction(options) {
+        check(options, {
+            symbol: String,
+            startDate: Match.Maybe(String),
+            endDate: String,
+            priceReactionDelayDays: Match.Maybe(Number),
+            showAvgRatings: Match.Maybe(Boolean),
+            showWeightedRating: Match.Maybe(Boolean),
+            pctDownPerDay: Match.Maybe(Number),
+            pctUpPerDay: Match.Maybe(Number),
+            stepSizePow: Match.Maybe(Number),
+            regrIterNum: Match.Maybe(Number),
+            pxRollingDays: Match.Maybe(Number),
+        });
+
+        let {
+            symbol,
+            startDate,
+            endDate,
+            priceReactionDelayDays = 0,
+            showAvgRatings = true,
+            showWeightedRating = true,
+            pctDownPerDay = 0.5,
+            pctUpPerDay = 0.5,
+            stepSizePow = -7,
+            regrIterNum = 30,
+            pxRollingDays = 50,
+        } = options;
+
+        const user = Meteor.user({fields: {premium: 1}});
+
+        if (!user?.premium) {
+            throw new Meteor.Error('you do not have access');
+        }
+
+        const allStockPrices = Meteor.call('getPricesForSymbol', symbol);
+
+        if (!startDate) {
+            startDate = Meteor.call('getEarliestRatingChange', symbol);
+        }
+
+        const simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(
+            allStockPrices,
+            startDate,
+            pxRollingDays
+        );
+
+        const pricesReady = allStockPrices?.[0].symbol === symbol;
+        if (!pricesReady) {
+            return {};
+        }
+        let _data = {};
+        let _settings = Settings.findOne();
+        if (!_settings || !startDate) {
+            return {};
+        }
+
+        const rC = Meteor.call('ratingChangesForSymbol', {symbol, startDate, endDate});
+        if (_.isEmpty(rC)) {
+            throw new Meteor.Error(`there are no rating changes ${symbol} ${startDate} ${endDate}`);
+        }
+
+        var _pricesWithNoAdjClose = _.filter(allStockPrices, function (price) { return !price[ADJ_CLOSE];})
+        if (_pricesWithNoAdjClose.length > 0) {
+            console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
+        }
+
+        const relevantPrices = StocksReactUtils.stockPrices.getPricesBetween(allStockPrices, startDate, endDate);
+        let result = {
+            symbol,
+            historicalData: relevantPrices,
+        };
+        _data.stockPrices = relevantPrices;
+
+        _data.stocksToGraphObjs = [];
+        var _startDate = startDate;
+        var _endDate = endDate;
+        var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
+        //TODO: start date and end date for regression are coming from a different date picker
+        var _startDateForRegression = _startDate;
+        var _endDateForRegression = _endDate;
+        if (result && relevantPrices) {
+            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
+                _averageAnalystRatingSeries,
+                relevantPrices
+            );
+            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
+                _avgRatingsSeriesEveryDay,
+                _startDateForRegression,
+                _endDateForRegression,
+                relevantPrices,
+                priceReactionDelayDays,
+                ADJ_CLOSE,
+                pctDownPerDay,
+                pctUpPerDay,
+                Math.pow(10, stepSizePow),
+                regrIterNum
+            );
+            _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
+            _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
+            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+                return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
+            }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+                return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
+            }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
+            var _objToGraph = result;
+            if (showAvgRatings && showWeightedRating) {
+                _objToGraph = _.extend(_objToGraph, {
+                    avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                    weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
+                    predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings,
+                    predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
+                })
+            } else if (showAvgRatings) {
+                _objToGraph = _.extend(_objToGraph, {
+                    avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                    predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
+                })
+            } else if (showWeightedRating) {
+                _objToGraph = _.extend(_objToGraph, {
+                    weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
+                    predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings
+                })
+            }
+
+            _data.stocksToGraphObjs = [JSON.parse(JSON.stringify(_objToGraph))];
+        }
+
+        const _allEarningsReleasesForSymbol = Meteor.call('getUpcomingEarningsReleases', {
+            startDate: Utils.convertToNumberDate(startDate),
+            endDate: Utils.convertToNumberDate(endDate),
+            companyConfirmedOnly: true, symbols: [symbol],
+        });
+
+        _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
+        _data.ratingChanges = rC;
+        _data.ratingScales = StocksReactUtils.ratingChanges.getRatingScalesForRatingChanges(rC);
+        _data.earningsReleases = _allEarningsReleasesForSymbol;
+        _data.allGraphData = _.extend(result, {
+            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+        });
+
+        return _data;
     },
 
     portfolioItems: function (portfolioIds, startStr, endStr) {
