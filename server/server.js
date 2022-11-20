@@ -217,7 +217,7 @@ Meteor.methods({
                 {dateString: {$gte: startDate, $lte: endDate}},
             ],
         };
-        if (!user?.registered) {
+        if (!user?.premium) {
             const lookback = Utils.getSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
             const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
 
