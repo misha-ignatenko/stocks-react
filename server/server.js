@@ -211,7 +211,6 @@ Meteor.methods({
         });
         const {symbol, startDate, endDate} =  options;
         console.log('calling ratingChangesForSymbol', options);
-        const user = Meteor.user();
 
         let query = {
             symbol,
@@ -219,7 +218,7 @@ Meteor.methods({
                 {dateString: {$gte: startDate, $lte: endDate}},
             ],
         };
-        if (!user?.premium) {
+        if (!Permissions.isPremium()) {
             const lookback = Utils.getSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
             const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
 
@@ -583,9 +582,7 @@ Meteor.methods({
             pxRollingDays = 50,
         } = options;
 
-        const user = Meteor.user({fields: {premium: 1}});
-
-        if (!user?.premium) {
+        if (!Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
 
@@ -825,138 +822,133 @@ Meteor.methods({
             }
         }
     }
-})
+});
 
-// inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
+Accounts.onCreateUser(function(options, user) {
+    var _createdUser;
+    if (options.registered === undefined) {
+        _createdUser = _.extend(user, {registered: false});
+    } else {
+        _createdUser = _.extend(user, {registered: options.registered});
+    }
 
-if (Meteor.isServer) {
+    //set premium to false no matter what
+    _createdUser.premium = false;
+    _createdUser.permissions = {};
+    _createdUser.showDataImportsTab = false;
 
-    Accounts.onCreateUser(function(options, user) {
-        var _createdUser;
-        if (options.registered === undefined) {
-            _createdUser = _.extend(user, {registered: false});
-        } else {
-            _createdUser = _.extend(user, {registered: options.registered});
+    return _createdUser;
+});
+
+Meteor.methods({
+
+    registerRealAccountFromDummy: function(newUsername, newPassword) {
+        check(newUsername, String);
+        check(newPassword, String);
+
+        var dummyUserId = Meteor.userId();
+        Accounts.setUsername(dummyUserId, newUsername);
+        Accounts.setPassword(dummyUserId, newPassword);
+        Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
+        return {username: newUsername, password: newPassword};
+    },
+    createNewPortfolio: function (name) {
+        // Make sure the user is logged in before inserting a portfolio
+        if (! Meteor.userId()) {
+            throw new Meteor.Error("not-authorized");
         }
 
-        //set premium to false no matter what
-        _createdUser.premium = false;
-        _createdUser.permissions = {};
-        _createdUser.showDataImportsTab = false;
+        Portfolios.insert({
+            name: name,
+            private: false,
+            ownerId: Meteor.userId(),
+            researchFirmId: null,
+            lastModifiedOn: moment().toISOString(),
+            lastModifiedBy: Meteor.userId(),
+            ownerName: Meteor.user().username
+        });
+    },
 
-        return _createdUser;
-    })
+    getSimilarSymbols(symbol) {
+        check(symbol, String);
 
-    Meteor.methods({
+        if (symbol.length < 1) return [];
 
-        registerRealAccountFromDummy: function(newUsername, newPassword) {
-            check(newUsername, String);
-            check(newPassword, String);
+        const symbols = Stocks.find({
+            _id: {$regex: symbol.toUpperCase()},
+        }, {
+            fields: {_id: 1},
+            limit: 25,
+        }).fetch();
+        return _.pluck(symbols, '_id');
+    },
 
-            var dummyUserId = Meteor.userId();
-            Accounts.setUsername(dummyUserId, newUsername);
-            Accounts.setPassword(dummyUserId, newPassword);
-            Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
-            return {username: newUsername, password: newPassword};
-        },
-        createNewPortfolio: function (name) {
-            // Make sure the user is logged in before inserting a portfolio
-            if (! Meteor.userId()) {
-                throw new Meteor.Error("not-authorized");
-            }
+    checkIfSymbolExists: function (symbol) {
+        check(symbol, String);
 
-            Portfolios.insert({
-                name: name,
-                private: false,
-                ownerId: Meteor.userId(),
-                researchFirmId: null,
-                lastModifiedOn: moment().toISOString(),
-                lastModifiedBy: Meteor.userId(),
-                ownerName: Meteor.user().username
-            });
-        },
+        var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
+        var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+        var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
+        const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
 
-        getSimilarSymbols(symbol) {
-            check(symbol, String);
-
-            if (symbol.length < 1) return [];
-
-            const symbols = Stocks.find({
-                _id: {$regex: symbol.toUpperCase()},
-            }, {
-                fields: {_id: 1},
-                limit: 25,
-            }).fetch();
-            return _.pluck(symbols, '_id');
-        },
-
-        checkIfSymbolExists: function (symbol) {
-            check(symbol, String);
-
-            var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
-            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
-            var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
-            const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
-
-            function checkDatatable(url) {
-                try {
-                    var _res = HTTP.get(url);
-                    if (_res.data.datatable.data.length > 0) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } catch (e) {
-                    return false;
-                }
-            };
-
-            function _checkNasdaq() {
-                try {
-                    var _res = HTTP.get(_nasdaqUrl);
+        function checkDatatable(url) {
+            try {
+                var _res = HTTP.get(url);
+                if (_res.data.datatable.data.length > 0) {
                     return true;
-                } catch (e) {
-                    return false;
-                }
-            }
-
-            function _checkZEA() {
-                try {
-                    var _res = HTTP.get(_zeaUrl);
-                    return true;
-                } catch (e) {
-                    return false;
-                }
-            }
-
-            return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
-        },
-
-        insertNewStockSymbols: function(symbolsArray) {
-            check(symbolsArray, [String]);
-
-            var _res = {};
-            var _symbolsAllCapsArray = [];
-            symbolsArray.forEach(function(symbol) {
-                _symbolsAllCapsArray.push(symbol.toUpperCase());
-            });
-
-            _.each(_symbolsAllCapsArray, function (s) {
-                if (Stocks.findOne({_id: s})) {
-                    _res[s] = true;
                 } else {
-                    Meteor.call("checkIfSymbolExists", s, function (error, result) {
-                        if (result) {
-                            Stocks.insert({_id: s});
-                            _res[s] = true;
-                        } else {
-                            _res[s] = false;
-                        }
-                    })
+                    return false;
                 }
-            });
+            } catch (e) {
+                return false;
+            }
+        };
 
-            return _res;
-        },
-    });
-}
+        function _checkNasdaq() {
+            try {
+                var _res = HTTP.get(_nasdaqUrl);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function _checkZEA() {
+            try {
+                var _res = HTTP.get(_zeaUrl);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+    },
+
+    insertNewStockSymbols: function(symbolsArray) {
+        check(symbolsArray, [String]);
+
+        var _res = {};
+        var _symbolsAllCapsArray = [];
+        symbolsArray.forEach(function(symbol) {
+            _symbolsAllCapsArray.push(symbol.toUpperCase());
+        });
+
+        _.each(_symbolsAllCapsArray, function (s) {
+            if (Stocks.findOne({_id: s})) {
+                _res[s] = true;
+            } else {
+                Meteor.call("checkIfSymbolExists", s, function (error, result) {
+                    if (result) {
+                        Stocks.insert({_id: s});
+                        _res[s] = true;
+                    } else {
+                        _res[s] = false;
+                    }
+                })
+            }
+        });
+
+        return _res;
+    },
+});
