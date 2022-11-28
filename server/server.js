@@ -3,6 +3,7 @@ import moment from 'moment-timezone';
 import _ from 'underscore';
 import { check, Match } from 'meteor/check';
 import { EJSON } from 'meteor/ejson';
+const momentBiz = require('moment-business-days');
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
@@ -697,6 +698,199 @@ Meteor.methods({
         });
 
         return _data;
+    },
+
+    getEarningsAnalysis(options) {
+        check(options, {
+            startDate: String,
+            endDate: String,
+            saleDelayInDays: Match.Maybe(Number),
+            ratingChangesDelayInDays: Match.Maybe(Number),
+            ratingChangesLookbackInDays: Match.Maybe(Number),
+        });
+
+        if (!Permissions.isPremium()) {
+            throw new Meteor.Error('you do not have access');
+        }
+
+        const {
+            startDate,
+            endDate,
+            saleDelayInDays = 5,
+            ratingChangesDelayInDays = 5,
+            ratingChangesLookbackInDays = 750,
+        } = options;
+
+        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
+
+        const expectedReleasesQuery = {
+            epsMeanEstimateNextFiscalQuarter: {$nin: [
+                null,
+            ]},
+            reportDateNextFiscalQuarter: {
+                $gte: Utils.convertToNumberDate(startDate),
+                $lte: Utils.convertToNumberDate(endDate),
+            },
+            reportSourceFlag: 1,
+            asOf: {$lte: endDate},
+
+            currencyCode: {$nin: ['CND']},
+        };
+
+        // these are the expected earnings releases within the requested date range
+        const expectedEarningsReleases = EarningsReleases.find(
+            expectedReleasesQuery,
+            {
+                sort: {asOf: -1},
+            }
+        ).fetch();
+
+        if (expectedEarningsReleases.length === 0) {
+            return [];
+        }
+
+        console.log('expectedEarningsReleases', expectedEarningsReleases.length, expectedReleasesQuery);
+
+        const expectedMap = new Map();
+        const uniqueExpectedEarningsReleases = expectedEarningsReleases.filter(e => {
+            const {
+                symbol,
+                asOf,
+                reportDateNextFiscalQuarter,
+            } = e;
+
+            if (expectedMap.has(symbol)) {
+                return false;
+            }
+
+            const asOfFormatted = Utils.convertToNumberDate(asOf);
+            if (asOfFormatted < reportDateNextFiscalQuarter) {
+                expectedMap.set(symbol, e);
+                return true;
+            }
+        });
+
+        const actualReleasesQuery = {
+            $or: uniqueExpectedEarningsReleases.map(e => {
+                const {
+                    /**
+                     * the endDateNextFiscalQuarter of the expected earnings release maps to the endDatePreviousFiscalQuarter
+                     * of the actual release
+                     */
+                    endDateNextFiscalQuarter: endDatePreviousFiscalQuarter,
+                    symbol,
+                    /**
+                     * the asOf date of the actual release should be after the expected release date
+                     */
+                    reportDateNextFiscalQuarter: minAsOfDate,
+                } = e;
+
+                return {
+                    symbol,
+                    endDatePreviousFiscalQuarter,
+                    asOf: {$gt: Utils.convertToStringDate(minAsOfDate)},
+                };
+            }),
+        };
+        const actualEarningsReleases = EarningsReleases.find(
+            actualReleasesQuery,
+            {
+                sort: {asOf: 1},
+            }
+        ).fetch();
+        const actualMap = new Map();
+        const uniqueActualEarningsReleases = actualEarningsReleases.filter(e => {
+            const {
+                symbol,
+            } = e;
+            if (actualMap.has(symbol)) {
+                return;
+            }
+            actualMap.set(symbol, e);
+            return true;
+        });
+
+        const expectedSymbols = _.pluck(uniqueExpectedEarningsReleases, 'symbol');
+        const actualSymbols = _.pluck(uniqueActualEarningsReleases, 'symbol');
+        console.log('cannot find a corresponding earnings release for expected: ', _.difference(expectedSymbols, actualSymbols));
+
+        const results = [];
+
+        uniqueActualEarningsReleases.forEach(e => {
+            const {
+                symbol,
+            } = e;
+
+            const expectedE = expectedMap.get(symbol);
+            const actualE = actualMap.get(symbol);
+
+            const expectedEps = expectedE.epsMeanEstimateNextFiscalQuarter;
+            const actualEps = actualE.epsActualPreviousFiscalQuarter;
+
+            const reportDate = expectedE.reportDateNextFiscalQuarter;
+            const reportDateString = Utils.convertToStringDate(reportDate);
+
+            const expectedAsOf = expectedE.asOf;
+            const {
+                reportTimeOfDayCode,
+                timeOfDayDescription,
+            } = expectedE;
+
+            const isAfterMarketClose = reportTimeOfDayCode === 1;
+            const purchaseDate = isAfterMarketClose ? reportDateString : momentBiz(reportDateString).businessAdd(-1).format(YYYY_MM_DD);
+            const saleDate1 = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(1).format(YYYY_MM_DD) : reportDateString;
+            const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
+
+            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
+            const purchasePrice = StocksReactUtils.stockPrices.getPricesBetween(prices, purchaseDate, purchaseDate)[0]?.adjClose;
+            const salePrice1 = StocksReactUtils.stockPrices.getPricesBetween(prices, saleDate1, saleDate1)[0]?.adjClose;
+            const salePrice2 = StocksReactUtils.stockPrices.getPricesBetween(prices, saleDate2, saleDate2)[0]?.adjClose;
+
+            const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
+            const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
+            const ratingChanges = Promise.await(RatingChanges.rawCollection().aggregate([
+                {$match: {
+                    symbol,
+                    dateString: {
+                        $gte: ratingChangesEarliestDate,
+                        $lte: ratingChangesCutoffDate,
+                    }
+                }},
+                {$sort: {dateString: -1}},
+                {$group: {
+                    _id: '$researchFirmId',
+                    oldRatingId: {$first: '$oldRatingId'},
+                    newRatingId: {$first: '$newRatingId'},
+                    dateString: {$first: '$dateString'},
+                    researchFirmId: {$first: '$researchFirmId'},
+                }},
+            ]).toArray()).filter(rc => validRatingScaleIDsMap.has(rc.newRatingId));
+            const ratings = ratingChanges.map(rc => validRatingScaleIDsMap.get(rc.newRatingId));
+            const avgRating = _.reduce(ratings, (memo, num) => memo + num, 0) / ratings.length;
+
+            const data = {
+                symbol,
+                expectedEps,
+                actualEps,
+                reportDate,
+                expectedAsOf,
+                timeOfDayDescription,
+
+                purchaseDate,
+                saleDate1,
+                saleDate2,
+                ratingChangesCutoffDate,
+                avgRating,
+                numRatings: ratings.length,
+
+                purchasePrice,
+                salePrice1,
+                salePrice2,
+            };
+            results.push(data);
+        });
+
+        return results;
     },
 
     portfolioItems: function (portfolioIds, startStr, endStr) {

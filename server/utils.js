@@ -64,6 +64,20 @@ StocksReactServerUtils = {
         });
     },
 
+    getNumericRatingScalesMap() {
+        const validRatingScaleIDsMap = new Map();
+        RatingScales.find(
+            {universalScaleValue: {
+                $not: {$type: 2},
+                $exists: true,
+            }},
+            {fields: {universalScaleValue: 1}}
+        ).forEach(({_id, universalScaleValue}) => {
+            validRatingScaleIDsMap.set(_id, universalScaleValue);
+        });
+        return validRatingScaleIDsMap;
+    },
+
     apiKey: function () {
         return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
@@ -169,12 +183,12 @@ StocksReactServerUtils = {
         },
 
 
-        getAllPrices: function (symbol) {
+        getAllPrices: function (symbol, optionalStartDate, optionalEndDate) {
             console.log("inside getPricesForSymbol: ", symbol);
             var _prices = [];
 
             // try Nasdaq first
-            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol, optionalStartDate, optionalEndDate);
             try {
                 var _res = HTTP.get(_nasdaqUrl);
                 var _dataset = _res.data.dataset;
