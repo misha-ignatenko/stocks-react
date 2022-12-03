@@ -707,6 +707,8 @@ Meteor.methods({
             saleDelayInDays: Match.Maybe(Number),
             ratingChangesDelayInDays: Match.Maybe(Number),
             ratingChangesLookbackInDays: Match.Maybe(Number),
+            isForecast: Match.Maybe(Boolean),
+            advancePurchaseDays: Match.Maybe(Number),
         });
 
         if (!Permissions.isPremium()) {
@@ -719,7 +721,19 @@ Meteor.methods({
             saleDelayInDays = 5,
             ratingChangesDelayInDays = 5,
             ratingChangesLookbackInDays = 750,
+            isForecast,
+            advancePurchaseDays = 0,
         } = options;
+
+        console.log('getEarningsAnalysis', {
+            startDate,
+            endDate,
+            saleDelayInDays,
+            ratingChangesDelayInDays,
+            ratingChangesLookbackInDays,
+            isForecast,
+            advancePurchaseDays,
+        });
 
         const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
 
@@ -735,7 +749,35 @@ Meteor.methods({
             asOf: {$lte: endDate},
 
             currencyCode: {$nin: ['CND']},
+
+            exchange: {$nin: [
+                'NASDAQ Other OTC',
+            ]},
         };
+        if (isForecast) {
+            expectedReleasesQuery.$or = [
+                {
+                    reportDateNextFiscalQuarter: Utils.convertToNumberDate(startDate),
+                    // after market close
+                    reportTimeOfDayCode: {$in: [
+                        1,
+                    ]},
+                },
+                {
+                    reportDateNextFiscalQuarter: Utils.convertToNumberDate(endDate),
+                    // before or during open
+                    reportTimeOfDayCode: {$in: [
+                        2,
+                        3,
+                    ]},
+                },
+            ];
+        }
+        if (advancePurchaseDays) {
+            expectedReleasesQuery.insertedDate = {
+                $lte: momentBiz(startDate).businessAdd(-advancePurchaseDays).toDate(),
+            };
+        }
 
         // these are the expected earnings releases within the requested date range
         const expectedEarningsReleases = EarningsReleases.find(
@@ -749,7 +791,7 @@ Meteor.methods({
             return [];
         }
 
-        console.log('expectedEarningsReleases', expectedEarningsReleases.length, expectedReleasesQuery);
+        console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
 
         const expectedMap = new Map();
         const uniqueExpectedEarningsReleases = expectedEarningsReleases.filter(e => {
@@ -816,7 +858,7 @@ Meteor.methods({
 
         const results = [];
 
-        uniqueActualEarningsReleases.forEach(e => {
+        (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases).forEach(e => {
             const {
                 symbol,
             } = e;
@@ -825,7 +867,7 @@ Meteor.methods({
             const actualE = actualMap.get(symbol);
 
             const expectedEps = expectedE.epsMeanEstimateNextFiscalQuarter;
-            const actualEps = actualE.epsActualPreviousFiscalQuarter;
+            const actualEps = actualE?.epsActualPreviousFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
             const reportDateString = Utils.convertToStringDate(reportDate);
@@ -834,10 +876,14 @@ Meteor.methods({
             const {
                 reportTimeOfDayCode,
                 timeOfDayDescription,
+                insertedDate,
+                epsActualPreviousFiscalQuarter,
+                epsActualOneYearAgoFiscalQuarter,
             } = expectedE;
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
-            const purchaseDate = isAfterMarketClose ? reportDateString : momentBiz(reportDateString).businessAdd(-1).format(YYYY_MM_DD);
+            // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
+            const purchaseDate = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(-advancePurchaseDays).format(YYYY_MM_DD) : momentBiz(reportDateString).businessAdd(-1-advancePurchaseDays).format(YYYY_MM_DD);
             const saleDate1 = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(1).format(YYYY_MM_DD) : reportDateString;
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
 
@@ -848,27 +894,24 @@ Meteor.methods({
 
             const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
             const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
-            const ratingChanges = Promise.await(RatingChanges.rawCollection().aggregate([
-                {$match: {
-                    symbol,
-                    dateString: {
-                        $gte: ratingChangesEarliestDate,
-                        $lte: ratingChangesCutoffDate,
-                    }
-                }},
-                {$sort: {dateString: -1}},
-                {$group: {
-                    _id: '$researchFirmId',
-                    oldRatingId: {$first: '$oldRatingId'},
-                    newRatingId: {$first: '$newRatingId'},
-                    dateString: {$first: '$dateString'},
-                    researchFirmId: {$first: '$researchFirmId'},
-                }},
-            ]).toArray()).filter(rc => validRatingScaleIDsMap.has(rc.newRatingId));
+            const ratingChanges = ServerUtils.getLatestRatings(
+                symbol,
+                ratingChangesEarliestDate,
+                // todo: if isForecast is true, ignore the ratingChangesCutoffDate
+                ratingChangesCutoffDate,
+                validRatingScaleIDsMap,
+            );
+            const sumOfDatesMs = _.reduce(
+                ratingChanges.map(r => moment(r.dateString).valueOf()),
+                (memo, num) => memo + num,
+                0
+            );
+            const averageRatingChangeDate = moment(sumOfDatesMs / ratingChanges.length).format(YYYY_MM_DD);
             const ratings = ratingChanges.map(rc => validRatingScaleIDsMap.get(rc.newRatingId));
             const avgRating = _.reduce(ratings, (memo, num) => memo + num, 0) / ratings.length;
 
             const data = {
+                insertedDate,
                 symbol,
                 expectedEps,
                 actualEps,
@@ -876,12 +919,16 @@ Meteor.methods({
                 expectedAsOf,
                 timeOfDayDescription,
 
+                isAfterMarketClose,
                 purchaseDate,
                 saleDate1,
                 saleDate2,
                 ratingChangesCutoffDate,
                 avgRating,
                 numRatings: ratings.length,
+                averageRatingChangeDate,
+                epsActualPreviousFiscalQuarter,
+                epsActualOneYearAgoFiscalQuarter,
 
                 purchasePrice,
                 salePrice1,

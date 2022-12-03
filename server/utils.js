@@ -63,6 +63,32 @@ StocksReactServerUtils = {
             ]);
         });
     },
+    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
+        const dateString = {
+            $gte: startDate,
+        };
+        if (endDate) {
+            dateString.$lte = endDate;
+        }
+        const $match = {
+            symbol,
+            dateString,
+        };
+        const ratingChanges = Promise.await(RatingChanges.rawCollection().aggregate([
+            {$match},
+            {$sort: {dateString: -1}},
+            {$group: {
+                _id: '$researchFirmId',
+                oldRatingId: {$first: '$oldRatingId'},
+                newRatingId: {$first: '$newRatingId'},
+                dateString: {$first: '$dateString'},
+                researchFirmId: {$first: '$researchFirmId'},
+                ratingChangeId: {$first: '$_id'},
+            }},
+        ]).toArray()).filter(rc => validRatingScaleIDsMap.has(rc.newRatingId));
+
+        return ratingChanges;
+    },
 
     getNumericRatingScalesMap() {
         const validRatingScaleIDsMap = new Map();
@@ -208,7 +234,7 @@ StocksReactServerUtils = {
                 })
 
             } catch (e) {
-                console.log("ERROR: ", e);
+                console.log("ERROR: ", symbol, e);
             }
 
             if (_prices.length === 0) {
@@ -222,7 +248,7 @@ StocksReactServerUtils = {
                     })
 
                 } catch (e) {
-                    console.log("ERROR: ", e);
+                    console.log("ERROR: ", symbol, e);
                 }
             }
 

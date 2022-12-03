@@ -30,6 +30,17 @@ export const EarningsAnalysis = (props) => {
                 {
                     startDate: startDate.format(format),
                     endDate: endDate.format(format),
+                    // advancePurchaseDays: 1,
+
+                    // saleDelayInDays: 3,
+                    // saleDelayInDays: 5,
+                    saleDelayInDays: 10,
+
+                    // ratingChangesLookbackInDays: 750,
+                    ratingChangesLookbackInDays: 500,
+
+                    // isForecast: true,
+                    isForecast: false,
                 },
                 (err, res) => {
                     if (err) {
@@ -74,14 +85,24 @@ export const EarningsAnalysis = (props) => {
                 <thead>
                     <tr>
                         <th>Release Date</th>
+                        <th>Is After Mkt Close</th>
                         <th>Symbol</th>
                         <th>Average Rating (0-120)</th>
                         <th># of Ratings</th>
+                        <th>Avg R. Ch. Date</th>
                         <th>Exp EPS</th>
                         <th>Act EPS</th>
+                        <th>Act EPS (prev qt)</th>
+                        <th>Exp / prev qt</th>
+                        <th>Act EPS (1 yr ago)</th>
+                        <th>Exp / 1 yr</th>
                         <th>Price Before</th>
+                        <th>Date Before</th>
                         <th>Price After</th>
+                        <th>After / Before</th>
+                        <th>Date After</th>
                         <th>Price Later</th>
+                        <th>Later / Before</th>
                         <th>Date Later</th>
                     </tr>
                 </thead>
@@ -90,6 +111,7 @@ export const EarningsAnalysis = (props) => {
                     {earningsReleases.map((row) => {
                         const {
                             reportDate,
+                            isAfterMarketClose,
                             symbol,
                             expectedEps,
                             actualEps,
@@ -101,19 +123,32 @@ export const EarningsAnalysis = (props) => {
                             salePrice2: priceLater,
                             avgRating,
                             numRatings,
+                            averageRatingChangeDate,
+                            epsActualPreviousFiscalQuarter,
+                            epsActualOneYearAgoFiscalQuarter,
                         } = row;
                         const rowKey = symbol;
 
                         return <tr key={rowKey}>
                             <td>{Utils.convertToStringDate(reportDate)}</td>
+                            <td>{isAfterMarketClose ? 'Yes' : 'No'}</td>
                             <td>{symbol}</td>
                             <td>{_.isNaN(avgRating) ? null : avgRating.toFixed(2)}</td>
                             <td>{numRatings}</td>
+                            <td>{averageRatingChangeDate}</td>
                             <td>{expectedEps}</td>
                             <td>{actualEps}</td>
-                            <td>{priceBeforeRelease.toFixed(2)}</td>
-                            <td>{priceAfterRelease.toFixed(2)}</td>
-                            <td>{priceLater.toFixed(2)}</td>
+                            <td>{epsActualPreviousFiscalQuarter}</td>
+                            <td>{(expectedEps / epsActualPreviousFiscalQuarter).toFixed(4)}</td>
+                            <td>{epsActualOneYearAgoFiscalQuarter}</td>
+                            <td>{(expectedEps / epsActualOneYearAgoFiscalQuarter).toFixed(4)}</td>
+                            <td>{priceBeforeRelease?.toFixed(2)}</td>
+                            <td>{dateBeforeRelease}</td>
+                            <td>{priceAfterRelease?.toFixed(2)}</td>
+                            <td>{(priceAfterRelease / priceBeforeRelease).toFixed(4)}</td>
+                            <td>{dateAfterRelease}</td>
+                            <td>{priceLater?.toFixed(2)}</td>
+                            <td>{(priceLater / priceBeforeRelease).toFixed(4)}</td>
                             <td>{dateLater}</td>
                         </tr>;
                     })}
