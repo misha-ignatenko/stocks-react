@@ -28,6 +28,8 @@ export const EarningsAnalysis = (props) => {
             Meteor.call(
                 'getEarningsAnalysis',
                 {
+                    // symbol: 'AAPL',
+                    // isRecursive: true,
                     startDate: startDate.format(format),
                     endDate: endDate.format(format),
                     // advancePurchaseDays: 1,
@@ -41,6 +43,8 @@ export const EarningsAnalysis = (props) => {
 
                     // isForecast: true,
                     isForecast: false,
+
+                    // includeHistory: true,
                 },
                 (err, res) => {
                     if (err) {
@@ -127,7 +131,7 @@ export const EarningsAnalysis = (props) => {
                             epsActualPreviousFiscalQuarter,
                             epsActualOneYearAgoFiscalQuarter,
                         } = row;
-                        const rowKey = symbol;
+                        const rowKey = symbol + reportDate;
 
                         return <tr key={rowKey}>
                             <td>{Utils.convertToStringDate(reportDate)}</td>

@@ -709,6 +709,9 @@ Meteor.methods({
             ratingChangesLookbackInDays: Match.Maybe(Number),
             isForecast: Match.Maybe(Boolean),
             advancePurchaseDays: Match.Maybe(Number),
+            symbol: Match.Optional(String),
+            isRecursive: Match.Optional(Boolean),
+            includeHistory: Match.Optional(Boolean),
         });
 
         if (!Permissions.isPremium()) {
@@ -723,6 +726,9 @@ Meteor.methods({
             ratingChangesLookbackInDays = 750,
             isForecast,
             advancePurchaseDays = 0,
+            symbol,
+            isRecursive = false,
+            includeHistory = false,
         } = options;
 
         console.log('getEarningsAnalysis', {
@@ -733,9 +739,37 @@ Meteor.methods({
             ratingChangesLookbackInDays,
             isForecast,
             advancePurchaseDays,
+            symbol,
+            isRecursive,
+            includeHistory,
         });
 
-        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
+        if (symbol && isRecursive) {
+            const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, true);
+            const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
+            let adjustments = [];
+            if (hasSplits) {
+                console.log('need to get split history from prices', symbol);
+                const {splitDate} = hasSplits;
+                adjustments = ServerUtils.prices.getAllPricesCached(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
+                console.log('adjustments', adjustments);
+            }
+            return reportDates.map(reportDate => {
+                const dateString = Utils.convertToStringDate(reportDate);
+                return ServerUtils.earningsReleases.getAdjustedEps(Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                    isRecursive: false,
+                    startDate: dateString,
+                    endDate: dateString,
+                })), adjustments, dateString, [
+                    'expectedEps',
+                    'actualEps',
+                    'epsActualPreviousFiscalQuarter',
+                    'epsActualOneYearAgoFiscalQuarter',
+                ]);
+            }).flat();
+        }
+
+        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMapCached();
 
         const expectedReleasesQuery = {
             epsMeanEstimateNextFiscalQuarter: {$nin: [
@@ -754,6 +788,9 @@ Meteor.methods({
                 'NASDAQ Other OTC',
             ]},
         };
+        if (symbol) {
+            expectedReleasesQuery.symbol = symbol;
+        }
         if (isForecast) {
             expectedReleasesQuery.$or = [
                 {
@@ -793,6 +830,18 @@ Meteor.methods({
 
         console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
 
+        if (includeHistory) {
+            const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
+            return symbols.map(symbol => {
+                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                    startDate: momentBiz(startDate).businessAdd(-500).format(YYYY_MM_DD),
+                    isRecursive: true,
+                    symbol,
+                    includeHistory: false,
+                }))
+            }).flat();
+        }
+
         const expectedMap = new Map();
         const uniqueExpectedEarningsReleases = expectedEarningsReleases.filter(e => {
             const {
@@ -811,6 +860,11 @@ Meteor.methods({
                 return true;
             }
         });
+        if (uniqueExpectedEarningsReleases.length === 0) {
+            // todo: address this
+            console.log('NO uniqueExpectedEarningsReleases', expectedEarningsReleases);
+            return [];
+        }
 
         const actualReleasesQuery = {
             $or: uniqueExpectedEarningsReleases.map(e => {
@@ -887,7 +941,7 @@ Meteor.methods({
             const saleDate1 = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(1).format(YYYY_MM_DD) : reportDateString;
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
 
-            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
+            const prices = ServerUtils.prices.getAllPricesCached(symbol, purchaseDate, saleDate2);
             const purchasePrice = StocksReactUtils.stockPrices.getPricesBetween(prices, purchaseDate, purchaseDate)[0]?.adjClose;
             const salePrice1 = StocksReactUtils.stockPrices.getPricesBetween(prices, saleDate1, saleDate1)[0]?.adjClose;
             const salePrice2 = StocksReactUtils.stockPrices.getPricesBetween(prices, saleDate2, saleDate2)[0]?.adjClose;

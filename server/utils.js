@@ -3,6 +3,7 @@
  */
 import moment from 'moment-timezone';
 import _ from 'underscore';
+import { EJSON } from 'meteor/ejson';
 
 StocksReactServerUtils = {
 
@@ -90,6 +91,16 @@ StocksReactServerUtils = {
         return ratingChanges;
     },
 
+    cachedRatingScales: undefined,
+    getNumericRatingScalesMapCached() {
+        if (!this.cachedRatingScales) {
+            this.cachedRatingScales = this.getNumericRatingScalesMap();
+            Meteor.setTimeout(() => {
+                this.cachedRatingScales = undefined;
+            }, 10 * 60 * 1000); // 10 min
+        }
+        return this.cachedRatingScales;
+    },
     getNumericRatingScalesMap() {
         const validRatingScaleIDsMap = new Map();
         RatingScales.find(
@@ -108,6 +119,7 @@ StocksReactServerUtils = {
         return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
     newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
+    mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
 
     prices: {
 
@@ -167,8 +179,6 @@ StocksReactServerUtils = {
                 "symbol": _priceObj.ticker,
                 "dateString": _priceObj.date,
                 source: "quandl_free",
-                importedBy: Meteor.userId(),
-                importedOn: new Date().toISOString()
             };
 
             return _formattedPriceObj;
@@ -189,8 +199,6 @@ StocksReactServerUtils = {
                 "volume": _processedItem.Volume,
                 "symbol": symbol,
                 "dateString": _processedItem.Date,
-                "importedBy": Meteor.userId(),
-                "importedOn": new Date().toISOString(),
                 source: "quandl_paid",
 
 
@@ -203,12 +211,23 @@ StocksReactServerUtils = {
                 _convertedObj.adjClose = _convertedObj.close;
             } else {
                 console.log('ADJUSTMENT: ', symbol, _processedItem);
+                _convertedObj.hasAdjustment = true;
             }
 
             return _convertedObj;
         },
 
 
+        cache: {},
+        getAllPricesCached(symbol) {
+            if (!_.has(this.cache, symbol)) {
+                this.cache[symbol] = this.getAllPrices(symbol);
+                Meteor.setTimeout(() => {
+                    delete this.cache[symbol];
+                }, 10 * 60 * 1000); // 10 min
+            }
+            return this.cache[symbol];
+        },
         getAllPrices: function (symbol, optionalStartDate, optionalEndDate) {
             console.log("inside getPricesForSymbol: ", symbol);
             var _prices = [];
@@ -227,7 +246,16 @@ StocksReactServerUtils = {
                     // check that all column names are present
                     if (_columnNames.length === obj.length && _columnNames.length === 8) {
                         var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
-                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.close, date: _convertedObj.date});
+                        _prices.push({
+                            symbol: _convertedObj.symbol,
+                            dateString: _convertedObj.dateString,
+                            adjClose: _convertedObj.close,
+                            date: _convertedObj.date,
+
+                            hasAdjustment: _convertedObj.hasAdjustment,
+                            adjFactor: _convertedObj.adjFactor,
+                            adjType: _convertedObj.adjType,
+                        });
                     } else {
                         throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
                     }
@@ -256,6 +284,65 @@ StocksReactServerUtils = {
         },
     },
     earningsReleases: {
+        getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false) {
+            const validRecordsQuery = {
+                symbol,
+                currencyCode: {$nin: ['CND']},
+                exchange: {$nin: [
+                    'NASDAQ Other OTC',
+                ]},
+            };
+            const companyConfirmedQuery = {
+                reportSourceFlag: 1,
+            };
+
+            const query = _.extend({
+                reportDateNextFiscalQuarter: {
+                    $gte: Utils.convertToNumberDate(startDateStr),
+                    $lte: Utils.convertToNumberDate(endDateStr),
+                },
+            }, validRecordsQuery, companyConfirmedQuery);
+
+            const relevantReportDates = _.sortBy(
+                Promise.await(EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query)),
+                _.identity
+            );
+
+            if (returnOnlyReportDates) {
+                return relevantReportDates;
+            }
+
+            const earningsReleases = relevantReportDates.map(reportDate => {
+
+                const expectedQuery = _.extend({
+                    reportDateNextFiscalQuarter: reportDate,
+                    asOf: {$lt: Utils.convertToStringDate(reportDate)},
+                }, validRecordsQuery, companyConfirmedQuery);
+                const expected = EarningsReleases.findOne(expectedQuery, {sort: {asOf: -1}});
+
+                const expectationCoversEarningsThru = expected.endDateNextFiscalQuarter;
+
+                const actualQuery = _.extend({
+                    endDatePreviousFiscalQuarter: expectationCoversEarningsThru,
+                    asOf: {$gt: Utils.convertToStringDate(reportDate)},
+                }, validRecordsQuery);
+                const actual = EarningsReleases.findOne(actualQuery, {sort: {asOf: 1}});
+
+                const expectedEps = expected.epsMeanEstimateNextFiscalQuarter;
+                const actualEps = actual.epsActualPreviousFiscalQuarter;
+                const expectationAfterRelease = actual.epsMeanEstimateNextFiscalQuarter;
+
+                console.log('--------------------------------------');
+                console.log('earnings released on', reportDate);
+                console.log('quarter end date', expectationCoversEarningsThru);
+                console.log('expectation known on', expected.asOf);
+                console.log('actual known on', actual.asOf);
+                console.log('expected vs. actual eps', expectedEps, actualEps);
+                console.log('expectation for the next quarter (after release)', expectationAfterRelease);
+                console.log('expected & actual _ids', expected._id, actual._id);
+                console.log('--------------------------------------');
+            });
+        },
         getAllEarningsReleasesUrl: () => {
             const key = StocksReactServerUtils.apiKey();
             const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?api_key=${key}`;
@@ -266,10 +353,83 @@ StocksReactServerUtils = {
             const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?ticker=${symbol}&api_key=${key}`;
             return url;
         },
+        getMetadataUrl(symbol) {
+            return `${StocksReactServerUtils.mtUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+        },
+        hasSplits(symbol) {
+            const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
+            const response = HTTP.get(url);
+            const {
+                columns,
+                data,
+            } = response.data.datatable;
+
+            const firstRow = data[0];
+            if (!firstRow) {
+                console.log('cannot check if has splits ' + symbol);
+                return false;
+            }
+            if (columns.length !== firstRow.length) {
+                throw new Meteor.Error('mismatch between data and columns ' + symbol);
+            }
+            const splitDateIndex = _.findIndex(columns, column => column.name === 'mr_split_date');
+            const splitFactorIndex = _.findIndex(columns, column => column.name === 'mr_split_factor');
+            if (splitDateIndex === -1 || splitFactorIndex === -1) {
+                throw new Meteor.Error('cannot find index for splits ' + symbol);
+            }
+            const splitDate = firstRow[splitDateIndex];
+            const splitFactor = firstRow[splitFactorIndex];
+
+            const doesNotHaveSplits = _.isNull(splitDate) && _.isNull(splitFactor);
+            if (doesNotHaveSplits) {
+                return false;
+            }
+
+            return {
+                splitDate,
+                splitFactor,
+            };
+        },
         getZeaUrl: function (symbol) {
             var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + symbol + ".json?auth_token=" + StocksReactServerUtils.apiKey();
             return _url;
-        }
+        },
+        getAdjustedEps(rawData, adjustments, reportDate, fields) {
+            const relevantAdj = adjustments.filter(adj => {
+                const {
+                    adjType,
+                    dateString: adjDate,
+                } = adj;
+
+                if (![
+                    5,
+                    13,
+                ].includes(adjType)) {
+                    console.log('weird adj', adj);
+                }
+
+                // need to adjust old eps measurements, prior to adj date
+                return reportDate < adjDate;
+            });
+            if (relevantAdj.length === 0) {
+                return rawData;
+            }
+
+            const totalAdjFactor = _.reduce(
+                _.pluck(relevantAdj, 'adjFactor'),
+                (memo, num) => memo * num,
+                1
+            );
+
+            const adjustedData = EJSON.clone(rawData);
+            adjustedData.forEach(row => {
+                fields.forEach(field => {
+                    row[field] *= totalAdjFactor;
+                });
+            });
+
+            return adjustedData;
+        },
     }
 };
 
