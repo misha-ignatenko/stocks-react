@@ -29,7 +29,6 @@ export const EarningsAnalysis = (props) => {
                 'getEarningsAnalysis',
                 {
                     // symbol: 'AAPL',
-                    // isRecursive: true,
                     startDate: startDate.format(format),
                     endDate: endDate.format(format),
                     // advancePurchaseDays: 1,
@@ -45,6 +44,7 @@ export const EarningsAnalysis = (props) => {
                     isForecast: false,
 
                     // includeHistory: true,
+                    // bizDaysLookbackForHistory: 500,
                 },
                 (err, res) => {
                     if (err) {
@@ -94,6 +94,7 @@ export const EarningsAnalysis = (props) => {
                         <th>Average Rating (0-120)</th>
                         <th># of Ratings</th>
                         <th>Avg R. Ch. Date</th>
+                        <th>Alt R (adj r)</th>
                         <th>Exp EPS</th>
                         <th>Act EPS</th>
                         <th>Act EPS (prev qt)</th>
@@ -128,6 +129,7 @@ export const EarningsAnalysis = (props) => {
                             avgRating,
                             numRatings,
                             averageRatingChangeDate,
+                            altAvgRatingWithAdjRatings,
                             epsActualPreviousFiscalQuarter,
                             epsActualOneYearAgoFiscalQuarter,
                         } = row;
@@ -140,6 +142,7 @@ export const EarningsAnalysis = (props) => {
                             <td>{_.isNaN(avgRating) ? null : avgRating.toFixed(2)}</td>
                             <td>{numRatings}</td>
                             <td>{averageRatingChangeDate}</td>
+                            <td>{altAvgRatingWithAdjRatings}</td>
                             <td>{expectedEps}</td>
                             <td>{actualEps}</td>
                             <td>{epsActualPreviousFiscalQuarter}</td>

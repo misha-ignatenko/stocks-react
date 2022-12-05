@@ -712,6 +712,7 @@ Meteor.methods({
             symbol: Match.Optional(String),
             isRecursive: Match.Optional(Boolean),
             includeHistory: Match.Optional(Boolean),
+            bizDaysLookbackForHistory: Match.Optional(Number),
         });
 
         if (!Permissions.isPremium()) {
@@ -729,6 +730,7 @@ Meteor.methods({
             symbol,
             isRecursive = false,
             includeHistory = false,
+            bizDaysLookbackForHistory = 500,
         } = options;
 
         console.log('getEarningsAnalysis', {
@@ -742,6 +744,7 @@ Meteor.methods({
             symbol,
             isRecursive,
             includeHistory,
+            bizDaysLookbackForHistory,
         });
 
         if (symbol && isRecursive) {
@@ -834,7 +837,7 @@ Meteor.methods({
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
             return symbols.map(symbol => {
                 return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
-                    startDate: momentBiz(startDate).businessAdd(-500).format(YYYY_MM_DD),
+                    startDate: momentBiz(startDate).businessAdd(-bizDaysLookbackForHistory).format(YYYY_MM_DD),
                     isRecursive: true,
                     symbol,
                     includeHistory: false,
@@ -855,7 +858,7 @@ Meteor.methods({
             }
 
             const asOfFormatted = Utils.convertToNumberDate(asOf);
-            if (asOfFormatted < reportDateNextFiscalQuarter) {
+            if (asOfFormatted <= reportDateNextFiscalQuarter) {
                 expectedMap.set(symbol, e);
                 return true;
             }
@@ -942,9 +945,9 @@ Meteor.methods({
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
 
             const prices = ServerUtils.prices.getAllPricesCached(symbol, purchaseDate, saleDate2);
-            const purchasePrice = StocksReactUtils.stockPrices.getPricesBetween(prices, purchaseDate, purchaseDate)[0]?.adjClose;
-            const salePrice1 = StocksReactUtils.stockPrices.getPricesBetween(prices, saleDate1, saleDate1)[0]?.adjClose;
-            const salePrice2 = StocksReactUtils.stockPrices.getPricesBetween(prices, saleDate2, saleDate2)[0]?.adjClose;
+            const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
+            const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
 
             const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
             const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
@@ -955,14 +958,15 @@ Meteor.methods({
                 ratingChangesCutoffDate,
                 validRatingScaleIDsMap,
             );
-            const sumOfDatesMs = _.reduce(
-                ratingChanges.map(r => moment(r.dateString).valueOf()),
-                (memo, num) => memo + num,
-                0
+            const sumOfDatesMs = Utils.sum(
+                ratingChanges.map(r => moment(r.dateString).valueOf())
             );
             const averageRatingChangeDate = moment(sumOfDatesMs / ratingChanges.length).format(YYYY_MM_DD);
             const ratings = ratingChanges.map(rc => validRatingScaleIDsMap.get(rc.newRatingId));
-            const avgRating = _.reduce(ratings, (memo, num) => memo + num, 0) / ratings.length;
+            const avgRating = Utils.avg(ratings);
+
+            const altRatingsWithAdjRatings = ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
+            const altAvgRatingWithAdjRatings = Utils.avg(altRatingsWithAdjRatings);
 
             const data = {
                 insertedDate,
@@ -981,6 +985,7 @@ Meteor.methods({
                 avgRating,
                 numRatings: ratings.length,
                 averageRatingChangeDate,
+                altAvgRatingWithAdjRatings,
                 epsActualPreviousFiscalQuarter,
                 epsActualOneYearAgoFiscalQuarter,
 

@@ -64,7 +64,7 @@ StocksReactServerUtils = {
             ]);
         });
     },
-    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
+    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap=ServerUtils.getNumericRatingScalesMapCached()) {
         const dateString = {
             $gte: startDate,
         };
@@ -89,6 +89,30 @@ StocksReactServerUtils = {
         ]).toArray()).filter(rc => validRatingScaleIDsMap.has(rc.newRatingId));
 
         return ratingChanges;
+    },
+    getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
+        /**
+         * this factor means if a stock has the max possible rating, it's expected
+         * to increase its price by this factor
+         */
+        const factor = 2;
+        const priceOnPurchaseDay = Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
+        const ratingScales = ServerUtils.getNumericRatingScalesMapCached();
+        const midpoint = Utils.constantFeatureValue;
+
+        return ratingChanges.map(r => {
+            const {
+                dateString: ratingChangeDate,
+                newRatingId,
+            } = r;
+            const priceOnRatingChangeDay = Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
+            const priceIncreaseRatio = priceOnPurchaseDay / priceOnRatingChangeDay;
+            const progressRatio = (priceIncreaseRatio - 1) / (factor - 1);
+            const currentRating = ratingScales.get(newRatingId);
+            const adjRating = midpoint + (1 - progressRatio) * (currentRating - midpoint);
+
+            return adjRating;
+        });
     },
 
     cachedRatingScales: undefined,
