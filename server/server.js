@@ -705,6 +705,7 @@ Meteor.methods({
             startDate: String,
             endDate: String,
             saleDelayInDays: Match.Maybe(Number),
+            saleDelayInDaysFinal: Match.Maybe(Number),
             ratingChangesDelayInDays: Match.Maybe(Number),
             ratingChangesLookbackInDays: Match.Maybe(Number),
             isForecast: Match.Maybe(Boolean),
@@ -723,9 +724,10 @@ Meteor.methods({
             startDate,
             endDate,
             saleDelayInDays = 5,
+            saleDelayInDaysFinal = 10,
             ratingChangesDelayInDays = 5,
             ratingChangesLookbackInDays = 750,
-            isForecast,
+            isForecast = false,
             advancePurchaseDays = 0,
             symbol,
             isRecursive = false,
@@ -737,6 +739,7 @@ Meteor.methods({
             startDate,
             endDate,
             saleDelayInDays,
+            saleDelayInDaysFinal,
             ratingChangesDelayInDays,
             ratingChangesLookbackInDays,
             isForecast,
@@ -757,12 +760,15 @@ Meteor.methods({
                 adjustments = ServerUtils.prices.getAllPricesCached(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
                 console.log('adjustments', adjustments);
             }
+            const lastReportDate = _.last(reportDates);
             return reportDates.map(reportDate => {
                 const dateString = Utils.convertToStringDate(reportDate);
+                const isLastReportDate = reportDate === lastReportDate;
                 return ServerUtils.earningsReleases.getAdjustedEps(Meteor.call('getEarningsAnalysis', _.extend({}, options, {
                     isRecursive: false,
                     startDate: dateString,
                     endDate: dateString,
+                    isForecast: isForecast && isLastReportDate,
                 })), adjustments, dateString, [
                     'expectedEps',
                     'actualEps',
@@ -783,7 +789,12 @@ Meteor.methods({
                 $lte: Utils.convertToNumberDate(endDate),
             },
             reportSourceFlag: 1,
-            asOf: {$lte: endDate},
+            asOf: {
+                // allow 1 more day, because legacy earnings releases do not have
+                // `insertedDate` and their `asOf` gets moved to the next
+                // day right after release if latest release isn't in the API yet
+                $lte: moment(endDate).add(1, 'days').format(YYYY_MM_DD),
+            },
 
             currencyCode: {$nin: ['CND']},
 
@@ -814,9 +825,9 @@ Meteor.methods({
             ];
         }
         if (advancePurchaseDays) {
-            expectedReleasesQuery.insertedDate = {
-                $lte: momentBiz(startDate).businessAdd(-advancePurchaseDays).toDate(),
-            };
+            // expectedReleasesQuery.insertedDate = {
+            //     $lte: momentBiz(startDate).businessAdd(-advancePurchaseDays).toDate(),
+            // };
         }
 
         // these are the expected earnings releases within the requested date range
@@ -828,6 +839,9 @@ Meteor.methods({
         ).fetch();
 
         if (expectedEarningsReleases.length === 0) {
+            if (symbol) {
+                console.log('cannot find expected release for', symbol);
+            }
             return [];
         }
 
@@ -857,7 +871,8 @@ Meteor.methods({
                 return false;
             }
 
-            const asOfFormatted = Utils.convertToNumberDate(asOf);
+            // see note above in `expectedReleasesQuery` for why `subtract` is needed
+            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(1, 'days').format(YYYY_MM_DD));
             if (asOfFormatted <= reportDateNextFiscalQuarter) {
                 expectedMap.set(symbol, e);
                 return true;
@@ -895,6 +910,7 @@ Meteor.methods({
             actualReleasesQuery,
             {
                 sort: {asOf: 1},
+                ...(symbol && {limit: 1}),
             }
         ).fetch();
         const actualMap = new Map();
@@ -914,6 +930,19 @@ Meteor.methods({
         console.log('cannot find a corresponding earnings release for expected: ', _.difference(expectedSymbols, actualSymbols));
 
         const results = [];
+
+        const getRateOfChange = (exp, act) => {
+            if (_.isNumber(exp) && _.isNumber(act)) {
+                if (exp === act) {
+                    return 0;
+                }
+                if (act === 0) {
+                    return exp / Math.abs(exp);
+                }
+                const diff = exp - act;
+                return diff / Math.abs(act);
+            }
+        };
 
         (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases).forEach(e => {
             const {
@@ -943,11 +972,13 @@ Meteor.methods({
             const purchaseDate = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(-advancePurchaseDays).format(YYYY_MM_DD) : momentBiz(reportDateString).businessAdd(-1-advancePurchaseDays).format(YYYY_MM_DD);
             const saleDate1 = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(1).format(YYYY_MM_DD) : reportDateString;
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
+            const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
             const prices = ServerUtils.prices.getAllPricesCached(symbol, purchaseDate, saleDate2);
             const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
             const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
             const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
+            const salePrice3 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
 
             const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
             const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
@@ -981,17 +1012,22 @@ Meteor.methods({
                 purchaseDate,
                 saleDate1,
                 saleDate2,
+                saleDate3,
                 ratingChangesCutoffDate,
                 avgRating,
                 numRatings: ratings.length,
                 averageRatingChangeDate,
                 altAvgRatingWithAdjRatings,
+
                 epsActualPreviousFiscalQuarter,
+                pctExpEpsOverPrevQt: getRateOfChange(expectedEps, epsActualPreviousFiscalQuarter),
                 epsActualOneYearAgoFiscalQuarter,
+                pctExpEpsOverOneYearAgo: getRateOfChange(expectedEps, epsActualOneYearAgoFiscalQuarter),
 
                 purchasePrice,
                 salePrice1,
                 salePrice2,
+                salePrice3,
             };
             results.push(data);
         });

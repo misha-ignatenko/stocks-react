@@ -22,7 +22,7 @@ export const EarningsAnalysis = (props) => {
     const [endDate, setEndDate] = useState(moment().subtract(14, 'days'));
     const [focusedInput, setFocusedInput] = useState(null);
 
-    useEffect(() => {
+    const getEarningsReleases = () => {
         if (settings && endDate && !loading && !focusedInput) {
             setLoading(true);
             Meteor.call(
@@ -33,15 +33,14 @@ export const EarningsAnalysis = (props) => {
                     endDate: endDate.format(format),
                     // advancePurchaseDays: 1,
 
-                    // saleDelayInDays: 3,
+                    saleDelayInDays: 2,
                     // saleDelayInDays: 5,
-                    saleDelayInDays: 10,
+                    saleDelayInDaysFinal: 10,
 
                     // ratingChangesLookbackInDays: 750,
                     ratingChangesLookbackInDays: 500,
 
                     // isForecast: true,
-                    isForecast: false,
 
                     // includeHistory: true,
                     // bizDaysLookbackForHistory: 500,
@@ -56,13 +55,7 @@ export const EarningsAnalysis = (props) => {
                 }
             );
         }
-    }, [
-        user,
-        settings,
-        startDate,
-        endDate,
-        focusedInput,
-    ]);
+    };
 
     if (loading) return 'calculating.';
 
@@ -79,6 +72,9 @@ export const EarningsAnalysis = (props) => {
             minimumNights={0}
             isOutsideRange={(d) => false}
         />
+        <button type='button' className='btn btn-light' onClick={getEarningsReleases}>
+            Get Earnings Releases
+        </button>
         {earningsReleases.length ?
             <button type='button' className='btn btn-light' onClick={exportCSV}>
                 Export as a CSV
@@ -99,8 +95,10 @@ export const EarningsAnalysis = (props) => {
                         <th>Act EPS</th>
                         <th>Act EPS (prev qt)</th>
                         <th>Exp / prev qt</th>
+                        <th>% Exp / prev qt</th>
                         <th>Act EPS (1 yr ago)</th>
                         <th>Exp / 1 yr</th>
+                        <th>% Exp / 1 yr</th>
                         <th>Price Before</th>
                         <th>Date Before</th>
                         <th>Price After</th>
@@ -109,6 +107,9 @@ export const EarningsAnalysis = (props) => {
                         <th>Price Later</th>
                         <th>Later / Before</th>
                         <th>Date Later</th>
+                        <th>Price Latest</th>
+                        <th>Latest / Before</th>
+                        <th>Date Latest</th>
                     </tr>
                 </thead>
 
@@ -126,12 +127,18 @@ export const EarningsAnalysis = (props) => {
                             salePrice1: priceAfterRelease,
                             saleDate2: dateLater,
                             salePrice2: priceLater,
+                            saleDate3: dateLatest,
+                            salePrice3: priceLatest,
                             avgRating,
                             numRatings,
                             averageRatingChangeDate,
                             altAvgRatingWithAdjRatings,
+
                             epsActualPreviousFiscalQuarter,
+                            pctExpEpsOverPrevQt,
                             epsActualOneYearAgoFiscalQuarter,
+                            pctExpEpsOverOneYearAgo,
+
                         } = row;
                         const rowKey = symbol + reportDate;
 
@@ -142,13 +149,15 @@ export const EarningsAnalysis = (props) => {
                             <td>{_.isNaN(avgRating) ? null : avgRating.toFixed(2)}</td>
                             <td>{numRatings}</td>
                             <td>{averageRatingChangeDate}</td>
-                            <td>{altAvgRatingWithAdjRatings}</td>
+                            <td>{_.isNaN(altAvgRatingWithAdjRatings) ? null : altAvgRatingWithAdjRatings.toFixed(2)}</td>
                             <td>{expectedEps}</td>
                             <td>{actualEps}</td>
                             <td>{epsActualPreviousFiscalQuarter}</td>
                             <td>{(expectedEps / epsActualPreviousFiscalQuarter).toFixed(4)}</td>
+                            <td>{_.isNumber(pctExpEpsOverPrevQt) ? pctExpEpsOverPrevQt.toFixed(4) : null}</td>
                             <td>{epsActualOneYearAgoFiscalQuarter}</td>
                             <td>{(expectedEps / epsActualOneYearAgoFiscalQuarter).toFixed(4)}</td>
+                            <td>{_.isNumber(pctExpEpsOverOneYearAgo) ? pctExpEpsOverOneYearAgo.toFixed(4) : null}</td>
                             <td>{priceBeforeRelease?.toFixed(2)}</td>
                             <td>{dateBeforeRelease}</td>
                             <td>{priceAfterRelease?.toFixed(2)}</td>
@@ -157,6 +166,9 @@ export const EarningsAnalysis = (props) => {
                             <td>{priceLater?.toFixed(2)}</td>
                             <td>{(priceLater / priceBeforeRelease).toFixed(4)}</td>
                             <td>{dateLater}</td>
+                            <td>{priceLatest?.toFixed(2)}</td>
+                            <td>{(priceLatest / priceBeforeRelease).toFixed(4)}</td>
+                            <td>{dateLatest}</td>
                         </tr>;
                     })}
                 </tbody>
