@@ -86,11 +86,14 @@ export const EarningsAnalysis = (props) => {
                     <tr>
                         <th>Release Date</th>
                         <th>Is After Mkt Close</th>
+                        <th>Qt</th>
                         <th>Symbol</th>
                         <th>Average Rating (0-120)</th>
                         <th># of Ratings</th>
                         <th>Avg R. Ch. Date</th>
                         <th>Alt R (adj r)</th>
+                        <th>1st Eps Exp</th>
+                        <th>1st Eps Exp Date</th>
                         <th>Exp EPS</th>
                         <th>Act EPS</th>
                         <th>Act EPS (prev qt)</th>
@@ -118,7 +121,10 @@ export const EarningsAnalysis = (props) => {
                         const {
                             reportDate,
                             isAfterMarketClose,
+                            endDateNextFiscalQuarter,
                             symbol,
+                            originalEpsExpectation,
+                            originalAsOfExpectation,
                             expectedEps,
                             actualEps,
                             purchaseDate: dateBeforeRelease,
@@ -145,17 +151,20 @@ export const EarningsAnalysis = (props) => {
                         return <tr key={rowKey}>
                             <td>{Utils.convertToStringDate(reportDate)}</td>
                             <td>{isAfterMarketClose ? 'Yes' : 'No'}</td>
+                            <td>{Utils.convertToStringDate(endDateNextFiscalQuarter)}</td>
                             <td>{symbol}</td>
                             <td>{_.isNaN(avgRating) ? null : avgRating.toFixed(2)}</td>
                             <td>{numRatings}</td>
                             <td>{averageRatingChangeDate}</td>
                             <td>{_.isNaN(altAvgRatingWithAdjRatings) ? null : altAvgRatingWithAdjRatings.toFixed(2)}</td>
-                            <td>{expectedEps}</td>
-                            <td>{actualEps}</td>
-                            <td>{epsActualPreviousFiscalQuarter}</td>
+                            <td>{originalEpsExpectation?.toFixed(4)}</td>
+                            <td>{originalAsOfExpectation}</td>
+                            <td>{expectedEps?.toFixed(4)}</td>
+                            <td>{actualEps?.toFixed(4)}</td>
+                            <td>{epsActualPreviousFiscalQuarter?.toFixed(4)}</td>
                             <td>{(expectedEps / epsActualPreviousFiscalQuarter).toFixed(4)}</td>
                             <td>{_.isNumber(pctExpEpsOverPrevQt) ? pctExpEpsOverPrevQt.toFixed(4) : null}</td>
-                            <td>{epsActualOneYearAgoFiscalQuarter}</td>
+                            <td>{epsActualOneYearAgoFiscalQuarter?.toFixed(4)}</td>
                             <td>{(expectedEps / epsActualOneYearAgoFiscalQuarter).toFixed(4)}</td>
                             <td>{_.isNumber(pctExpEpsOverOneYearAgo) ? pctExpEpsOverOneYearAgo.toFixed(4) : null}</td>
                             <td>{priceBeforeRelease?.toFixed(2)}</td>

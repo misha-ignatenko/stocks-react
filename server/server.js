@@ -952,7 +952,6 @@ Meteor.methods({
             const expectedE = expectedMap.get(symbol);
             const actualE = actualMap.get(symbol);
 
-            const expectedEps = expectedE.epsMeanEstimateNextFiscalQuarter;
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
@@ -963,9 +962,29 @@ Meteor.methods({
                 reportTimeOfDayCode,
                 timeOfDayDescription,
                 insertedDate,
+                epsMeanEstimateNextFiscalQuarter: expectedEps,
                 epsActualPreviousFiscalQuarter,
                 epsActualOneYearAgoFiscalQuarter,
+                endDateNextFiscalQuarter,
             } = expectedE;
+
+            const firstEverExpectation = EarningsReleases.findOne(
+                {
+                    symbol,
+                    endDateNextFiscalQuarter,
+                },
+                {
+                    sort: {asOf: 1},
+                    fields: {
+                        epsMeanEstimateNextFiscalQuarter: 1,
+                        asOf: 1,
+                    },
+                }
+            );
+            const {
+                epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
+                asOf: originalAsOfExpectation,
+            } = firstEverExpectation;
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
@@ -1007,6 +1026,9 @@ Meteor.methods({
                 reportDate,
                 expectedAsOf,
                 timeOfDayDescription,
+                endDateNextFiscalQuarter,
+                originalEpsExpectation,
+                originalAsOfExpectation,
 
                 isAfterMarketClose,
                 purchaseDate,
