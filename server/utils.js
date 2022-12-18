@@ -241,6 +241,29 @@ StocksReactServerUtils = {
             return _convertedObj;
         },
 
+        adjustmentsCache: {},
+        clearAdjustmentsCache() {
+            this.adjustmentsCache = {};
+        },
+        getAllAdjustments(symbol) {
+            if (!_.has(this.adjustmentsCache, symbol)) {
+                this.adjustmentsCache[symbol] = this.getAllAdjustmentsNonCached(symbol);
+                Meteor.setTimeout(() => {
+                    delete this.adjustmentsCache[symbol];
+                }, 10 * 60 * 1000); // 10 min
+            }
+            return this.adjustmentsCache[symbol];
+        },
+        getAllAdjustmentsNonCached(symbol) {
+            const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
+            if (hasSplits) {
+                const {splitDate} = hasSplits;
+                const adjustments = ServerUtils.prices.getAllPricesCached(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
+                return adjustments;
+            }
+
+            return [];
+        },
 
         cache: {},
         getAllPricesCached(symbol) {
@@ -382,6 +405,7 @@ StocksReactServerUtils = {
         },
         hasSplits(symbol) {
             const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
+            console.log('calling hasSplits', symbol);
             const response = HTTP.get(url);
             const {
                 columns,
@@ -427,6 +451,7 @@ StocksReactServerUtils = {
 
                 if (![
                     5,
+                    6,
                     13,
                 ].includes(adjType)) {
                     console.log('weird adj', adj);

@@ -752,29 +752,16 @@ Meteor.methods({
 
         if (symbol && isRecursive) {
             const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, true);
-            const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
-            let adjustments = [];
-            if (hasSplits) {
-                console.log('need to get split history from prices', symbol);
-                const {splitDate} = hasSplits;
-                adjustments = ServerUtils.prices.getAllPricesCached(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
-                console.log('adjustments', adjustments);
-            }
             const lastReportDate = _.last(reportDates);
             return reportDates.map(reportDate => {
                 const dateString = Utils.convertToStringDate(reportDate);
                 const isLastReportDate = reportDate === lastReportDate;
-                return ServerUtils.earningsReleases.getAdjustedEps(Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
                     isRecursive: false,
                     startDate: dateString,
                     endDate: dateString,
                     isForecast: isForecast && isLastReportDate,
-                })), adjustments, dateString, [
-                    'expectedEps',
-                    'actualEps',
-                    'epsActualPreviousFiscalQuarter',
-                    'epsActualOneYearAgoFiscalQuarter',
-                ]);
+                }));
             }).flat();
         }
 
@@ -952,6 +939,11 @@ Meteor.methods({
             const expectedE = expectedMap.get(symbol);
             const actualE = actualMap.get(symbol);
 
+            expectedE.adjustForSplits();
+            if (actualE) {
+                actualE.adjustForSplits();
+            }
+
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
@@ -978,9 +970,12 @@ Meteor.methods({
                     fields: {
                         epsMeanEstimateNextFiscalQuarter: 1,
                         asOf: 1,
+                        insertedDate: 1,
+                        symbol: 1,
                     },
                 }
             );
+            firstEverExpectation.adjustForSplits();
             const {
                 epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
                 asOf: originalAsOfExpectation,
@@ -1028,6 +1023,7 @@ Meteor.methods({
                 timeOfDayDescription,
                 endDateNextFiscalQuarter,
                 originalEpsExpectation,
+                pctExpEpsOverOriginalEpsExpectation: getRateOfChange(expectedEps, originalEpsExpectation),
                 originalAsOfExpectation,
 
                 isAfterMarketClose,

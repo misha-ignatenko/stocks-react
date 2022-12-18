@@ -93,6 +93,7 @@ export const EarningsAnalysis = (props) => {
                         <th>Avg R. Ch. Date</th>
                         <th>Alt R (adj r)</th>
                         <th>1st Eps Exp</th>
+                        <th>% Exp / 1st Exp</th>
                         <th>1st Eps Exp Date</th>
                         <th>Exp EPS</th>
                         <th>Act EPS</th>
@@ -124,6 +125,7 @@ export const EarningsAnalysis = (props) => {
                             endDateNextFiscalQuarter,
                             symbol,
                             originalEpsExpectation,
+                            pctExpEpsOverOriginalEpsExpectation,
                             originalAsOfExpectation,
                             expectedEps,
                             actualEps,
@@ -158,14 +160,15 @@ export const EarningsAnalysis = (props) => {
                             <td>{averageRatingChangeDate}</td>
                             <td>{_.isNaN(altAvgRatingWithAdjRatings) ? null : altAvgRatingWithAdjRatings.toFixed(2)}</td>
                             <td>{originalEpsExpectation?.toFixed(4)}</td>
+                            <td>{pctExpEpsOverOriginalEpsExpectation?.toFixed(4)}</td>
                             <td>{originalAsOfExpectation}</td>
                             <td>{expectedEps?.toFixed(4)}</td>
                             <td>{actualEps?.toFixed(4)}</td>
                             <td>{epsActualPreviousFiscalQuarter?.toFixed(4)}</td>
-                            <td>{(expectedEps / epsActualPreviousFiscalQuarter).toFixed(4)}</td>
+                            <td></td>
                             <td>{_.isNumber(pctExpEpsOverPrevQt) ? pctExpEpsOverPrevQt.toFixed(4) : null}</td>
                             <td>{epsActualOneYearAgoFiscalQuarter?.toFixed(4)}</td>
-                            <td>{(expectedEps / epsActualOneYearAgoFiscalQuarter).toFixed(4)}</td>
+                            <td></td>
                             <td>{_.isNumber(pctExpEpsOverOneYearAgo) ? pctExpEpsOverOneYearAgo.toFixed(4) : null}</td>
                             <td>{priceBeforeRelease?.toFixed(2)}</td>
                             <td>{dateBeforeRelease}</td>
