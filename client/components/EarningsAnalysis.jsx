@@ -92,9 +92,13 @@ export const EarningsAnalysis = (props) => {
                         <th># of Ratings</th>
                         <th>Avg R. Ch. Date</th>
                         <th>Alt R (adj r)</th>
+                        <th># Recent Downgr</th>
+                        <th># Recent Upgr</th>
                         <th>1st Eps Exp</th>
                         <th>% Exp / 1st Exp</th>
                         <th>1st Eps Exp Date</th>
+                        <th>Prior Sale Date</th>
+                        <th>Prior Sale Price</th>
                         <th>Exp EPS</th>
                         <th>Act EPS</th>
                         <th>Act EPS (prev qt)</th>
@@ -137,8 +141,12 @@ export const EarningsAnalysis = (props) => {
                             salePrice2: priceLater,
                             saleDate3: dateLatest,
                             salePrice3: priceLatest,
+                            priorSaleDate,
+                            priorSalePrice,
                             avgRating,
                             numRatings,
+                            numRecentDowngrades,
+                            numRecentUpgrades,
                             averageRatingChangeDate,
                             altAvgRatingWithAdjRatings,
 
@@ -159,9 +167,13 @@ export const EarningsAnalysis = (props) => {
                             <td>{numRatings}</td>
                             <td>{averageRatingChangeDate}</td>
                             <td>{_.isNaN(altAvgRatingWithAdjRatings) ? null : altAvgRatingWithAdjRatings.toFixed(2)}</td>
+                            <td>{numRecentDowngrades}</td>
+                            <td>{numRecentUpgrades}</td>
                             <td>{originalEpsExpectation?.toFixed(4)}</td>
                             <td>{pctExpEpsOverOriginalEpsExpectation?.toFixed(4)}</td>
                             <td>{originalAsOfExpectation}</td>
+                            <td>{priorSaleDate}</td>
+                            <td>{priorSalePrice}</td>
                             <td>{expectedEps?.toFixed(4)}</td>
                             <td>{actualEps?.toFixed(4)}</td>
                             <td>{epsActualPreviousFiscalQuarter?.toFixed(4)}</td>

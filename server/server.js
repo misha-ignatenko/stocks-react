@@ -983,7 +983,9 @@ Meteor.methods({
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
+            // repoint to helper
             const purchaseDate = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(-advancePurchaseDays).format(YYYY_MM_DD) : momentBiz(reportDateString).businessAdd(-1-advancePurchaseDays).format(YYYY_MM_DD);
+            // repoint to helper
             const saleDate1 = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(1).format(YYYY_MM_DD) : reportDateString;
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
@@ -1013,6 +1015,26 @@ Meteor.methods({
             const altRatingsWithAdjRatings = ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
             const altAvgRatingWithAdjRatings = Utils.avg(altRatingsWithAdjRatings);
 
+            let numRecentUpgrades;
+            let numRecentDowngrades;
+            let priorSaleDate;
+            let priorSalePrice;
+            const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
+            if (priorConfirmedRelease) {
+                const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
+                priorSaleDate = priorConfirmedRelease.getFinalSaleDate(saleDelayInDaysFinal);
+                priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
+                const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
+                const ratingChangesSinceLastEarningsRelease = ServerUtils.getLatestRatings(
+                    symbol,
+                    newRatingChangesStartDate,
+                    ratingChangesCutoffDate
+                );
+                numRecentUpgrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isUpgrade(rc)).length;
+                numRecentDowngrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isDowngrade(rc)).length;
+            }
+
             const data = {
                 insertedDate,
                 symbol,
@@ -1031,9 +1053,12 @@ Meteor.methods({
                 saleDate1,
                 saleDate2,
                 saleDate3,
+                priorSaleDate,
                 ratingChangesCutoffDate,
                 avgRating,
                 numRatings: ratings.length,
+                numRecentDowngrades,
+                numRecentUpgrades,
                 averageRatingChangeDate,
                 altAvgRatingWithAdjRatings,
 
@@ -1046,6 +1071,7 @@ Meteor.methods({
                 salePrice1,
                 salePrice2,
                 salePrice3,
+                priorSalePrice,
             };
             results.push(data);
         });

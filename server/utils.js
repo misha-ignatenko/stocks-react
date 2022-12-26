@@ -330,6 +330,34 @@ StocksReactServerUtils = {
             return _prices;
         },
     },
+    ratingChanges: {
+        isUpgrade(rc) {
+            const {
+                oldRatingId,
+                newRatingId,
+            } = rc;
+
+            const map = ServerUtils.getNumericRatingScalesMapCached();
+            if (map.has(oldRatingId) && map.has(newRatingId)) {
+                return map.get(newRatingId) > map.get(oldRatingId);
+            } else if (map.has(newRatingId)) {
+                return map.get(newRatingId) > 60;
+            }
+        },
+        isDowngrade(rc) {
+            const {
+                oldRatingId,
+                newRatingId,
+            } = rc;
+
+            const map = ServerUtils.getNumericRatingScalesMapCached();
+            if (map.has(oldRatingId) && map.has(newRatingId)) {
+                return map.get(newRatingId) < map.get(oldRatingId);
+            } else if (map.has(newRatingId)) {
+                return map.get(newRatingId) < 60;
+            }
+        },
+    },
     earningsReleases: {
         getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false) {
             const validRecordsQuery = {
