@@ -44,6 +44,13 @@ Meteor.publish("portfolios", function() {
 });
 
 Meteor.publish(null, function() {
-    var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
+    var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {
+        _id: 1,
+        username: 1,
+        registered: 1,
+        premium: 1,
+        lastModified: 1,
+        showDataImportsTab: 1,
+    }}) : null;
     return _user;
 });

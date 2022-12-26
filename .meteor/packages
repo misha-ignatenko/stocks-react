@@ -27,3 +27,4 @@ rajit:bootstrap3-datepicker
 mrt:bootstrap-growl
 jquery
 react-meteor-data
+dburles:collection-helpers

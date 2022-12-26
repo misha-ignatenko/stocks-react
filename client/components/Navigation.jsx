@@ -11,7 +11,10 @@ class Navigation extends Component {
     }
 
     render() {
-        const showDataImportsTab = this.props?.showDataImportsTab;
+        const {
+            showDataImportsTab,
+            isPremium,
+        } = this.props;
         const activeStyle = ({isActive}) => {
             if (isActive) return {fontWeight: 'bold'};
         };
@@ -26,6 +29,9 @@ class Navigation extends Component {
                 <NavLink to="/portfolios" style={activeStyle}>Portfolios</NavLink> |{' '}
                 <NavLink to="/stock" style={activeStyle}>Individual Stocks</NavLink> |{' '}
                 <NavLink to="/upcomingEarningsReleases" style={activeStyle}>Upcoming Earnings Releases</NavLink> |{' '}
+                {isPremium ? <span>
+                    <NavLink to="/analysis" style={activeStyle}>Analysis</NavLink> |{' '}
+                </span> : null}
                 <NavLink to="/contact" style={activeStyle}>Contact</NavLink> |{' '}
                 {showDataImportsTab ? <NavLink to="/dataImports" style={activeStyle}>Data Imports</NavLink> : null}
             </div>
@@ -37,6 +43,10 @@ export default withTracker((props) => {
     const userID = Meteor.userId();
     const user = Meteor.users.findOne(userID, {fields: {showDataImportsTab: 1}});
     const showDataImportsTab = user?.showDataImportsTab;
+    const isPremium = Permissions.isPremium();
 
-    return {showDataImportsTab};
+    return {
+        showDataImportsTab,
+        isPremium,
+    };
 })(Navigation);
