@@ -265,15 +265,15 @@ StocksReactServerUtils = {
             return [];
         },
 
-        cache: {},
+        pricesCache: {},
         getAllPrices(symbol) {
-            if (!_.has(this.cache, symbol)) {
-                this.cache[symbol] = this.getAllPricesNonCached(symbol);
+            if (!_.has(this.pricesCache, symbol)) {
+                this.pricesCache[symbol] = this.getAllPricesNonCached(symbol);
                 Meteor.setTimeout(() => {
-                    delete this.cache[symbol];
+                    delete this.pricesCache[symbol];
                 }, 10 * 60 * 1000); // 10 min
             }
-            return this.cache[symbol];
+            return this.pricesCache[symbol];
         },
         getAllPricesNonCached: function (symbol, optionalStartDate, optionalEndDate) {
             console.log("inside getPricesForSymbol: ", symbol);
