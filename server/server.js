@@ -983,10 +983,8 @@ Meteor.methods({
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
-            // repoint to helper
-            const purchaseDate = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(-advancePurchaseDays).format(YYYY_MM_DD) : momentBiz(reportDateString).businessAdd(-1-advancePurchaseDays).format(YYYY_MM_DD);
-            // repoint to helper
-            const saleDate1 = isAfterMarketClose ? momentBiz(reportDateString).businessAdd(1).format(YYYY_MM_DD) : reportDateString;
+            const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays);
+            const saleDate1 = expectedE.getSaleDate(0);
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
@@ -1022,7 +1020,7 @@ Meteor.methods({
             const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
             if (priorConfirmedRelease) {
                 const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
-                priorSaleDate = priorConfirmedRelease.getFinalSaleDate(saleDelayInDaysFinal);
+                priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
                 priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
                 const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
                 const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
