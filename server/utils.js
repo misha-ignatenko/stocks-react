@@ -64,7 +64,7 @@ StocksReactServerUtils = {
             ]);
         });
     },
-    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap=ServerUtils.getNumericRatingScalesMapCached()) {
+    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap=ServerUtils.getNumericRatingScalesMap()) {
         const dateString = {
             $gte: startDate,
         };
@@ -97,7 +97,7 @@ StocksReactServerUtils = {
          */
         const factor = 2;
         const priceOnPurchaseDay = Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
-        const ratingScales = ServerUtils.getNumericRatingScalesMapCached();
+        const ratingScales = ServerUtils.getNumericRatingScalesMap();
         const midpoint = Utils.constantFeatureValue;
 
         return ratingChanges.map(r => {
@@ -116,16 +116,16 @@ StocksReactServerUtils = {
     },
 
     cachedRatingScales: undefined,
-    getNumericRatingScalesMapCached() {
+    getNumericRatingScalesMap() {
         if (!this.cachedRatingScales) {
-            this.cachedRatingScales = this.getNumericRatingScalesMap();
+            this.cachedRatingScales = this.getNumericRatingScalesMapNonCached();
             Meteor.setTimeout(() => {
                 this.cachedRatingScales = undefined;
             }, 10 * 60 * 1000); // 10 min
         }
         return this.cachedRatingScales;
     },
-    getNumericRatingScalesMap() {
+    getNumericRatingScalesMapNonCached() {
         const validRatingScaleIDsMap = new Map();
         RatingScales.find(
             {universalScaleValue: {
@@ -258,7 +258,7 @@ StocksReactServerUtils = {
             const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
             if (hasSplits) {
                 const {splitDate} = hasSplits;
-                const adjustments = ServerUtils.prices.getAllPricesCached(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
+                const adjustments = ServerUtils.prices.getAllPrices(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
                 return adjustments;
             }
 
@@ -266,16 +266,16 @@ StocksReactServerUtils = {
         },
 
         cache: {},
-        getAllPricesCached(symbol) {
+        getAllPrices(symbol) {
             if (!_.has(this.cache, symbol)) {
-                this.cache[symbol] = this.getAllPrices(symbol);
+                this.cache[symbol] = this.getAllPricesNonCached(symbol);
                 Meteor.setTimeout(() => {
                     delete this.cache[symbol];
                 }, 10 * 60 * 1000); // 10 min
             }
             return this.cache[symbol];
         },
-        getAllPrices: function (symbol, optionalStartDate, optionalEndDate) {
+        getAllPricesNonCached: function (symbol, optionalStartDate, optionalEndDate) {
             console.log("inside getPricesForSymbol: ", symbol);
             var _prices = [];
 
@@ -337,7 +337,7 @@ StocksReactServerUtils = {
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMapCached();
+            const map = ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) > map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
@@ -350,7 +350,7 @@ StocksReactServerUtils = {
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMapCached();
+            const map = ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) < map.get(oldRatingId);
             } else if (map.has(newRatingId)) {

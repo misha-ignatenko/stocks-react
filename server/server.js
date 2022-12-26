@@ -765,7 +765,7 @@ Meteor.methods({
             }).flat();
         }
 
-        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMapCached();
+        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
 
         const expectedReleasesQuery = {
             epsMeanEstimateNextFiscalQuarter: {$nin: [
@@ -947,7 +947,6 @@ Meteor.methods({
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
-            const reportDateString = Utils.convertToStringDate(reportDate);
 
             const expectedAsOf = expectedE.asOf;
             const {
@@ -988,7 +987,7 @@ Meteor.methods({
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
-            const prices = ServerUtils.prices.getAllPricesCached(symbol, purchaseDate, saleDate2);
+            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
             const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
             const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
             const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
