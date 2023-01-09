@@ -780,7 +780,7 @@ Meteor.methods({
                 // allow 1 more day, because legacy earnings releases do not have
                 // `insertedDate` and their `asOf` gets moved to the next
                 // day right after release if latest release isn't in the API yet
-                $lte: moment(endDate).add(1, 'days').format(YYYY_MM_DD),
+                $lte: moment(endDate).add(2, 'days').format(YYYY_MM_DD),
             },
 
             currencyCode: {$nin: ['CND']},
@@ -859,7 +859,7 @@ Meteor.methods({
             }
 
             // see note above in `expectedReleasesQuery` for why `subtract` is needed
-            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(1, 'days').format(YYYY_MM_DD));
+            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(2, 'days').format(YYYY_MM_DD));
             if (asOfFormatted <= reportDateNextFiscalQuarter) {
                 expectedMap.set(symbol, e);
                 return true;
