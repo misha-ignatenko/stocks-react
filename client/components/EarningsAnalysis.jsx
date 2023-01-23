@@ -43,7 +43,7 @@ export const EarningsAnalysis = (props) => {
                     // isForecast: true,
 
                     // includeHistory: true,
-                    // bizDaysLookbackForHistory: 500,
+                    // bizDaysLookbackForHistory: 1000,
                 },
                 (err, res) => {
                     if (err) {
@@ -88,6 +88,7 @@ export const EarningsAnalysis = (props) => {
                         <th>Is After Mkt Close</th>
                         <th>Qt</th>
                         <th>Symbol</th>
+                        <th>Co Name</th>
                         <th>Average Rating (0-120)</th>
                         <th># of Ratings</th>
                         <th>Avg R. Ch. Date</th>
@@ -99,8 +100,11 @@ export const EarningsAnalysis = (props) => {
                         <th>1st Eps Exp Date</th>
                         <th>Prior Sale Date</th>
                         <th>Prior Sale Price</th>
+                        <th>Prior SMA 50</th>
+                        <th>Prior SMA 200</th>
                         <th>Exp EPS</th>
                         <th>Act EPS</th>
+                        <th>Exp EPS Next Qt</th>
                         <th>Act EPS (prev qt)</th>
                         <th>Exp / prev qt</th>
                         <th>% Exp / prev qt</th>
@@ -108,6 +112,8 @@ export const EarningsAnalysis = (props) => {
                         <th>Exp / 1 yr</th>
                         <th>% Exp / 1 yr</th>
                         <th>Price Before</th>
+                        <th>Before SMA 50</th>
+                        <th>Before SMA 200</th>
                         <th>Date Before</th>
                         <th>Price After</th>
                         <th>After / Before</th>
@@ -128,13 +134,17 @@ export const EarningsAnalysis = (props) => {
                             isAfterMarketClose,
                             endDateNextFiscalQuarter,
                             symbol,
+                            companyName,
                             originalEpsExpectation,
                             pctExpEpsOverOriginalEpsExpectation,
                             originalAsOfExpectation,
                             expectedEps,
                             actualEps,
+                            expectedEpsNextQt,
                             purchaseDate: dateBeforeRelease,
                             purchasePrice: priceBeforeRelease,
+                            purchasePriceSMA50,
+                            purchasePriceSMA200,
                             saleDate1: dateAfterRelease,
                             salePrice1: priceAfterRelease,
                             saleDate2: dateLater,
@@ -143,6 +153,8 @@ export const EarningsAnalysis = (props) => {
                             salePrice3: priceLatest,
                             priorSaleDate,
                             priorSalePrice,
+                            priorSalePriceSMA50,
+                            priorSalePriceSMA200,
                             avgRating,
                             numRatings,
                             numRecentDowngrades,
@@ -163,6 +175,7 @@ export const EarningsAnalysis = (props) => {
                             <td>{isAfterMarketClose ? 'Yes' : 'No'}</td>
                             <td>{Utils.convertToStringDate(endDateNextFiscalQuarter)}</td>
                             <td>{symbol}</td>
+                            <td>{companyName}</td>
                             <td>{_.isNaN(avgRating) ? null : avgRating.toFixed(2)}</td>
                             <td>{numRatings}</td>
                             <td>{averageRatingChangeDate}</td>
@@ -174,8 +187,11 @@ export const EarningsAnalysis = (props) => {
                             <td>{originalAsOfExpectation}</td>
                             <td>{priorSaleDate}</td>
                             <td>{priorSalePrice}</td>
+                            <td>{priorSalePriceSMA50?.toFixed(2)}</td>
+                            <td>{priorSalePriceSMA200?.toFixed(2)}</td>
                             <td>{expectedEps?.toFixed(4)}</td>
                             <td>{actualEps?.toFixed(4)}</td>
+                            <td>{expectedEpsNextQt?.toFixed(4)}</td>
                             <td>{epsActualPreviousFiscalQuarter?.toFixed(4)}</td>
                             <td></td>
                             <td>{_.isNumber(pctExpEpsOverPrevQt) ? pctExpEpsOverPrevQt.toFixed(4) : null}</td>
@@ -183,6 +199,8 @@ export const EarningsAnalysis = (props) => {
                             <td></td>
                             <td>{_.isNumber(pctExpEpsOverOneYearAgo) ? pctExpEpsOverOneYearAgo.toFixed(4) : null}</td>
                             <td>{priceBeforeRelease?.toFixed(2)}</td>
+                            <td>{purchasePriceSMA50?.toFixed(2)}</td>
+                            <td>{purchasePriceSMA200?.toFixed(2)}</td>
                             <td>{dateBeforeRelease}</td>
                             <td>{priceAfterRelease?.toFixed(2)}</td>
                             <td>{(priceAfterRelease / priceBeforeRelease).toFixed(4)}</td>

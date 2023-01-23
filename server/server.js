@@ -945,6 +945,7 @@ Meteor.methods({
             }
 
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
+            const expectedEpsNextQt = actualE?.epsMeanEstimateNextFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
 
@@ -957,6 +958,7 @@ Meteor.methods({
                 epsActualPreviousFiscalQuarter,
                 epsActualOneYearAgoFiscalQuarter,
                 endDateNextFiscalQuarter,
+                companyName,
             } = expectedE;
 
             const firstEverExpectation = EarningsReleases.findOne(
@@ -978,7 +980,9 @@ Meteor.methods({
             const {
                 epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
                 asOf: originalAsOfExpectation,
+                insertedDate: originalInsertedDateExpectation,
             } = firstEverExpectation;
+            const firstEpsExpDate = originalInsertedDateExpectation ? moment(originalInsertedDateExpectation).format(YYYY_MM_DD) : originalAsOfExpectation;
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
@@ -987,8 +991,10 @@ Meteor.methods({
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
-            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
+            const prices = ServerUtils.prices.getAllPrices(symbol);
             const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const purchasePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 50, !isForecast);
+            const purchasePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 200, !isForecast);
             const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
             const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
             const salePrice3 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
@@ -1016,11 +1022,15 @@ Meteor.methods({
             let numRecentDowngrades;
             let priorSaleDate;
             let priorSalePrice;
+            let priorSalePriceSMA50;
+            let priorSalePriceSMA200;
             const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
             if (priorConfirmedRelease) {
                 const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
                 priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
                 priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                priorSalePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 50);
+                priorSalePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 200);
                 const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
                 const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
                 const ratingChangesSinceLastEarningsRelease = ServerUtils.getLatestRatings(
@@ -1035,15 +1045,17 @@ Meteor.methods({
             const data = {
                 insertedDate,
                 symbol,
+                companyName,
                 expectedEps,
                 actualEps,
+                expectedEpsNextQt,
                 reportDate,
                 expectedAsOf,
                 timeOfDayDescription,
                 endDateNextFiscalQuarter,
                 originalEpsExpectation,
                 pctExpEpsOverOriginalEpsExpectation: getRateOfChange(expectedEps, originalEpsExpectation),
-                originalAsOfExpectation,
+                originalAsOfExpectation: firstEpsExpDate,
 
                 isAfterMarketClose,
                 purchaseDate,
@@ -1065,10 +1077,14 @@ Meteor.methods({
                 pctExpEpsOverOneYearAgo: getRateOfChange(expectedEps, epsActualOneYearAgoFiscalQuarter),
 
                 purchasePrice,
+                purchasePriceSMA50,
+                purchasePriceSMA200,
                 salePrice1,
                 salePrice2,
                 salePrice3,
                 priorSalePrice,
+                priorSalePriceSMA50,
+                priorSalePriceSMA200,
             };
             results.push(data);
         });
