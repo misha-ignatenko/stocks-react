@@ -220,8 +220,6 @@ export const EarningsAnalysis = (props) => {
                             <td>{(priceLatest / priceBeforeRelease).toFixed(4)}</td>
                             <td>{dateLatest}</td>
 
-
-
                             <td>{vooOpenPriceOnPurchaseDate?.toFixed(4)}</td>
                             <td>{vooSMA?.toFixed(4)}</td>
                             <td>{vooSMA50DaysAgo?.toFixed(4)}</td>
