@@ -4,6 +4,7 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
 import { EJSON } from 'meteor/ejson';
+const momentBiz = require('moment-business-days');
 
 StocksReactServerUtils = {
 
@@ -293,16 +294,26 @@ StocksReactServerUtils = {
                     // check that all column names are present
                     if (_columnNames.length === obj.length && _columnNames.length === 8) {
                         var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
-                        _prices.push({
+                        const dateString = _convertedObj.dateString;
+
+                        if (!momentBiz(dateString).isBusinessDay()) {
+                            return;
+                        }
+                        _prices.push(_.extend(_.pick(_convertedObj, [
+                            'open',
+                            'low',
+                            'high',
+                            'volume',
+                        ]), {
                             symbol: _convertedObj.symbol,
-                            dateString: _convertedObj.dateString,
-                            adjClose: _convertedObj.close,
+                            dateString,
+                            adjClose: Math.abs(_convertedObj.close),
                             date: _convertedObj.date,
 
                             hasAdjustment: _convertedObj.hasAdjustment,
                             adjFactor: _convertedObj.adjFactor,
                             adjType: _convertedObj.adjType,
-                        });
+                        }));
                     } else {
                         throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
                     }
@@ -319,7 +330,12 @@ StocksReactServerUtils = {
                     var _datatable = _res.data.datatable;
                     _.each(_datatable.data, function (px) {
                         var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-                        _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, date: _formatted.date});
+                        _prices.push({
+                            symbol: _formatted.symbol,
+                            dateString: _formatted.dateString,
+                            adjClose: Math.abs(_formatted.adjClose),
+                            date: _formatted.date,
+                        });
                     })
 
                 } catch (e) {

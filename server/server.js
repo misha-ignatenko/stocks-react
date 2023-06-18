@@ -22,6 +22,11 @@ const getRatingChangesQuery = () => {
     };
 };
 
+momentBiz.updateLocale('us', {
+    holidays: ['2023-02-20'],
+    holidayFormat: YYYY_MM_DD,
+});
+
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
     // todo: LIMIT COLUMNS requested
 
@@ -986,10 +991,24 @@ Meteor.methods({
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
+            // const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays + (isForecast ? 1 : 0));
             const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays);
             const saleDate1 = expectedE.getSaleDate(0);
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
+
+            const vooPrices = ServerUtils.prices.getAllPrices('VOO');
+            const vooOpenPriceOnPurchaseDate = StocksReactUtils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
+            const vooSMA50Date = momentBiz(purchaseDate).businessAdd(-50).format(YYYY_MM_DD);
+            const vooSMA50DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA50Date, 10, !isForecast);
+            const vooSMA200Date = momentBiz(purchaseDate).businessAdd(-200).format(YYYY_MM_DD);
+            const vooSMA200DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA200Date, 10, !isForecast);
+            const vooSMA = Utils.stockPrices.getSimpleRollingPx(vooPrices, purchaseDate, 10, !isForecast);
+
+            const inc50Price = vooOpenPriceOnPurchaseDate / vooSMA50DaysAgo;
+            const inc200Price = vooOpenPriceOnPurchaseDate / vooSMA200DaysAgo;
+            const inc50SMA = vooSMA / vooSMA50DaysAgo;
+            const inc200SMA = vooSMA / vooSMA200DaysAgo;
 
             const prices = ServerUtils.prices.getAllPrices(symbol);
             const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
@@ -1085,6 +1104,16 @@ Meteor.methods({
                 priorSalePrice,
                 priorSalePriceSMA50,
                 priorSalePriceSMA200,
+
+                vooOpenPriceOnPurchaseDate,
+                vooSMA,
+                vooSMA50DaysAgo,
+                vooSMA200DaysAgo,
+
+                inc50Price,
+                inc200Price,
+                inc50SMA,
+                inc200SMA,
             };
             results.push(data);
         });

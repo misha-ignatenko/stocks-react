@@ -124,6 +124,10 @@ export const EarningsAnalysis = (props) => {
                         <th>Price Latest</th>
                         <th>Latest / Before</th>
                         <th>Date Latest</th>
+                        <th>vooOpenPriceOnPurchaseDate</th>
+                        <th>vooSMA</th>
+                        <th>vooSMA50DaysAgo</th>
+                        <th>vooSMA200DaysAgo</th>
                     </tr>
                 </thead>
 
@@ -167,6 +171,10 @@ export const EarningsAnalysis = (props) => {
                             epsActualOneYearAgoFiscalQuarter,
                             pctExpEpsOverOneYearAgo,
 
+                            vooOpenPriceOnPurchaseDate,
+                            vooSMA,
+                            vooSMA50DaysAgo,
+                            vooSMA200DaysAgo,
                         } = row;
                         const rowKey = symbol + reportDate;
 
@@ -211,6 +219,13 @@ export const EarningsAnalysis = (props) => {
                             <td>{priceLatest?.toFixed(2)}</td>
                             <td>{(priceLatest / priceBeforeRelease).toFixed(4)}</td>
                             <td>{dateLatest}</td>
+
+
+
+                            <td>{vooOpenPriceOnPurchaseDate?.toFixed(4)}</td>
+                            <td>{vooSMA?.toFixed(4)}</td>
+                            <td>{vooSMA50DaysAgo?.toFixed(4)}</td>
+                            <td>{vooSMA200DaysAgo?.toFixed(4)}</td>
                         </tr>;
                     })}
                 </tbody>
