@@ -22,11 +22,6 @@ const getRatingChangesQuery = () => {
     };
 };
 
-momentBiz.updateLocale('us', {
-    holidays: ['2023-02-20'],
-    holidayFormat: YYYY_MM_DD,
-});
-
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
     // todo: LIMIT COLUMNS requested
 
