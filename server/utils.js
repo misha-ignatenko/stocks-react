@@ -8,6 +8,11 @@ const momentBiz = require('moment-business-days');
 
 StocksReactServerUtils = {
 
+    setSetting(field, value) {
+        return Settings.update(Utils.getSetting('_id'), {$set: {
+            [field]: value,
+        }});
+    },
     getEmailTo() {
         return Utils.getSetting('serverSettings.ratingsChanges.emailTo');
     },
