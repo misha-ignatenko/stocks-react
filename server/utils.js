@@ -267,12 +267,27 @@ StocksReactServerUtils = {
         },
 
         pricesCache: {},
-        getAllPrices(symbol) {
+        pricesCacheMap: new Map(),
+        getAllPrices(symbol, getMap = false) {
             if (!_.has(this.pricesCache, symbol)) {
-                this.pricesCache[symbol] = this.getAllPricesNonCached(symbol);
+                const pricesForSymbol = this.getAllPricesNonCached(symbol);
+                this.pricesCache[symbol] = pricesForSymbol;
+
+                this.pricesCacheMap.set(symbol, new Map());
+                pricesForSymbol.forEach(priceObj => {
+                    const dateString = priceObj.dateString;
+                    if (this.pricesCacheMap.get(symbol).has(dateString)) {
+                        console.log('already has price for date', symbol, dateString);
+                    }
+                    this.pricesCacheMap.get(symbol).set(dateString, priceObj);
+                });
+
                 Meteor.setTimeout(() => {
                     delete this.pricesCache[symbol];
                 }, 10 * 60 * 1000); // 10 min
+            }
+            if (getMap) {
+                return this.pricesCacheMap.get(symbol);
             }
             return this.pricesCache[symbol];
         },
@@ -344,6 +359,15 @@ StocksReactServerUtils = {
             }
 
             return _prices;
+        },
+        getPriceOnDayNew(symbol, dateString, returnObj = false, priceField = 'adjClose') {
+            const symbolPricesMap = this.getAllPrices(symbol, true);
+            const priceObj = symbolPricesMap.get(dateString);
+            if (returnObj) {
+                return priceObj;
+            } else {
+                return priceObj[priceField];
+            }
         },
     },
     ratingChanges: {
