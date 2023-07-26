@@ -316,10 +316,13 @@ Meteor.methods({
                 })
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
 
+                const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
+                _result.importedDatesStr = importedDatesStr;
+
                 Email.send({
                     to: ServerUtils.getEmailTo(),
                     from: ServerUtils.getEmailFrom(),
-                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(_.uniq(_.pluck(importData, "dateString"))),
+                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 

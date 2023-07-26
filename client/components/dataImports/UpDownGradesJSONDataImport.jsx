@@ -125,7 +125,7 @@ class UpDownGradesJSONDataImport extends Component {
                 } else if (result.upgradesDowngradesImportStats) {
                     var _importStats = result.upgradesDowngradesImportStats;
                     $.bootstrapGrowl("imported stats<br>new: " + _importStats.new + "<br>duplicates: " + _importStats.duplicates +
-                        "<br>out of: " + _importStats.total, {
+                        "<br>out of: " + _importStats.total + `<br>dates: ${JSON.stringify(result.importedDatesStr)}`, {
                         type: 'success',
                         align: 'center',
                         width: 250,
