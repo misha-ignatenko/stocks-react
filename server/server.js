@@ -714,6 +714,7 @@ Meteor.methods({
             isRecursive: Match.Optional(Boolean),
             includeHistory: Match.Optional(Boolean),
             bizDaysLookbackForHistory: Match.Optional(Number),
+            emailResults: Match.Optional(Boolean),
         });
 
         if (!Permissions.isPremium()) {
@@ -733,7 +734,10 @@ Meteor.methods({
             isRecursive = false,
             includeHistory = false,
             bizDaysLookbackForHistory = 500,
+            emailResults = false,
         } = options;
+
+        const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
 
         console.log('getEarningsAnalysis', {
             startDate,
@@ -748,6 +752,8 @@ Meteor.methods({
             isRecursive,
             includeHistory,
             bizDaysLookbackForHistory,
+            emailResults,
+            fileName,
         });
 
         if (symbol && isRecursive) {
@@ -761,6 +767,7 @@ Meteor.methods({
                     startDate: dateString,
                     endDate: dateString,
                     isForecast: isForecast && isLastReportDate,
+                    emailResults: false,
                 }));
             }).flat();
         }
@@ -836,14 +843,25 @@ Meteor.methods({
 
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
-            return symbols.map(symbol => {
+            const historicalRows = symbols.map(symbol => {
                 return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
                     startDate: momentBiz(startDate).businessAdd(-bizDaysLookbackForHistory).format(YYYY_MM_DD),
                     isRecursive: true,
                     symbol,
                     includeHistory: false,
+                    emailResults: false,
                 }))
             }).flat();
+
+            if (emailResults) {
+                ServerUtils.emailCSV(
+                    ServerUtils.earningsReleases.processRowsForCSV(historicalRows),
+                    fileName,
+                    fileName
+                );
+            }
+
+            return historicalRows;
         }
 
         const expectedMap = new Map();
@@ -1112,6 +1130,14 @@ Meteor.methods({
             };
             results.push(data);
         });
+
+        if (emailResults && !includeHistory) {
+            ServerUtils.emailCSV(
+                ServerUtils.earningsReleases.processRowsForCSV(results),
+                fileName,
+                fileName
+            );
+        }
 
         return results;
     },

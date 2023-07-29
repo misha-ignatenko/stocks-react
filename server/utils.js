@@ -5,6 +5,7 @@ import moment from 'moment-timezone';
 import _ from 'underscore';
 import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
+const { convertArrayToCSV } = require('convert-array-to-csv');
 
 StocksReactServerUtils = {
 
@@ -18,6 +19,22 @@ StocksReactServerUtils = {
     },
     getEmailFrom() {
         return Utils.getSetting('serverSettings.ratingsChanges.emailFrom');
+    },
+    emailCSV(rows, fileName = 'sample.csv', subject = 'csv file') {
+        const csv = convertArrayToCSV(rows);
+
+        Email.send({
+            to: ServerUtils.getEmailTo(),
+            from: ServerUtils.getEmailTo(),
+            subject,
+            text: 'see attached',
+            attachments: [
+                {
+                    filename: fileName,
+                    content: csv,
+                },
+            ],
+        });
     },
 
     ratingsChangesLimitGlobal() {
@@ -551,6 +568,100 @@ StocksReactServerUtils = {
             });
 
             return adjustedData;
+        },
+        processRowsForCSV(rows) {
+            return rows.map(row => {
+                const {
+                    reportDate,
+                    isAfterMarketClose,
+                    endDateNextFiscalQuarter,
+                    symbol,
+                    companyName,
+                    originalEpsExpectation,
+                    pctExpEpsOverOriginalEpsExpectation,
+                    originalAsOfExpectation,
+                    expectedEps,
+                    actualEps,
+                    expectedEpsNextQt,
+                    purchaseDate: dateBeforeRelease,
+                    purchasePrice: priceBeforeRelease,
+                    purchasePriceSMA50,
+                    purchasePriceSMA200,
+                    saleDate1: dateAfterRelease,
+                    salePrice1: priceAfterRelease,
+                    saleDate2: dateLater,
+                    salePrice2: priceLater,
+                    saleDate3: dateLatest,
+                    salePrice3: priceLatest,
+                    priorSaleDate,
+                    priorSalePrice,
+                    priorSalePriceSMA50,
+                    priorSalePriceSMA200,
+                    avgRating,
+                    numRatings,
+                    numRecentDowngrades,
+                    numRecentUpgrades,
+                    averageRatingChangeDate,
+                    altAvgRatingWithAdjRatings,
+
+                    epsActualPreviousFiscalQuarter,
+                    pctExpEpsOverPrevQt,
+                    epsActualOneYearAgoFiscalQuarter,
+                    pctExpEpsOverOneYearAgo,
+
+                    vooOpenPriceOnPurchaseDate,
+                    vooSMA,
+                    vooSMA50DaysAgo,
+                    vooSMA200DaysAgo,
+                } = row;
+
+                return {
+                    'Release Date': Utils.convertToStringDate(reportDate),
+                    'Is After Mkt Close': isAfterMarketClose ? 'Yes' : 'No',
+                    'Qt': Utils.convertToStringDate(endDateNextFiscalQuarter),
+                    'Symbol': symbol,
+                    'Co Name': companyName,
+                    'Average Rating (0-120)': _.isNaN(avgRating) ? null : avgRating.toFixed(2),
+                    '# of Ratings': numRatings,
+                    'Avg R. Ch. Date': averageRatingChangeDate,
+                    'Alt R (adj r)': _.isNaN(altAvgRatingWithAdjRatings) ? null : altAvgRatingWithAdjRatings.toFixed(2),
+                    '# Recent Downgr': numRecentDowngrades,
+                    '# Recent Upgr': numRecentUpgrades,
+                    '1st Eps Exp': originalEpsExpectation?.toFixed(4),
+                    '% Exp / 1st Exp': pctExpEpsOverOriginalEpsExpectation?.toFixed(4),
+                    '1st Eps Exp Date': originalAsOfExpectation,
+                    'Prior Sale Date': priorSaleDate,
+                    'Prior Sale Price': priorSalePrice,
+                    'Prior SMA 50': priorSalePriceSMA50?.toFixed(2),
+                    'Prior SMA 200': priorSalePriceSMA200?.toFixed(2),
+                    'Exp EPS': expectedEps?.toFixed(4),
+                    'Act EPS': actualEps?.toFixed(4),
+                    'Exp EPS Next Qt': expectedEpsNextQt?.toFixed(4),
+                    'Act EPS (prev qt)': epsActualPreviousFiscalQuarter?.toFixed(4),
+                    'Exp / prev qt': undefined,
+                    '% Exp / prev qt': _.isNumber(pctExpEpsOverPrevQt) ? pctExpEpsOverPrevQt.toFixed(4) : null,
+                    'Act EPS (1 yr ago)': epsActualOneYearAgoFiscalQuarter?.toFixed(4),
+                    'Exp / 1 yr': undefined,
+                    '% Exp / 1 yr': _.isNumber(pctExpEpsOverOneYearAgo) ? pctExpEpsOverOneYearAgo.toFixed(4) : null,
+                    'Price Before': priceBeforeRelease?.toFixed(2),
+                    'Before SMA 50': purchasePriceSMA50?.toFixed(2),
+                    'Before SMA 200': purchasePriceSMA200?.toFixed(2),
+                    'Date Before': dateBeforeRelease,
+                    'Price After': priceAfterRelease?.toFixed(2),
+                    'After / Before': (priceAfterRelease / priceBeforeRelease).toFixed(4),
+                    'Date After': dateAfterRelease,
+                    'Price Later': priceLater?.toFixed(2),
+                    'Later / Before': (priceLater / priceBeforeRelease).toFixed(4),
+                    'Date Later': dateLater,
+                    'Price Latest': priceLatest?.toFixed(2),
+                    'Latest / Before': (priceLatest / priceBeforeRelease).toFixed(4),
+                    'Date Latest': dateLatest,
+                    'vooOpenPriceOnPurchaseDate': vooOpenPriceOnPurchaseDate?.toFixed(4),
+                    'vooSMA': vooSMA?.toFixed(4),
+                    'vooSMA50DaysAgo': vooSMA50DaysAgo?.toFixed(4),
+                    'vooSMA200DaysAgo': vooSMA200DaysAgo?.toFixed(4),
+                };
+            });
         },
     }
 };
