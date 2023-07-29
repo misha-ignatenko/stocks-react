@@ -4,6 +4,7 @@ import _ from 'underscore';
 import { check, Match } from 'meteor/check';
 import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
+const { performance } = require('perf_hooks');
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
@@ -721,6 +722,12 @@ Meteor.methods({
             throw new Meteor.Error('you do not have access');
         }
 
+        const start = performance.now();
+        const getEmailText = () => EJSON.stringify({
+            options,
+            ms: performance.now() - start,
+        });
+
         const {
             startDate,
             endDate,
@@ -857,7 +864,8 @@ Meteor.methods({
                 ServerUtils.emailCSV(
                     ServerUtils.earningsReleases.processRowsForCSV(historicalRows),
                     fileName,
-                    fileName
+                    fileName,
+                    getEmailText()
                 );
             }
 
@@ -1135,7 +1143,8 @@ Meteor.methods({
             ServerUtils.emailCSV(
                 ServerUtils.earningsReleases.processRowsForCSV(results),
                 fileName,
-                fileName
+                fileName,
+                getEmailText()
             );
         }
 

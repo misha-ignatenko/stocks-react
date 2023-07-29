@@ -20,14 +20,14 @@ StocksReactServerUtils = {
     getEmailFrom() {
         return Utils.getSetting('serverSettings.ratingsChanges.emailFrom');
     },
-    emailCSV(rows, fileName = 'sample.csv', subject = 'csv file') {
+    emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
         const csv = convertArrayToCSV(rows);
 
         Email.send({
             to: ServerUtils.getEmailTo(),
             from: ServerUtils.getEmailTo(),
             subject,
-            text: 'see attached',
+            text,
             attachments: [
                 {
                     filename: fileName,
