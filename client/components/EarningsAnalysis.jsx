@@ -31,6 +31,7 @@ export const EarningsAnalysis = (props) => {
                     // symbol: 'AAPL',
                     startDate: startDate.format(format),
                     endDate: endDate.format(format),
+                    // here
                     // advancePurchaseDays: 1,
 
                     saleDelayInDays: 2,
@@ -40,10 +41,15 @@ export const EarningsAnalysis = (props) => {
                     // ratingChangesLookbackInDays: 750,
                     ratingChangesLookbackInDays: 500,
 
+                    // here (when backtesting, comment this out to use the default)
                     // isForecast: true,
 
+                    // here (when backtesting, comment this out to use the default)
                     // includeHistory: true,
+                    // here
                     // bizDaysLookbackForHistory: 1000,
+                    // here
+                    // emailResults: true,
                 },
                 (err, res) => {
                     if (err) {
