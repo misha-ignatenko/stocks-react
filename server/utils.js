@@ -36,6 +36,22 @@ StocksReactServerUtils = {
             ],
         });
     },
+    emailJSON(data, fileName = 'sample.json', subject = 'json file', text = 'see attached') {
+        const json = JSON.stringify(data);
+
+        Email.send({
+            to: ServerUtils.getEmailTo(),
+            from: ServerUtils.getEmailTo(),
+            subject,
+            text,
+            attachments: [
+                {
+                    filename: fileName,
+                    content: json,
+                },
+            ],
+        });
+    },
 
     ratingsChangesLimitGlobal() {
         return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
@@ -445,6 +461,7 @@ StocksReactServerUtils = {
                 _.identity
             );
 
+            // may return incorrect dates
             if (returnOnlyReportDates) {
                 return relevantReportDates;
             }

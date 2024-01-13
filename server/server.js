@@ -241,6 +241,11 @@ Meteor.methods({
         return _prices;
     },
 
+    emailPricesForSymbol(symbol) {
+        const prices = Meteor.call('getPricesForSymbol', symbol);
+        ServerUtils.emailJSON(prices, `${symbol}_prices.json`, `prices for ${symbol}`);
+    },
+
     getEarliestRatingChange: function (symbol) {
         check(symbol, String);
 
@@ -716,6 +721,7 @@ Meteor.methods({
             includeHistory: Match.Optional(Boolean),
             bizDaysLookbackForHistory: Match.Optional(Number),
             emailResults: Match.Optional(Boolean),
+            returnExpected: Match.Optional(Boolean),
         });
 
         if (!Permissions.isPremium()) {
@@ -742,6 +748,7 @@ Meteor.methods({
             includeHistory = false,
             bizDaysLookbackForHistory = 500,
             emailResults = false,
+            returnExpected = false,
         } = options;
 
         const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
@@ -760,6 +767,7 @@ Meteor.methods({
             includeHistory,
             bizDaysLookbackForHistory,
             emailResults,
+            returnExpected,
             fileName,
         });
 
@@ -847,6 +855,30 @@ Meteor.methods({
         }
 
         console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
+
+        if (returnExpected && emailResults) {
+            expectedEarningsReleases.forEach(expectedRelease => {
+                const dateBefore = expectedRelease.getPurchaseDate(advancePurchaseDays);
+                const dateAfter = expectedRelease.getSaleDate(0);
+
+                _.extend(expectedRelease, {
+                    dateBefore,
+                    dateAfter,
+                });
+            });
+
+            const uniqueReleases = _.uniq(expectedEarningsReleases, false, (e) => {
+                return `${e.symbol}_${e.dateBefore}`;
+            });
+
+            ServerUtils.emailCSV(
+                uniqueReleases,
+                fileName,
+                fileName,
+                getEmailText()
+            );
+            return uniqueReleases;
+        }
 
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
