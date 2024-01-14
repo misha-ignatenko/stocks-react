@@ -844,6 +844,15 @@ Meteor.methods({
             expectedReleasesQuery,
             {
                 sort: {asOf: -1},
+                ...(returnExpected && emailResults ? {
+                    fields: {
+                        reportTimeOfDayCode: 1,
+                        reportDateNextFiscalQuarter: 1,
+                        symbol: 1,
+                        companyName: 1,
+                        timeOfDayDescription: 1,
+                    },
+                } : {}),
             }
         ).fetch();
 

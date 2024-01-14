@@ -322,7 +322,8 @@ StocksReactServerUtils = {
 
                 Meteor.setTimeout(() => {
                     delete this.pricesCache[symbol];
-                }, 10 * 60 * 1000); // 10 min
+                    this.pricesCacheMap.delete(symbol);
+                }, 3 * 60 * 1000); // 3 min
             }
             if (getMap) {
                 return this.pricesCacheMap.get(symbol);
