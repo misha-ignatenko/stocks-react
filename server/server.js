@@ -798,12 +798,12 @@ Meteor.methods({
                 $lte: Utils.convertToNumberDate(endDate),
             },
             reportSourceFlag: 1,
-            asOf: {
+            ...(returnExpected && emailResults ? {} : {asOf: {
                 // allow 1 more day, because legacy earnings releases do not have
                 // `insertedDate` and their `asOf` gets moved to the next
                 // day right after release if latest release isn't in the API yet
                 $lte: moment(endDate).add(2, 'days').format(YYYY_MM_DD),
-            },
+            }}),
 
             currencyCode: {$nin: ['CND']},
 
