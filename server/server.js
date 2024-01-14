@@ -865,6 +865,20 @@ Meteor.methods({
                     dateBefore,
                     dateAfter,
                 });
+
+                const symbol = expectedRelease.symbol;
+                _.range(0, 10 + 1).forEach(daysToAdd => {
+                    const dateString = momentBiz(dateBefore).businessAdd(daysToAdd).format(Utils.constants.YYYY_MM_DD);
+
+                    const price = ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
+                    // const vooPrice = ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
+
+                    _.extend(expectedRelease, {
+                        [`date_before_+${daysToAdd}`]: dateString,
+                        [`price_before_+${daysToAdd}`]: price,
+                        // [`voo_price_before_+${daysToAdd}`]: vooPrice,
+                    });
+                });
             });
 
             const uniqueReleases = _.uniq(expectedEarningsReleases, false, (e) => {

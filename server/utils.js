@@ -398,13 +398,21 @@ StocksReactServerUtils = {
 
             return _prices;
         },
-        getPriceOnDayNew(symbol, dateString, returnObj = false, priceField = 'adjClose') {
+        getPriceOnDayNew({
+            symbol,
+            dateString,
+            returnObj = false,
+            priceField = 'adjClose',
+            isStrict = true,
+        }) {
             const symbolPricesMap = this.getAllPrices(symbol, true);
             const priceObj = symbolPricesMap.get(dateString);
             if (returnObj) {
                 return priceObj;
-            } else {
+            } else if (isStrict) {
                 return priceObj[priceField];
+            } else {
+                return priceObj?.[priceField];
             }
         },
     },
