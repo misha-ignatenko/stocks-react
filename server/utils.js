@@ -14,6 +14,14 @@ StocksReactServerUtils = {
             [field]: value,
         }});
     },
+
+    setEarningsReleaseSyncDate(dateString) {
+        return this.setSetting(
+            'serverSettings.quandl.dateOfLastPullFromQuandl',
+            dateString
+        );
+    },
+
     getEmailTo() {
         return Utils.getSetting('serverSettings.ratingsChanges.emailTo');
     },
