@@ -414,10 +414,11 @@ StocksReactServerUtils = {
                     prices.push(formatted);
                 });
 
-                return prices;
             } catch (error) {
                 console.log('getAllPricesNonCachedNew error', symbol, error);
             }
+
+            return prices;
         },
         getAllPricesNonCached: function (symbol, optionalStartDate, optionalEndDate) {
             console.log("inside getPricesForSymbol: ", symbol);
