@@ -280,8 +280,8 @@ StocksReactServerUtils = {
                 priceObj[columnDefObj['name']] = item[columnDefItemIndex];
             });
 
-            if (priceObj.adj_close < 0) {
-                console.log('priceObj.adj_close < 0', priceObj);
+            if (priceObj.adj_close < 0 || priceObj.close < 0) {
+                console.log('negative close', priceObj);
             }
 
             return _.extend(_.pick(priceObj, [
@@ -300,7 +300,8 @@ StocksReactServerUtils = {
                 adjOpen: priceObj.adj_open,
                 adjHigh: priceObj.adj_high,
                 adjLow: priceObj.adj_low,
-                adjClose: Math.abs(priceObj.adj_close),
+                // todo: temporary adjustment to handle dividends (was adj_close)
+                adjClose: Math.abs(priceObj.close),
                 adjVolume: priceObj.adj_volume,
 
                 source: 'nasdaq_eod',
