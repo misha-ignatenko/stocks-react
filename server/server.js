@@ -237,6 +237,9 @@ Meteor.methods({
 
     getPricesForSymbol: function (symbol) {
         check(symbol, String);
+
+        ServerUtils.runPremiumCheck();
+
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
     },

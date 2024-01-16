@@ -186,9 +186,21 @@ StocksReactServerUtils = {
         return validRatingScaleIDsMap;
     },
 
+    apiKeyCached: undefined,
     apiKey: function () {
+        if (!this.apiKeyCached) {
+            this.apiKeyCached = this.getApiKeyNonCached();
+
+            Meteor.setTimeout(() => {
+                delete this.apiKeyCached;
+            }, 3 * 60 * 1000); // 3 min
+        }
+        return this.apiKeyCached;
+    },
+    getApiKeyNonCached() {
         return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
+
     newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
     mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
 
@@ -226,6 +238,13 @@ StocksReactServerUtils = {
             return _url;
         },
 
+        getNasdaqPricesQuandlUrlNew(symbol) {
+            const url = 'https://data.nasdaq.com/api/v3/datatables/QUOTEMEDIA/PRICES?' +
+                `ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+
+            return url;
+        },
+
         getFormattedPriceObjWiki: function (item, _columnDefs) {
             var _priceObj = {};
             _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
@@ -253,6 +272,39 @@ StocksReactServerUtils = {
             };
 
             return _formattedPriceObj;
+        },
+
+        getFormattedPriceObjNasdaqNew(item, columnDefinitions) {
+            const priceObj = {};
+            columnDefinitions.forEach((columnDefObj, columnDefItemIndex) => {
+                priceObj[columnDefObj['name']] = item[columnDefItemIndex];
+            });
+
+            if (priceObj.adj_close < 0) {
+                console.log('priceObj.adj_close < 0', priceObj);
+            }
+
+            return _.extend(_.pick(priceObj, [
+                'open',
+                'high',
+                'low',
+                'close',
+                'volume',
+                'dividend',
+                'split',
+            ]), {
+                symbol: priceObj.ticker,
+                date: new Date(priceObj.date + 'T00:00:00.000+0000'),
+                dateString: priceObj.date,
+
+                adjOpen: priceObj.adj_open,
+                adjHigh: priceObj.adj_high,
+                adjLow: priceObj.adj_low,
+                adjClose: Math.abs(priceObj.adj_close),
+                adjVolume: priceObj.adj_volume,
+
+                source: 'nasdaq_eod',
+            });
         },
 
         getFormattedPriceObjNasdaq: function (_columnNames, obj, symbol) {
@@ -316,7 +368,7 @@ StocksReactServerUtils = {
         pricesCacheMap: new Map(),
         getAllPrices(symbol, getMap = false) {
             if (!_.has(this.pricesCache, symbol)) {
-                const pricesForSymbol = this.getAllPricesNonCached(symbol);
+                const pricesForSymbol = this.getAllPricesNonCachedNew(symbol);
                 this.pricesCache[symbol] = pricesForSymbol;
 
                 this.pricesCacheMap.set(symbol, new Map());
@@ -337,6 +389,34 @@ StocksReactServerUtils = {
                 return this.pricesCacheMap.get(symbol);
             }
             return this.pricesCache[symbol];
+        },
+        getAllPricesNonCachedNew(symbol) {
+            const prices = [];
+            const url = ServerUtils.prices.getNasdaqPricesQuandlUrlNew(symbol);
+            console.log("inside getPricesForSymbol new: ", symbol);
+
+            try {
+                const result = HTTP.get(url);
+
+                const datatable = result.data.datatable;
+                const columns = datatable.columns;
+                const data = datatable.data;
+
+                data.forEach(px => {
+                    const formatted = ServerUtils.prices.getFormattedPriceObjNasdaqNew(px, columns);
+
+                    if (!momentBiz(formatted.dateString).isBusinessDay()) {
+                        console.log('is not a business day', formatted);
+                        return;
+                    }
+
+                    prices.push(formatted);
+                });
+
+                return prices;
+            } catch (error) {
+                console.log('getAllPricesNonCachedNew error', symbol, error);
+            }
         },
         getAllPricesNonCached: function (symbol, optionalStartDate, optionalEndDate) {
             console.log("inside getPricesForSymbol: ", symbol);
@@ -697,7 +777,12 @@ StocksReactServerUtils = {
                 };
             });
         },
-    }
+    },
+    runPremiumCheck() {
+        if (!Permissions.isPremium()) {
+            throw new Meteor.Error('you do not have access');
+        }
+    },
 };
 
 ServerUtils = StocksReactServerUtils;
