@@ -1388,7 +1388,7 @@ Meteor.methods({
         check(symbol, String);
 
         var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
-        var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+        const tickersUrl = ServerUtils.prices.getTickersUrl(symbol);
         var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
         const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
 
@@ -1405,15 +1405,6 @@ Meteor.methods({
             }
         };
 
-        function _checkNasdaq() {
-            try {
-                var _res = HTTP.get(_nasdaqUrl);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-
         function _checkZEA() {
             try {
                 var _res = HTTP.get(_zeaUrl);
@@ -1423,7 +1414,7 @@ Meteor.methods({
             }
         }
 
-        return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+        return checkDatatable(_wikiUrl) || checkDatatable(tickersUrl) || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
     },
 
     insertNewStockSymbols: function(symbolsArray) {

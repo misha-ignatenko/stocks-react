@@ -203,6 +203,8 @@ StocksReactServerUtils = {
 
     newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
     mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
+    pricesUrl: 'https://data.nasdaq.com/api/v3/datatables/QUOTEMEDIA/PRICES',
+    tickersUrl: 'https://data.nasdaq.com/api/v3/datatables/QUOTEMEDIA/TICKERS',
 
     prices: {
 
@@ -238,11 +240,11 @@ StocksReactServerUtils = {
             return _url;
         },
 
-        getNasdaqPricesQuandlUrlNew(symbol) {
-            const url = 'https://data.nasdaq.com/api/v3/datatables/QUOTEMEDIA/PRICES?' +
-                `ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
-
-            return url;
+        getPricesUrl(symbol) {
+            return `${ServerUtils.pricesUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+        },
+        getTickersUrl(symbol) {
+            return `${ServerUtils.tickersUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
         },
 
         getFormattedPriceObjWiki: function (item, _columnDefs) {
@@ -274,7 +276,7 @@ StocksReactServerUtils = {
             return _formattedPriceObj;
         },
 
-        getFormattedPriceObjNasdaqNew(item, columnDefinitions) {
+        getFormattedPriceObj(item, columnDefinitions) {
             const priceObj = {};
             columnDefinitions.forEach((columnDefObj, columnDefItemIndex) => {
                 priceObj[columnDefObj['name']] = item[columnDefItemIndex];
@@ -393,7 +395,7 @@ StocksReactServerUtils = {
         },
         getAllPricesNonCachedNew(symbol) {
             const prices = [];
-            const url = ServerUtils.prices.getNasdaqPricesQuandlUrlNew(symbol);
+            const url = ServerUtils.prices.getPricesUrl(symbol);
             console.log("inside getPricesForSymbol new: ", symbol);
 
             try {
@@ -404,7 +406,7 @@ StocksReactServerUtils = {
                 const data = datatable.data;
 
                 data.forEach(px => {
-                    const formatted = ServerUtils.prices.getFormattedPriceObjNasdaqNew(px, columns);
+                    const formatted = ServerUtils.prices.getFormattedPriceObj(px, columns);
 
                     if (!momentBiz(formatted.dateString).isBusinessDay()) {
                         console.log('is not a business day', formatted);
