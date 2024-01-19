@@ -32,8 +32,6 @@ StocksReactServerUtils = {
         const csv = convertArrayToCSV(rows);
 
         Email.send({
-            to: ServerUtils.getEmailTo(),
-            from: ServerUtils.getEmailTo(),
             subject,
             text,
             attachments: [
@@ -48,8 +46,6 @@ StocksReactServerUtils = {
         const json = JSON.stringify(data);
 
         Email.send({
-            to: ServerUtils.getEmailTo(),
-            from: ServerUtils.getEmailTo(),
             subject,
             text,
             attachments: [

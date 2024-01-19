@@ -50,8 +50,6 @@ Meteor.methods({
 
 
         Email.send({
-            to: ServerUtils.getEmailTo(),
-            from: ServerUtils.getEmailTo(),
             subject: 'MISSING earnings release symbols',
             text: JSON.stringify({
                 timeNow: new Date(),
