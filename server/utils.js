@@ -298,8 +298,7 @@ StocksReactServerUtils = {
                 adjOpen: priceObj.adj_open,
                 adjHigh: priceObj.adj_high,
                 adjLow: priceObj.adj_low,
-                // todo: temporary adjustment to handle dividends (was adj_close)
-                adjClose: Math.abs(priceObj.close),
+                adjClose: Math.abs(priceObj.adj_close),
                 adjVolume: priceObj.adj_volume,
 
                 source: 'nasdaq_eod',
