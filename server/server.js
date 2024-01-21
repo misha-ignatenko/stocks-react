@@ -1283,10 +1283,6 @@ Meteor.methods({
     checkIfSymbolExists: function (symbol) {
         check(symbol, String);
 
-        const tickersUrl = ServerUtils.prices.getTickersUrl(symbol);
-        var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
-        const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
-
         function checkDatatable(url) {
             try {
                 var _res = HTTP.get(url);
@@ -1300,16 +1296,11 @@ Meteor.methods({
             }
         };
 
-        function _checkZEA() {
-            try {
-                var _res = HTTP.get(_zeaUrl);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        return checkDatatable(tickersUrl) || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+        return [
+            ServerUtils.prices.getTickersUrl(symbol),
+            ServerUtils.earningsReleases.getMetadataUrl(symbol),
+            ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
+        ].some(checkDatatable);
     },
 
     insertNewStockSymbols: function(symbolsArray) {

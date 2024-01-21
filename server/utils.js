@@ -197,7 +197,7 @@ StocksReactServerUtils = {
         return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
 
-    newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
+    earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
     mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
     pricesUrl: 'https://data.nasdaq.com/api/v3/datatables/QUOTEMEDIA/PRICES',
     tickersUrl: 'https://data.nasdaq.com/api/v3/datatables/QUOTEMEDIA/TICKERS',
@@ -431,17 +431,13 @@ StocksReactServerUtils = {
             });
         },
         getAllEarningsReleasesUrl: () => {
-            const key = StocksReactServerUtils.apiKey();
-            const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?api_key=${key}`;
-            return url;
+            return `${ServerUtils.earningsReleasesUrl}?api_key=${ServerUtils.apiKey()}`;
         },
         getEarningsReleasesUrl: (symbol) => {
-            const key = StocksReactServerUtils.apiKey();
-            const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?ticker=${symbol}&api_key=${key}`;
-            return url;
+            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
         },
         getMetadataUrl(symbol) {
-            return `${StocksReactServerUtils.mtUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+            return `${ServerUtils.mtUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
         },
         hasSplits(symbol) {
             const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
@@ -477,10 +473,6 @@ StocksReactServerUtils = {
                 splitDate,
                 splitFactor,
             };
-        },
-        getZeaUrl: function (symbol) {
-            var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + symbol + ".json?auth_token=" + StocksReactServerUtils.apiKey();
-            return _url;
         },
         getAdjustedEps(rawData, adjustments, reportDate, fields) {
             const relevantAdj = adjustments.filter(adj => {
