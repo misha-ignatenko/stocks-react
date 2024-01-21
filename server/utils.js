@@ -204,28 +204,6 @@ StocksReactServerUtils = {
 
     prices: {
 
-        // FREE
-        getWikiPricesQuandlUrl: function (dateStrYYYY_MM_DD, optionalSymbolsArr) {
-            var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
-            var _apiKey = StocksReactServerUtils.apiKey();
-            if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?date=" +
-                    (typeof dateStrYYYY_MM_DD === "string" ? dateStrYYYY_MM_DD : dateStrYYYY_MM_DD.join()).replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    _apiKey;
-            } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?date=" +
-                    dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
-                    _apiKey;
-            } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?" +
-                    "date.gte=2014-01-01&" +
-                    "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    _apiKey;
-            }
-
-            return _url;
-        },
-
         // PAID
         getNasdaqPricesQuandlUrl: function (symbol, startDate, endDate) {
             var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
@@ -241,35 +219,6 @@ StocksReactServerUtils = {
         },
         getTickersUrl(symbol) {
             return `${ServerUtils.tickersUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
-        },
-
-        getFormattedPriceObjWiki: function (item, _columnDefs) {
-            var _priceObj = {};
-            _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
-                var _val = item[columnDefItemIndex];
-                _priceObj[columnDefObj["name"]] = _val;
-            })
-
-            var _formattedPriceObj = {
-                "date": new Date(_priceObj.date + "T00:00:00.000+0000"),
-                "open": _priceObj.open,
-                "high": _priceObj.high,
-                "low": _priceObj.low,
-                "close": _priceObj.close,
-                "volume": _priceObj.volume,
-                "exDividend": _priceObj["ex-dividend"],
-                splitRatio: _priceObj.split_ratio,
-                adjOpen: _priceObj.adj_open,
-                adjHigh: _priceObj.adj_high,
-                adjLow: _priceObj.adj_low,
-                "adjClose": _priceObj.adj_close,
-                adjVolume: _priceObj.adj_volume,
-                "symbol": _priceObj.ticker,
-                "dateString": _priceObj.date,
-                source: "quandl_free",
-            };
-
-            return _formattedPriceObj;
         },
 
         getFormattedPriceObj(item, columnDefinitions) {
@@ -462,26 +411,6 @@ StocksReactServerUtils = {
 
             } catch (e) {
                 console.log("ERROR: ", symbol, e);
-            }
-
-            if (_prices.length === 0) {
-                var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
-                try {
-                    var _res = HTTP.get(_wikiUrl);
-                    var _datatable = _res.data.datatable;
-                    _.each(_datatable.data, function (px) {
-                        var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-                        _prices.push({
-                            symbol: _formatted.symbol,
-                            dateString: _formatted.dateString,
-                            adjClose: Math.abs(_formatted.adjClose),
-                            date: _formatted.date,
-                        });
-                    })
-
-                } catch (e) {
-                    console.log("ERROR: ", symbol, e);
-                }
             }
 
             return _prices;

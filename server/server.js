@@ -23,80 +23,6 @@ const getRatingChangesQuery = () => {
     };
 };
 
-function getPortfolioPricesWiki(datesAndSymbolsMap) {
-    // todo: LIMIT COLUMNS requested
-
-
-
-    // step 1. split into batches (max response size is 10k records)
-    var _dates = _.keys(datesAndSymbolsMap);
-    var _batches = [];
-    var _datesBatch = [];
-    var _symbolsBatch = [];
-    _.each(_dates, function (dateStr, idx) {
-        var _symbolsForDate = datesAndSymbolsMap[dateStr];
-        var _futureSymbolsUnion = _.union(_symbolsBatch, _symbolsForDate);
-
-        if ((_datesBatch.length + 1) * (_futureSymbolsUnion.length) > 10000) {
-            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
-
-            _datesBatch = [dateStr];
-            _symbolsBatch = _symbolsForDate;
-        } else {
-            _datesBatch.push(dateStr);
-            _symbolsBatch = _futureSymbolsUnion;
-        }
-
-        // if last iteration, push batch
-        if (idx === _dates.length - 1) {
-            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
-        }
-    });
-
-
-
-    // step 2. get all prices
-    var _prices = [];
-    var _reponseMapFromWiki = {};
-    _.each(_batches, function (b) {
-        var _url = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(b.dates, b.symbols);
-        console.log("url: ", _url);
-        var _res = HTTP.get(_url);
-        if (_res) {
-            var _datatable = _res.data.datatable;
-            _.each(_datatable.data, function (px) {
-                var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-
-                // only return the prices that were requested for date and symbol
-                if (_.contains(datesAndSymbolsMap[_formatted.dateString], _formatted.symbol)) {
-                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, close: _formatted.close});
-
-                    // update _reponseMapFromWiki
-                    if (!_reponseMapFromWiki[_formatted.dateString]) {
-                        _reponseMapFromWiki[_formatted.dateString] = [_formatted.symbol];
-                    } else {
-                        _reponseMapFromWiki[_formatted.dateString] = _.union(_reponseMapFromWiki[_formatted.dateString], [_formatted.symbol]);
-                    };
-                }
-            })
-        }
-    });
-
-
-
-    // step 3. quality check
-    var _missingMap = {};
-    _.each(_dates, function (d) {
-        var _symbolsNeeded = datesAndSymbolsMap[d];
-        var _symbolsObtained = _reponseMapFromWiki[d] || [];
-        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
-        _missingMap[d] = _symbolsNotObtained;
-    });
-
-
-    return {prices: _prices, missingMap: _missingMap};
-};
-
 function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 
     // step 1. transform datesAndSymbolsMap
@@ -356,9 +282,8 @@ Meteor.methods({
 
 
         // step 1. get all available data from Wiki with missing map
-        var _wikiData = getPortfolioPricesWiki(datesAndSymbolsMap);
-        var _wikiMissingMap = _wikiData.missingMap;
-        var _wikiPrices = _wikiData.prices;
+        var _wikiMissingMap = datesAndSymbolsMap;
+        var _wikiPrices = [];
 
 
 
@@ -1387,7 +1312,6 @@ Meteor.methods({
     checkIfSymbolExists: function (symbol) {
         check(symbol, String);
 
-        var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
         const tickersUrl = ServerUtils.prices.getTickersUrl(symbol);
         var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
         const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
@@ -1414,7 +1338,7 @@ Meteor.methods({
             }
         }
 
-        return checkDatatable(_wikiUrl) || checkDatatable(tickersUrl) || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+        return checkDatatable(tickersUrl) || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
     },
 
     insertNewStockSymbols: function(symbolsArray) {
