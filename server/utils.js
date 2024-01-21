@@ -204,16 +204,6 @@ StocksReactServerUtils = {
 
     prices: {
 
-        // PAID
-        getNasdaqPricesQuandlUrl: function (symbol, startDate, endDate) {
-            var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
-                (startDate ? ("start_date=" + startDate + "&") : "") +
-                (endDate ? ("end_date=" + endDate + "&") : "") +
-                "api_key=" + StocksReactServerUtils.apiKey();
-
-            return _url;
-        },
-
         getPricesUrl(symbol) {
             return `${ServerUtils.pricesUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
         },
@@ -254,39 +244,6 @@ StocksReactServerUtils = {
             });
         },
 
-        getFormattedPriceObjNasdaq: function (_columnNames, obj, symbol) {
-            var _processedItem = {};
-            _.each(_columnNames, function (colName, colNameIdx) {
-                _processedItem[colName] = obj[colNameIdx];
-            });
-
-            var _convertedObj = {
-                "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
-                "open": _processedItem.Open,
-                "high": _processedItem.High,
-                "low": _processedItem.Low,
-                "close": _processedItem.Close,
-                "volume": _processedItem.Volume,
-                "symbol": symbol,
-                "dateString": _processedItem.Date,
-                source: "quandl_paid",
-
-
-                adjFactor: _processedItem.Adjustment_Factor,
-                adjType: _processedItem.Adjustment_Type
-            };
-
-            // 17 = dividend
-            if (!_convertedObj.adjFactor || _convertedObj.adjType === 17) {
-                _convertedObj.adjClose = _convertedObj.close;
-            } else {
-                console.log('ADJUSTMENT: ', symbol, _processedItem);
-                _convertedObj.hasAdjustment = true;
-            }
-
-            return _convertedObj;
-        },
-
         adjustmentsCache: {},
         clearAdjustmentsCache() {
             this.adjustmentsCache = {};
@@ -315,7 +272,7 @@ StocksReactServerUtils = {
         pricesCacheMap: new Map(),
         getAllPrices(symbol, getMap = false) {
             if (!_.has(this.pricesCache, symbol)) {
-                const pricesForSymbol = this.getAllPricesNonCachedNew(symbol);
+                const pricesForSymbol = this.getAllPricesNonCached(symbol);
                 this.pricesCache[symbol] = pricesForSymbol;
 
                 this.pricesCacheMap.set(symbol, new Map());
@@ -337,10 +294,10 @@ StocksReactServerUtils = {
             }
             return this.pricesCache[symbol];
         },
-        getAllPricesNonCachedNew(symbol) {
+        getAllPricesNonCached(symbol) {
             const prices = [];
             const url = ServerUtils.prices.getPricesUrl(symbol);
-            console.log("inside getPricesForSymbol new: ", symbol);
+            console.log("inside getPricesForSymbol: ", symbol);
 
             try {
                 const result = HTTP.get(url);
@@ -361,59 +318,10 @@ StocksReactServerUtils = {
                 });
 
             } catch (error) {
-                console.log('getAllPricesNonCachedNew error', symbol, error);
+                console.log('getAllPricesNonCached error', symbol, error);
             }
 
             return prices;
-        },
-        getAllPricesNonCached: function (symbol, optionalStartDate, optionalEndDate) {
-            console.log("inside getPricesForSymbol: ", symbol);
-            var _prices = [];
-
-            // try Nasdaq first
-            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol, optionalStartDate, optionalEndDate);
-            try {
-                var _res = HTTP.get(_nasdaqUrl);
-                var _dataset = _res.data.dataset;
-                var _unprocessedPrices = _dataset.data;
-                var _columnNames = _.map(_dataset.column_names, function (rawColName) {
-                    return rawColName.replace(/ /g, "_");
-                });
-
-                _.each(_unprocessedPrices, function (obj, idx) {
-                    // check that all column names are present
-                    if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                        var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
-                        const dateString = _convertedObj.dateString;
-
-                        if (!momentBiz(dateString).isBusinessDay()) {
-                            return;
-                        }
-                        _prices.push(_.extend(_.pick(_convertedObj, [
-                            'open',
-                            'low',
-                            'high',
-                            'volume',
-                        ]), {
-                            symbol: _convertedObj.symbol,
-                            dateString,
-                            adjClose: Math.abs(_convertedObj.close),
-                            date: _convertedObj.date,
-
-                            hasAdjustment: _convertedObj.hasAdjustment,
-                            adjFactor: _convertedObj.adjFactor,
-                            adjType: _convertedObj.adjType,
-                        }));
-                    } else {
-                        throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
-                    }
-                })
-
-            } catch (e) {
-                console.log("ERROR: ", symbol, e);
-            }
-
-            return _prices;
         },
         getPriceOnDayNew({
             symbol,

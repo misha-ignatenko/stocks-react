@@ -46,42 +46,25 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
     var _responseMap = {};
     var _symbols = _.keys(_symbolsAndDatesMap);
     _.each(_symbols, function (s) {
-        var _minMaxDates = StocksReactUtils.getMinMaxDate(_symbolsAndDatesMap[s]);
-        var _url = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(s, _minMaxDates.min, _minMaxDates.max);
-        console.log("url: ", _url);
         try {
-            var _res = HTTP.get(_url);
-            var _dataset = _res.data.dataset;
-            var _unprocessedPrices = _dataset.data;
-            var _columnNames = _.map(_dataset.column_names, function (rawColName) {
-                return rawColName.replace(/ /g, "_");
-            });
+            const prices = ServerUtils.prices.getAllPrices(s);
+            _.each(prices, function (_convertedObj, idx) {
+                // only return the prices that were requested for date and symbol
+                if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
+                    _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
 
-            _.each(_unprocessedPrices, function (obj, idx) {
-
-                // check that all column names are present
-                if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                    var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, s);
-
-                    // only return the prices that were requested for date and symbol
-                    if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
-                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
-
-                        // update _responseMap
-                        if (!_responseMap[_convertedObj.dateString]) {
-                            _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
-                        } else {
-                            _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
-                        };
-                    }
-                } else {
-                    throw new Meteor.Error("missing keys for NASDAQ data import: ", s);
+                    // update _responseMap
+                    if (!_responseMap[_convertedObj.dateString]) {
+                        _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
+                    } else {
+                        _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
+                    };
                 }
             })
 
         } catch (e) {
             console.log("ERROR");
-            console.log(s + ": " + e.response.content);
+            console.log(s + ": " + e);
         };
     });
 
@@ -278,22 +261,10 @@ Meteor.methods({
     },
 
     getPricesFromApi: function (datesAndSymbolsMap) {
+        const _nasdaqData = getPortfolioPricesNasdaq(datesAndSymbolsMap);
+        console.log("final missing map: ", _nasdaqData.missingMap);
 
-
-
-        // step 1. get all available data from Wiki with missing map
-        var _wikiMissingMap = datesAndSymbolsMap;
-        var _wikiPrices = [];
-
-
-
-        // step 2. try to get from Nasdaq what's missing from Wiki. Output what's still missing in Nasdaq after Wiki.
-        var _nasdaqData = getPortfolioPricesNasdaq(_wikiMissingMap);
-        var _nasdaqMissingMap = _nasdaqData.missingMap;
-        var _nasdaqPrices = _nasdaqData.prices;
-        console.log("final missing map: ", _nasdaqMissingMap);
-
-        return _wikiPrices.concat(_nasdaqPrices);
+        return _nasdaqData.prices;
     },
 
     insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
