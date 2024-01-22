@@ -116,7 +116,6 @@ Meteor.methods({
         }
 
         Email.send({
-            to: Settings.findOne().serverSettings.dataImports.portfolioItems.emailTo,
             from: Settings.findOne().serverSettings.dataImports.portfolioItems.emailFrom,
             subject: "imported portfolio items for: " + _portfolio.name + ". date: " + _dateString,
             text: JSON.stringify({ timeNow: new Date(), symbols: _allUniqSymbols })
@@ -316,22 +315,21 @@ Meteor.methods({
                 })
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
 
+                const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
+                _result.importedDatesStr = importedDatesStr;
+
                 Email.send({
-                    to: ServerUtils.getEmailTo(),
                     from: ServerUtils.getEmailFrom(),
-                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(_.uniq(_.pluck(importData, "dateString"))),
+                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
             } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === 'earnings_releases_new') {
-                const to = ServerUtils.getEmailTo();
 
                 if (scheduledDataPullFlag) {
                     Email.send({
-                        to: to,
-                        from: to,
                         subject: 'getting earnings releases (new)',
                         text: JSON.stringify({
                             hostname: Meteor.absoluteUrl(),
@@ -421,8 +419,6 @@ Meteor.methods({
 
                     if (scheduledDataPullFlag) {
                         Email.send({
-                            to: to,
-                            from: to,
                             subject: 'DONE getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(),
@@ -435,8 +431,6 @@ Meteor.methods({
                     const errorString = error.toString();
                     if (scheduledDataPullFlag) {
                         Email.send({
-                            to: to,
-                            from: to,
                             subject: 'ERROR from getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(), errorString,

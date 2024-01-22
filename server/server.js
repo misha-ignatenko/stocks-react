@@ -4,6 +4,7 @@ import _ from 'underscore';
 import { check, Match } from 'meteor/check';
 import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
+const { performance } = require('perf_hooks');
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
 
@@ -20,80 +21,6 @@ const getRatingChangesQuery = () => {
         researchFirmId: {$nin: researchFirmIDsToExclude},
         dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
     };
-};
-
-function getPortfolioPricesWiki(datesAndSymbolsMap) {
-    // todo: LIMIT COLUMNS requested
-
-
-
-    // step 1. split into batches (max response size is 10k records)
-    var _dates = _.keys(datesAndSymbolsMap);
-    var _batches = [];
-    var _datesBatch = [];
-    var _symbolsBatch = [];
-    _.each(_dates, function (dateStr, idx) {
-        var _symbolsForDate = datesAndSymbolsMap[dateStr];
-        var _futureSymbolsUnion = _.union(_symbolsBatch, _symbolsForDate);
-
-        if ((_datesBatch.length + 1) * (_futureSymbolsUnion.length) > 10000) {
-            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
-
-            _datesBatch = [dateStr];
-            _symbolsBatch = _symbolsForDate;
-        } else {
-            _datesBatch.push(dateStr);
-            _symbolsBatch = _futureSymbolsUnion;
-        }
-
-        // if last iteration, push batch
-        if (idx === _dates.length - 1) {
-            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
-        }
-    });
-
-
-
-    // step 2. get all prices
-    var _prices = [];
-    var _reponseMapFromWiki = {};
-    _.each(_batches, function (b) {
-        var _url = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(b.dates, b.symbols);
-        console.log("url: ", _url);
-        var _res = HTTP.get(_url);
-        if (_res) {
-            var _datatable = _res.data.datatable;
-            _.each(_datatable.data, function (px) {
-                var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-
-                // only return the prices that were requested for date and symbol
-                if (_.contains(datesAndSymbolsMap[_formatted.dateString], _formatted.symbol)) {
-                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, close: _formatted.close});
-
-                    // update _reponseMapFromWiki
-                    if (!_reponseMapFromWiki[_formatted.dateString]) {
-                        _reponseMapFromWiki[_formatted.dateString] = [_formatted.symbol];
-                    } else {
-                        _reponseMapFromWiki[_formatted.dateString] = _.union(_reponseMapFromWiki[_formatted.dateString], [_formatted.symbol]);
-                    };
-                }
-            })
-        }
-    });
-
-
-
-    // step 3. quality check
-    var _missingMap = {};
-    _.each(_dates, function (d) {
-        var _symbolsNeeded = datesAndSymbolsMap[d];
-        var _symbolsObtained = _reponseMapFromWiki[d] || [];
-        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
-        _missingMap[d] = _symbolsNotObtained;
-    });
-
-
-    return {prices: _prices, missingMap: _missingMap};
 };
 
 function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
@@ -119,42 +46,25 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
     var _responseMap = {};
     var _symbols = _.keys(_symbolsAndDatesMap);
     _.each(_symbols, function (s) {
-        var _minMaxDates = StocksReactUtils.getMinMaxDate(_symbolsAndDatesMap[s]);
-        var _url = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(s, _minMaxDates.min, _minMaxDates.max);
-        console.log("url: ", _url);
         try {
-            var _res = HTTP.get(_url);
-            var _dataset = _res.data.dataset;
-            var _unprocessedPrices = _dataset.data;
-            var _columnNames = _.map(_dataset.column_names, function (rawColName) {
-                return rawColName.replace(/ /g, "_");
-            });
+            const prices = ServerUtils.prices.getAllPrices(s);
+            _.each(prices, function (_convertedObj, idx) {
+                // only return the prices that were requested for date and symbol
+                if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
+                    _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
 
-            _.each(_unprocessedPrices, function (obj, idx) {
-
-                // check that all column names are present
-                if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                    var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, s);
-
-                    // only return the prices that were requested for date and symbol
-                    if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
-                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
-
-                        // update _responseMap
-                        if (!_responseMap[_convertedObj.dateString]) {
-                            _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
-                        } else {
-                            _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
-                        };
-                    }
-                } else {
-                    throw new Meteor.Error("missing keys for NASDAQ data import: ", s);
+                    // update _responseMap
+                    if (!_responseMap[_convertedObj.dateString]) {
+                        _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
+                    } else {
+                        _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
+                    };
                 }
             })
 
         } catch (e) {
             console.log("ERROR");
-            console.log(s + ": " + e.response.content);
+            console.log(s + ": " + e);
         };
     });
 
@@ -236,8 +146,16 @@ Meteor.methods({
 
     getPricesForSymbol: function (symbol) {
         check(symbol, String);
+
+        ServerUtils.runPremiumCheck();
+
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
+    },
+
+    emailPricesForSymbol(symbol) {
+        const prices = Meteor.call('getPricesForSymbol', symbol);
+        ServerUtils.emailJSON(prices, `${symbol}_prices.json`, `prices for ${symbol}`);
     },
 
     getEarliestRatingChange: function (symbol) {
@@ -343,23 +261,10 @@ Meteor.methods({
     },
 
     getPricesFromApi: function (datesAndSymbolsMap) {
+        const _nasdaqData = getPortfolioPricesNasdaq(datesAndSymbolsMap);
+        console.log("final missing map: ", _nasdaqData.missingMap);
 
-
-
-        // step 1. get all available data from Wiki with missing map
-        var _wikiData = getPortfolioPricesWiki(datesAndSymbolsMap);
-        var _wikiMissingMap = _wikiData.missingMap;
-        var _wikiPrices = _wikiData.prices;
-
-
-
-        // step 2. try to get from Nasdaq what's missing from Wiki. Output what's still missing in Nasdaq after Wiki.
-        var _nasdaqData = getPortfolioPricesNasdaq(_wikiMissingMap);
-        var _nasdaqMissingMap = _nasdaqData.missingMap;
-        var _nasdaqPrices = _nasdaqData.prices;
-        console.log("final missing map: ", _nasdaqMissingMap);
-
-        return _wikiPrices.concat(_nasdaqPrices);
+        return _nasdaqData.prices;
     },
 
     insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
@@ -714,11 +619,19 @@ Meteor.methods({
             isRecursive: Match.Optional(Boolean),
             includeHistory: Match.Optional(Boolean),
             bizDaysLookbackForHistory: Match.Optional(Number),
+            emailResults: Match.Optional(Boolean),
+            returnExpected: Match.Optional(Boolean),
         });
 
         if (!Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
+
+        const start = performance.now();
+        const getEmailText = () => EJSON.stringify({
+            options,
+            ms: performance.now() - start,
+        });
 
         const {
             startDate,
@@ -733,7 +646,11 @@ Meteor.methods({
             isRecursive = false,
             includeHistory = false,
             bizDaysLookbackForHistory = 500,
+            emailResults = false,
+            returnExpected = false,
         } = options;
+
+        const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
 
         console.log('getEarningsAnalysis', {
             startDate,
@@ -748,6 +665,9 @@ Meteor.methods({
             isRecursive,
             includeHistory,
             bizDaysLookbackForHistory,
+            emailResults,
+            returnExpected,
+            fileName,
         });
 
         if (symbol && isRecursive) {
@@ -761,6 +681,7 @@ Meteor.methods({
                     startDate: dateString,
                     endDate: dateString,
                     isForecast: isForecast && isLastReportDate,
+                    emailResults: false,
                 }));
             }).flat();
         }
@@ -776,12 +697,12 @@ Meteor.methods({
                 $lte: Utils.convertToNumberDate(endDate),
             },
             reportSourceFlag: 1,
-            asOf: {
+            ...(returnExpected && emailResults ? {} : {asOf: {
                 // allow 1 more day, because legacy earnings releases do not have
                 // `insertedDate` and their `asOf` gets moved to the next
                 // day right after release if latest release isn't in the API yet
-                $lte: moment(endDate).add(1, 'days').format(YYYY_MM_DD),
-            },
+                $lte: moment(endDate).add(2, 'days').format(YYYY_MM_DD),
+            }}),
 
             currencyCode: {$nin: ['CND']},
 
@@ -834,16 +755,66 @@ Meteor.methods({
 
         console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
 
+        if (returnExpected && emailResults) {
+            expectedEarningsReleases.forEach(expectedRelease => {
+                const dateBefore = expectedRelease.getPurchaseDate(advancePurchaseDays);
+                const dateAfter = expectedRelease.getSaleDate(0);
+
+                _.extend(expectedRelease, {
+                    dateBefore,
+                    dateAfter,
+                });
+
+                const symbol = expectedRelease.symbol;
+                _.range(0, 10 + 1).forEach(daysToAdd => {
+                    const dateString = Utils.businessAdd(dateBefore, daysToAdd);
+
+                    const price = ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
+                    // const vooPrice = ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
+
+                    _.extend(expectedRelease, {
+                        [`date_before_+${daysToAdd}`]: dateString,
+                        [`price_before_+${daysToAdd}`]: price,
+                        // [`voo_price_before_+${daysToAdd}`]: vooPrice,
+                    });
+                });
+            });
+
+            const uniqueReleases = _.uniq(expectedEarningsReleases, false, (e) => {
+                return `${e.symbol}_${e.dateBefore}`;
+            });
+
+            ServerUtils.emailCSV(
+                uniqueReleases,
+                fileName,
+                fileName,
+                getEmailText()
+            );
+            return uniqueReleases;
+        }
+
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
-            return symbols.map(symbol => {
+            const historicalRows = symbols.map(symbol => {
                 return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
                     startDate: momentBiz(startDate).businessAdd(-bizDaysLookbackForHistory).format(YYYY_MM_DD),
                     isRecursive: true,
                     symbol,
                     includeHistory: false,
+                    emailResults: false,
                 }))
             }).flat();
+
+            if (emailResults) {
+                ServerUtils.emailCSV(
+                    ServerUtils.earningsReleases.processRowsForCSV(historicalRows),
+                    fileName,
+                    fileName,
+                    getEmailText()
+                );
+            }
+
+            return historicalRows;
         }
 
         const expectedMap = new Map();
@@ -859,7 +830,7 @@ Meteor.methods({
             }
 
             // see note above in `expectedReleasesQuery` for why `subtract` is needed
-            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(1, 'days').format(YYYY_MM_DD));
+            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(2, 'days').format(YYYY_MM_DD));
             if (asOfFormatted <= reportDateNextFiscalQuarter) {
                 expectedMap.set(symbol, e);
                 return true;
@@ -945,6 +916,7 @@ Meteor.methods({
             }
 
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
+            const expectedEpsNextQt = actualE?.epsMeanEstimateNextFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
 
@@ -957,6 +929,7 @@ Meteor.methods({
                 epsActualPreviousFiscalQuarter,
                 epsActualOneYearAgoFiscalQuarter,
                 endDateNextFiscalQuarter,
+                companyName,
             } = expectedE;
 
             const firstEverExpectation = EarningsReleases.findOne(
@@ -978,17 +951,35 @@ Meteor.methods({
             const {
                 epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
                 asOf: originalAsOfExpectation,
+                insertedDate: originalInsertedDateExpectation,
             } = firstEverExpectation;
+            const firstEpsExpDate = originalInsertedDateExpectation ? moment(originalInsertedDateExpectation).format(YYYY_MM_DD) : originalAsOfExpectation;
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
+            // const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays + (isForecast ? 1 : 0));
             const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays);
             const saleDate1 = expectedE.getSaleDate(0);
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
-            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
+            const vooPrices = ServerUtils.prices.getAllPrices('VOO');
+            const vooOpenPriceOnPurchaseDate = StocksReactUtils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
+            const vooSMA50Date = momentBiz(purchaseDate).businessAdd(-50).format(YYYY_MM_DD);
+            const vooSMA50DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA50Date, 10, !isForecast);
+            const vooSMA200Date = momentBiz(purchaseDate).businessAdd(-200).format(YYYY_MM_DD);
+            const vooSMA200DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA200Date, 10, !isForecast);
+            const vooSMA = Utils.stockPrices.getSimpleRollingPx(vooPrices, purchaseDate, 10, !isForecast);
+
+            const inc50Price = vooOpenPriceOnPurchaseDate / vooSMA50DaysAgo;
+            const inc200Price = vooOpenPriceOnPurchaseDate / vooSMA200DaysAgo;
+            const inc50SMA = vooSMA / vooSMA50DaysAgo;
+            const inc200SMA = vooSMA / vooSMA200DaysAgo;
+
+            const prices = ServerUtils.prices.getAllPrices(symbol);
             const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const purchasePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 50, !isForecast);
+            const purchasePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 200, !isForecast);
             const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
             const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
             const salePrice3 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
@@ -1016,11 +1007,15 @@ Meteor.methods({
             let numRecentDowngrades;
             let priorSaleDate;
             let priorSalePrice;
+            let priorSalePriceSMA50;
+            let priorSalePriceSMA200;
             const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
             if (priorConfirmedRelease) {
                 const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
                 priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
                 priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                priorSalePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 50);
+                priorSalePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 200);
                 const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
                 const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
                 const ratingChangesSinceLastEarningsRelease = ServerUtils.getLatestRatings(
@@ -1035,15 +1030,17 @@ Meteor.methods({
             const data = {
                 insertedDate,
                 symbol,
+                companyName,
                 expectedEps,
                 actualEps,
+                expectedEpsNextQt,
                 reportDate,
                 expectedAsOf,
                 timeOfDayDescription,
                 endDateNextFiscalQuarter,
                 originalEpsExpectation,
                 pctExpEpsOverOriginalEpsExpectation: getRateOfChange(expectedEps, originalEpsExpectation),
-                originalAsOfExpectation,
+                originalAsOfExpectation: firstEpsExpDate,
 
                 isAfterMarketClose,
                 purchaseDate,
@@ -1065,13 +1062,36 @@ Meteor.methods({
                 pctExpEpsOverOneYearAgo: getRateOfChange(expectedEps, epsActualOneYearAgoFiscalQuarter),
 
                 purchasePrice,
+                purchasePriceSMA50,
+                purchasePriceSMA200,
                 salePrice1,
                 salePrice2,
                 salePrice3,
                 priorSalePrice,
+                priorSalePriceSMA50,
+                priorSalePriceSMA200,
+
+                vooOpenPriceOnPurchaseDate,
+                vooSMA,
+                vooSMA50DaysAgo,
+                vooSMA200DaysAgo,
+
+                inc50Price,
+                inc200Price,
+                inc50SMA,
+                inc200SMA,
             };
             results.push(data);
         });
+
+        if (emailResults && !includeHistory) {
+            ServerUtils.emailCSV(
+                ServerUtils.earningsReleases.processRowsForCSV(results),
+                fileName,
+                fileName,
+                getEmailText()
+            );
+        }
 
         return results;
     },
@@ -1263,11 +1283,6 @@ Meteor.methods({
     checkIfSymbolExists: function (symbol) {
         check(symbol, String);
 
-        var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
-        var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
-        var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
-        const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
-
         function checkDatatable(url) {
             try {
                 var _res = HTTP.get(url);
@@ -1281,25 +1296,11 @@ Meteor.methods({
             }
         };
 
-        function _checkNasdaq() {
-            try {
-                var _res = HTTP.get(_nasdaqUrl);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        function _checkZEA() {
-            try {
-                var _res = HTTP.get(_zeaUrl);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+        return [
+            ServerUtils.prices.getTickersUrl(symbol),
+            ServerUtils.earningsReleases.getMetadataUrl(symbol),
+            ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
+        ].some(checkDatatable);
     },
 
     insertNewStockSymbols: function(symbolsArray) {

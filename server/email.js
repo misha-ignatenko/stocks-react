@@ -13,6 +13,13 @@ let transporter = nodemailer.createTransport({
 });
 
 const send = (params) => {
+    const to = ServerUtils.getEmailTo();
+    params.to = to;
+    params.replyTo = to;
+    if (!params.from) {
+        params.from = to;
+    }
+
     console.log('inside send email', params.subject);
     transporter.sendMail(params).then(info => {
         console.log('email sent', info);
@@ -29,7 +36,6 @@ Meteor.methods({
     "sendSampleEmail": function() {
 
         Email.send({
-            to: ServerUtils.getEmailTo(),
             from: ServerUtils.getEmailFrom(),
             subject: 'test email',
             text: JSON.stringify({
