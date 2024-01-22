@@ -767,7 +767,7 @@ Meteor.methods({
 
                 const symbol = expectedRelease.symbol;
                 _.range(0, 10 + 1).forEach(daysToAdd => {
-                    const dateString = momentBiz(dateBefore).businessAdd(daysToAdd).format(Utils.constants.YYYY_MM_DD);
+                    const dateString = Utils.businessAdd(dateBefore, daysToAdd);
 
                     const price = ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
                     // const vooPrice = ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});

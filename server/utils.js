@@ -309,7 +309,7 @@ StocksReactServerUtils = {
                 data.forEach(px => {
                     const formatted = ServerUtils.prices.getFormattedPriceObj(px, columns);
 
-                    if (!momentBiz(formatted.dateString).isBusinessDay()) {
+                    if (!Utils.isBusinessDay(formatted.dateString)) {
                         console.log('is not a business day', formatted);
                         return;
                     }
