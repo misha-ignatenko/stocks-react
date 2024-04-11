@@ -21,7 +21,7 @@
     "react-router-dom": "^6.4.3",
     "reactstrap": "^9.1.5",
     "semver": "^7.5.4",
-    "tar": "^6.1.12",
+    "tar": "^6.2.1",
     "underscore": "^1.13.6"
   }
 }
