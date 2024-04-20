@@ -155,7 +155,8 @@ Meteor.methods({
 
     emailPricesForSymbol(symbol) {
         const prices = Meteor.call('getPricesForSymbol', symbol);
-        ServerUtils.emailJSON(prices, `${symbol}_prices.json`, `prices for ${symbol}`);
+        const maxDate = Utils.getMinMaxDate(prices).max;
+        ServerUtils.emailJSON(prices, `${symbol}_prices_${maxDate}.json`, `prices for ${symbol} - ${maxDate}`);
     },
 
     getEarliestRatingChange: function (symbol) {
