@@ -17,7 +17,7 @@ const send = (params) => {
     params.to = to;
     params.replyTo = to;
     if (!params.from) {
-        params.from = to;
+        params.from = ServerUtils.getEmailFrom();
     }
 
     console.log('inside send email', params.subject);
