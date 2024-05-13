@@ -116,7 +116,6 @@ Meteor.methods({
         }
 
         Email.send({
-            from: Settings.findOne().serverSettings.dataImports.portfolioItems.emailFrom,
             subject: "imported portfolio items for: " + _portfolio.name + ". date: " + _dateString,
             text: JSON.stringify({ timeNow: new Date(), symbols: _allUniqSymbols })
         });
@@ -319,7 +318,6 @@ Meteor.methods({
                 _result.importedDatesStr = importedDatesStr;
 
                 Email.send({
-                    from: ServerUtils.getEmailFrom(),
                     subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });

@@ -36,7 +36,6 @@ Meteor.methods({
     "sendSampleEmail": function() {
 
         Email.send({
-            from: ServerUtils.getEmailFrom(),
             subject: 'test email',
             text: JSON.stringify({
                 timeNow: new Date(),
