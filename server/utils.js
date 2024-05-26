@@ -368,6 +368,18 @@ StocksReactServerUtils = {
                 return map.get(newRatingId) < 60;
             }
         },
+        getOldAndNewRatings(rc) {
+            const {
+                oldRatingId,
+                newRatingId,
+            } = rc;
+
+            const map = ServerUtils.getNumericRatingScalesMap();
+            return {
+                oldRating: map.get(oldRatingId),
+                newRating: map.get(newRatingId),
+            };
+        },
     },
     earningsReleases: {
         getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false) {
