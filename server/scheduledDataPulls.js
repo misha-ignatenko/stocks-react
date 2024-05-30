@@ -21,9 +21,7 @@ Meteor.startup(function() {
         var _dataAutoPullIsOn = Utils.getSetting('dataImports.autoDataImportsTurnedOn');
 
         if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
-            Settings.update(Utils.getSetting('_id'), {$set: {
-                'serverSettings.quandl.dateOfLastPullFromQuandl': _dateString,
-            }});
+            ServerUtils.setEarningsReleaseSyncDate(_dateString);
 
             Meteor.call('importData', [], 'earnings_releases_new', true);
 
@@ -52,8 +50,6 @@ Meteor.methods({
 
 
         Email.send({
-            to: ServerUtils.getEmailTo(),
-            from: ServerUtils.getEmailTo(),
             subject: 'MISSING earnings release symbols',
             text: JSON.stringify({
                 timeNow: new Date(),

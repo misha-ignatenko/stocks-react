@@ -85,4 +85,15 @@ Utils.removeIndividualStocksAccess = () => {
     });
 };
 Utils.removeIndividualStocksAccess();
+
+Utils.dropCollection = function (collectionName) {
+    const driver = MongoInternals.defaultRemoteCollectionDriver();
+    driver.mongo.db.dropCollection(collectionName).then(result => {
+        console.log('collection dropped: ', result);
+    }).catch(error => {
+        console.log('there was an error while removing collection: ', error);
+    });
+};
+// Utils.dropCollection('quandlDataPullErrors');
+
 */
