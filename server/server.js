@@ -757,6 +757,11 @@ Meteor.methods({
         console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
 
         if (returnExpected && emailResults) {
+            const pricesSet = new Set();
+            const prices = [];
+            const lookback = 5 + 265;
+            const lookahead = 15;
+
             expectedEarningsReleases.forEach(expectedRelease => {
                 const dateBefore = expectedRelease.getPurchaseDate(advancePurchaseDays);
                 const dateAfter = expectedRelease.getSaleDate(0);
@@ -767,16 +772,23 @@ Meteor.methods({
                 });
 
                 const symbol = expectedRelease.symbol;
-                _.range(0, 10 + 1).forEach(daysToAdd => {
+                _.range(-lookback, lookahead + 1).forEach(daysToAdd => {
                     const dateString = Utils.businessAdd(dateBefore, daysToAdd);
+                    const key = `${symbol}_${dateString}`;
+                    if (pricesSet.has(key)) {
+                        return;
+                    }
+
+                    pricesSet.add(key);
 
                     const price = ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
-                    // const vooPrice = ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
+                    const vooPrice = ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
 
-                    _.extend(expectedRelease, {
-                        [`date_before_+${daysToAdd}`]: dateString,
-                        [`price_before_+${daysToAdd}`]: price,
-                        // [`voo_price_before_+${daysToAdd}`]: vooPrice,
+                    prices.push({
+                        symbol,
+                        dateString,
+                        price,
+                        vooPrice,
                     });
                 });
             });
@@ -789,6 +801,12 @@ Meteor.methods({
                 uniqueReleases,
                 fileName,
                 fileName,
+                getEmailText()
+            );
+            ServerUtils.emailCSV(
+                prices,
+                fileName,
+                fileName + ' prices',
                 getEmailText()
             );
             return uniqueReleases;
