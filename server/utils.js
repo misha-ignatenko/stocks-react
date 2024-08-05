@@ -618,8 +618,11 @@ StocksReactServerUtils = {
             });
         },
     },
-    runPremiumCheck() {
-        if (!Permissions.isPremium()) {
+    runPremiumCheck(context) {
+        if (!context) {
+            throw new Meteor.Error('something is not right');
+        }
+        if (context.connection && !Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
     },

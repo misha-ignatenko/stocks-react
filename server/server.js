@@ -147,7 +147,7 @@ Meteor.methods({
     getPricesForSymbol: function (symbol) {
         check(symbol, String);
 
-        ServerUtils.runPremiumCheck();
+        ServerUtils.runPremiumCheck(this);
 
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
@@ -624,9 +624,7 @@ Meteor.methods({
             returnExpected: Match.Optional(Boolean),
         });
 
-        if (!Permissions.isPremium()) {
-            throw new Meteor.Error('you do not have access');
-        }
+        ServerUtils.runPremiumCheck(this);
 
         const start = performance.now();
         const getEmailText = () => EJSON.stringify({

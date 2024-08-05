@@ -31,6 +31,52 @@ Meteor.startup(function() {
 
         _serverSideVarCount++;
     }, 10000);
+
+    const baseOptions = {
+        advancePurchaseDays: 1,
+        saleDelayInDays: 2,
+        saleDelayInDaysFinal: 10,
+        ratingChangesLookbackInDays: 500,
+        isForecast: true,
+        includeHistory: true,
+        bizDaysLookbackForHistory: 1000,
+        emailResults: true,
+    };
+
+    SyncedCron.add({
+        name: '1st job',
+        schedule: function(parser) {
+            return parser.text('every weekday at 10:30');
+        },
+        job: function() {
+            Meteor.defer(() => {
+                Meteor.call('getEarningsAnalysis', {
+                    startDate: Utils.businessAdd(Utils.todaysDate(), 1),
+                    endDate: Utils.businessAdd(Utils.todaysDate(), 2),
+                    ...baseOptions,
+                });
+            });
+        },
+    });
+
+    SyncedCron.add({
+        name: '2nd job',
+        schedule: function(parser) {
+            return parser.text('every weekday at 11:00');
+        },
+        job: function() {
+            Meteor.defer(() => {
+                Meteor.call('getEarningsAnalysis', {
+                    startDate: Utils.businessAdd(Utils.todaysDate(), -1),
+                    endDate: Utils.todaysDate(),
+                    ...baseOptions,
+                });
+            });
+        },
+    });
+
+    SyncedCron.start();
+
 });
 
 Meteor.methods({
