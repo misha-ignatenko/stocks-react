@@ -46,7 +46,7 @@ Meteor.startup(function() {
     SyncedCron.add({
         name: '1st job',
         schedule: function(parser) {
-            return parser.text('every weekday at 10:30');
+            return parser.text('every weekday at 14:30');
         },
         job: function() {
             Meteor.defer(() => {
@@ -62,7 +62,7 @@ Meteor.startup(function() {
     SyncedCron.add({
         name: '2nd job',
         schedule: function(parser) {
-            return parser.text('every weekday at 11:00');
+            return parser.text('every weekday at 15:00');
         },
         job: function() {
             Meteor.defer(() => {
