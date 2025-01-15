@@ -99,7 +99,9 @@ Utils.dropCollection = function (collectionName) {
 
 */
 
+/*
 // initialize `insertedDateStr`
+Meteor.defer(() => {
 EarningsReleases.find({
     insertedDateStr: {$exists: false},
     insertedDate: {$exists: true},
@@ -133,3 +135,5 @@ EarningsReleases.find({
         insertedDateStr,
     }});
 });
+});
+*/
