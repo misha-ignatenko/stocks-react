@@ -622,6 +622,7 @@ Meteor.methods({
             bizDaysLookbackForHistory: Match.Optional(Number),
             emailResults: Match.Optional(Boolean),
             returnExpected: Match.Optional(Boolean),
+            isHistory: Match.Optional(Boolean),
         });
 
         ServerUtils.runPremiumCheck(this);
@@ -647,6 +648,7 @@ Meteor.methods({
             bizDaysLookbackForHistory = 500,
             emailResults = false,
             returnExpected = false,
+            isHistory = false,
         } = options;
 
         const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
@@ -666,6 +668,7 @@ Meteor.methods({
             bizDaysLookbackForHistory,
             emailResults,
             returnExpected,
+            isHistory,
             fileName,
         });
 
@@ -681,13 +684,14 @@ Meteor.methods({
                     endDate: dateString,
                     isForecast: isForecast && isLastReportDate,
                     emailResults: false,
+                    isHistory: true,
                 }));
             }).flat();
         }
 
         const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
 
-        const expectedReleasesQuery = {
+        const expectedReleasesQuery = { $and: [{
             epsMeanEstimateNextFiscalQuarter: {$nin: [
                 null,
             ]},
@@ -696,7 +700,7 @@ Meteor.methods({
                 $lte: Utils.convertToNumberDate(endDate),
             },
             reportSourceFlag: 1,
-            ...(returnExpected && emailResults ? {} : {asOf: {
+            ...(returnExpected && emailResults || isHistory ? {} : {asOf: {
                 // allow 1 more day, because legacy earnings releases do not have
                 // `insertedDate` and their `asOf` gets moved to the next
                 // day right after release if latest release isn't in the API yet
@@ -708,7 +712,27 @@ Meteor.methods({
             exchange: {$nin: [
                 'NASDAQ Other OTC',
             ]},
-        };
+        }],};
+
+        if (isHistory) {
+            /**
+             * legacy earnings releases do not have `insertedDate` or `insertedDateStr`, so i need a proxy
+             * based on the `asOf` date.
+             */
+            const insertedBeforeEndDateOrLegacyQuery = {
+                $or: [
+                    {
+                        insertedDateStr: {$lte: endDate},
+                    },
+                    {
+                        insertedDateStr: {$exists: false},
+                        asOf: {$lte: Utils.businessAdd(endDate, 2)},
+                    },
+                ],
+            };
+            expectedReleasesQuery.$and.push(insertedBeforeEndDateOrLegacyQuery);
+        }
+
         if (symbol) {
             expectedReleasesQuery.symbol = symbol;
         }

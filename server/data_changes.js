@@ -1,4 +1,5 @@
 import { EJSON } from 'meteor/ejson';
+import moment from 'moment-timezone';
 import _ from 'underscore';
 import { MongoInternals } from 'meteor/mongo';
 import { Meteor } from 'meteor/meteor';
@@ -97,3 +98,38 @@ Utils.dropCollection = function (collectionName) {
 // Utils.dropCollection('quandlDataPullErrors');
 
 */
+
+// initialize `insertedDateStr`
+EarningsReleases.find({
+    insertedDateStr: {$exists: false},
+    insertedDate: {$exists: true},
+
+    reportSourceFlag: 1,
+
+    reportDateNextFiscalQuarter: {
+        $gte: 20240701,
+        $lte: 20260101,
+    },
+
+}, {
+    sort: {
+        reportDateNextFiscalQuarter: -1,
+    },
+    limit: 10_000,
+    fields: {
+        insertedDate: 1,
+        reportDateNextFiscalQuarter: 1,
+    },
+}).forEach(e => {
+    const {
+        insertedDate,
+        _id,
+        reportDateNextFiscalQuarter,
+    } = e;
+    const insertedDateStr = moment(insertedDate).format(Utils.dateFormat);
+    console.log(_id, reportDateNextFiscalQuarter, insertedDateStr);
+
+    EarningsReleases.update(_id, {$set: {
+        insertedDateStr,
+    }});
+});
