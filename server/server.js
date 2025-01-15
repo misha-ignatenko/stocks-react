@@ -784,6 +784,23 @@ Meteor.methods({
             const lookback = 5 + 265;
             const lookahead = 15;
 
+            // todo: check this logic
+            /*
+            expectedEarningsReleases = expectedEarningsReleases.filter(e => {
+                const {
+                    insertedDateStr,
+                    asOf,
+                } = e;
+                const dateAfter = e.getSaleDate(0);
+
+                if (insertedDateStr) {
+                    return insertedDateStr <= dateAfter;
+                } else {
+                    return asOf <= Utils.businessAdd(dateAfter, 2);
+                }
+            });
+            */
+
             expectedEarningsReleases.forEach(expectedRelease => {
                 const dateBefore = expectedRelease.getPurchaseDate(advancePurchaseDays);
                 const dateAfter = expectedRelease.getSaleDate(0);
