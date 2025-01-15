@@ -409,7 +409,11 @@ Meteor.methods({
                                 numMatching += 1;
                             });
                         } else {
-                            EarningsReleases.insert(_.extend({lastModified, insertedDate: lastModified}, earningsRelease));
+                            EarningsReleases.insert(_.extend({
+                                lastModified,
+                                insertedDate: lastModified,
+                                insertedDateStr: earningsRelease.asOf,
+                            }, earningsRelease));
                             Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
                             numInserted += 1;
                         }
@@ -616,6 +620,7 @@ Meteor.methods({
             'lastModified',
             'lastModifiedBy',
             'insertedDate',
+            'insertedDateStr',
         ];
         const query = _.omit(earningsRelease, fieldsToOmit);
         return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
