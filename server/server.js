@@ -673,11 +673,14 @@ Meteor.methods({
         });
 
         if (symbol && isRecursive) {
-            const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, true);
-            const lastReportDate = _.last(reportDates);
-            return reportDates.map(reportDate => {
+            const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, false, true);
+            const lastQuarter = _.max(_.pluck(reportDates, 'endDateNextFiscalQuarter'));
+            return reportDates.map(({
+                reportDateNextFiscalQuarter: reportDate,
+                endDateNextFiscalQuarter: quarter,
+            }) => {
                 const dateString = Utils.convertToStringDate(reportDate);
-                const isLastReportDate = reportDate === lastReportDate;
+                const isLastReportDate = quarter === lastQuarter;
                 return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
                     isRecursive: false,
                     startDate: dateString,
@@ -881,6 +884,7 @@ Meteor.methods({
                 symbol,
                 asOf,
                 reportDateNextFiscalQuarter,
+                insertedDateStr,
             } = e;
 
             if (expectedMap.has(symbol)) {

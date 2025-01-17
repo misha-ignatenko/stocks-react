@@ -382,7 +382,7 @@ StocksReactServerUtils = {
         },
     },
     earningsReleases: {
-        getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false) {
+        getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false, returnObjects=false) {
             const validRecordsQuery = {
                 symbol,
                 currencyCode: {$nin: ['CND']},
@@ -400,6 +400,32 @@ StocksReactServerUtils = {
                     $lte: Utils.convertToNumberDate(endDateStr),
                 },
             }, validRecordsQuery, companyConfirmedQuery);
+
+            if (returnObjects) {
+                const deduplicationSet = new Set();
+
+                return EarningsReleases.find(query, {
+                    fields: {
+                        reportDateNextFiscalQuarter: 1,
+                        endDateNextFiscalQuarter: 1,
+                    },
+                    sort: {
+                        reportDateNextFiscalQuarter: 1,
+                    },
+                }).fetch().filter(e => {
+                    const stringified = EJSON.stringify(_.pick(e, [
+                        'reportDateNextFiscalQuarter',
+                        'endDateNextFiscalQuarter',
+                    ]));
+
+                    if (deduplicationSet.has(stringified)) {
+                        return false;
+                    }
+
+                    deduplicationSet.add(stringified);
+                    return true;
+                });
+            }
 
             const relevantReportDates = _.sortBy(
                 Promise.await(EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query)),
