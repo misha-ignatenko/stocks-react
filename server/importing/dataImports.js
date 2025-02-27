@@ -336,15 +336,20 @@ Meteor.methods({
                     });
                 };
 
+                let dataCount = 0;
                 let numMatching = 0;
                 let numInserted = 0;
 
-                const url = StocksReactServerUtils.earningsReleases.getAllEarningsReleasesUrl();
                 const expectedStatusCode = 200;
                 const expectedNumberOfColumns = 24;
                 const today = moment().format('YYYY-MM-DD');
 
                 try {
+                    let cursorID;
+
+                    do {
+                        const url = StocksReactServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
+                        console.log('calling url: ', url);
                     const response = HTTP.get(url);
                     if (response.statusCode !== expectedStatusCode) {
                         throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
@@ -359,6 +364,8 @@ Meteor.methods({
                     });
 
                     const data = response.data.datatable.data;
+
+                    dataCount += data.length;
                     data.forEach((row, rowIndex) => {
                         if (row.length !== expectedNumberOfColumns) {
                             throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
@@ -419,12 +426,15 @@ Meteor.methods({
                         }
                     });
 
+                        cursorID = response.data.meta.next_cursor_id;
+                    } while (cursorID);
+
                     if (scheduledDataPullFlag) {
                         Email.send({
                             subject: 'DONE getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(),
-                                totalNumRecordsFromTheAPI: data.length,
+                                totalNumRecordsFromTheAPI: dataCount,
                                 numInserted, numMatching,
                             }),
                         });

@@ -468,8 +468,9 @@ StocksReactServerUtils = {
                 console.log('--------------------------------------');
             });
         },
-        getAllEarningsReleasesUrl: () => {
-            return `${ServerUtils.earningsReleasesUrl}?api_key=${ServerUtils.apiKey()}`;
+        getAllEarningsReleasesUrl: (cursorID) => {
+            const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
+            return `${ServerUtils.earningsReleasesUrl}?api_key=${ServerUtils.apiKey()}${cursorPostfix}`;
         },
         getEarningsReleasesUrl: (symbol) => {
             return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
