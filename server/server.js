@@ -88,10 +88,10 @@ Meteor.methods({
         console.log('getLatestRatingChanges');
         const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
-            limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
+            limit: ServerUtils.ratingsChangesLimitGlobal(),
         }).fetch();
 
-        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+        return ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
 
     getLatestRatingChangesForSymbol(symbol) {
@@ -101,10 +101,10 @@ Meteor.methods({
             symbol: symbol,
         }), {
             sort: dateStringSortDesc,
-            limit: StocksReactServerUtils.ratingsChangesLimitSymbol(),
+            limit: ServerUtils.ratingsChangesLimitSymbol(),
         }).fetch();
 
-        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+        return ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
 
     getRatingChangeMetadata() {
@@ -149,7 +149,7 @@ Meteor.methods({
 
         ServerUtils.runPremiumCheck(this);
 
-        var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
+        var _prices = ServerUtils.prices.getAllPrices(symbol);
         return _prices;
     },
 
@@ -342,7 +342,7 @@ Meteor.methods({
         //moment().toISOString().substring(10,24)
         var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
-        var _allPrices = StocksReactServerUtils.prices.getAllPrices(symbol);
+        var _allPrices = ServerUtils.prices.getAllPrices(symbol);
         var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
 
         // step 3. check that have all the needed prices in date range

@@ -7,7 +7,7 @@ import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
 const { convertArrayToCSV } = require('convert-array-to-csv');
 
-StocksReactServerUtils = {
+ServerUtils = {
 
     setSetting(field, value) {
         return Settings.update(Utils.getSetting('_id'), {$set: {
@@ -654,5 +654,3 @@ StocksReactServerUtils = {
         }
     },
 };
-
-ServerUtils = StocksReactServerUtils;

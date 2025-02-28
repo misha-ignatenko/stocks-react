@@ -348,7 +348,7 @@ Meteor.methods({
                     let cursorID;
 
                     do {
-                        const url = StocksReactServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
+                        const url = ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
                         console.log('calling url: ', url);
                     const response = HTTP.get(url);
                     if (response.statusCode !== expectedStatusCode) {
