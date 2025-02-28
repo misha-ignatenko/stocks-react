@@ -4,6 +4,11 @@ import { Random } from 'meteor/random';
 
 var _serverSideVarCount = 0;
 
+function importEarningsReleases() {
+    Meteor.call('importData', [], 'earnings_releases_new', true);
+    Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
+}
+
 Meteor.startup(function() {
     //var _timeEveryDayInIsoToPull = "06:30:00.000";
 
@@ -11,21 +16,19 @@ Meteor.startup(function() {
     if (Meteor.isDevelopment) return;
 
     Meteor.setInterval(function(){
-        var _quandlSettings = Utils.getSetting('serverSettings.quandl');
+        var _quandlSettings = ServerUtils.getCachedSetting('serverSettings.quandl');
         var _timeEveryDayInIsoToPull = _quandlSettings.canPullFromQuandlEveryDayAtThisTimeInEasternTime;
         var _lastQuandlDatePull = _quandlSettings.dateOfLastPullFromQuandl;
         var _dateRightNowString = new Date().toISOString();
         var _dateString = _dateRightNowString.substring(0,10);
         var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
 
-        var _dataAutoPullIsOn = Utils.getSetting('dataImports.autoDataImportsTurnedOn');
+        var _dataAutoPullIsOn = ServerUtils.getCachedSetting('dataImports.autoDataImportsTurnedOn');
 
         if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
             ServerUtils.setEarningsReleaseSyncDate(_dateString);
 
-            Meteor.call('importData', [], 'earnings_releases_new', true);
-
-            Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
+            importEarningsReleases();
         }
 
 
@@ -39,8 +42,7 @@ Meteor.startup(function() {
         },
         job: function() {
             Meteor.defer(() => {
-                Meteor.call('importData', [], 'earnings_releases_new', true);
-                Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
+                importEarningsReleases();
             });
         },
     });
@@ -93,6 +95,11 @@ Meteor.startup(function() {
 });
 
 Meteor.methods({
+    importEarningsReleases()  {
+        ServerUtils.runPremiumCheck(this);
+
+        importEarningsReleases();
+    },
     "getVarFromServer": function() {
         return _serverSideVarCount;
     }

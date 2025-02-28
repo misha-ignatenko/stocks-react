@@ -9,6 +9,11 @@ const { convertArrayToCSV } = require('convert-array-to-csv');
 
 ServerUtils = {
 
+    getCachedSetting: Utils.cacheFor(
+        Utils.getSetting,
+        5 * 60 * 1000
+    ),
+
     setSetting(field, value) {
         return Settings.update(Utils.getSetting('_id'), {$set: {
             [field]: value,
@@ -23,10 +28,10 @@ ServerUtils = {
     },
 
     getEmailTo() {
-        return Utils.getSetting('serverSettings.ratingsChanges.emailTo');
+        return this.getCachedSetting('serverSettings.ratingsChanges.emailTo');
     },
     getEmailFrom() {
-        return Utils.getSetting('serverSettings.ratingsChanges.emailFrom');
+        return this.getCachedSetting('serverSettings.ratingsChanges.emailFrom');
     },
     emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
         const csv = convertArrayToCSV(rows);
@@ -58,10 +63,10 @@ ServerUtils = {
     },
 
     ratingsChangesLimitGlobal() {
-        return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+        return this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
     ratingsChangesLimitSymbol() {
-        return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+        return this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
     },
     getExtraRatingChangeData(ratingChanges) {
         let firmMap = new Map();
@@ -182,19 +187,8 @@ ServerUtils = {
         return validRatingScaleIDsMap;
     },
 
-    apiKeyCached: undefined,
     apiKey: function () {
-        if (!this.apiKeyCached) {
-            this.apiKeyCached = this.getApiKeyNonCached();
-
-            Meteor.setTimeout(() => {
-                delete this.apiKeyCached;
-            }, 3 * 60 * 1000); // 3 min
-        }
-        return this.apiKeyCached;
-    },
-    getApiKeyNonCached() {
-        return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
+        return this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
 
     earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
