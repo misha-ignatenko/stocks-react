@@ -32,6 +32,17 @@ Meteor.startup(function() {
         _serverSideVarCount++;
     }, 10000);
 
+    SyncedCron.add({
+        name: 'earnings releases',
+        schedule: function(parser) {
+            return parser.text('every day at 14:00');
+        },
+        job: function() {
+            Meteor.call('importData', [], 'earnings_releases_new', true);
+            Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
+        },
+    });
+
     const baseOptions = {
         advancePurchaseDays: 1,
         saleDelayInDays: 2,
