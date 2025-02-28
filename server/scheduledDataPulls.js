@@ -35,11 +35,13 @@ Meteor.startup(function() {
     SyncedCron.add({
         name: 'earnings releases',
         schedule: function(parser) {
-            return parser.text('every day at 14:00');
+            return parser.text('at 14:00');
         },
         job: function() {
-            Meteor.call('importData', [], 'earnings_releases_new', true);
-            Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
+            Meteor.defer(() => {
+                Meteor.call('importData', [], 'earnings_releases_new', true);
+                Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
+            });
         },
     });
 
