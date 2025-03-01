@@ -27,6 +27,7 @@ Meteor.startup(function() {
 
         if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
             ServerUtils.setEarningsReleaseSyncDate(_dateString);
+            ServerUtils.getCachedSetting('serverSettings.quandl', {doRefresh: true});
 
             importEarningsReleases();
         }
