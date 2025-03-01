@@ -2,44 +2,21 @@ import moment from 'moment-timezone';
 import _ from 'underscore';
 import { Random } from 'meteor/random';
 
-var _serverSideVarCount = 0;
-
 function importEarningsReleases() {
     Meteor.call('importData', [], 'earnings_releases_new', true);
     Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
 }
 
 Meteor.startup(function() {
-    //var _timeEveryDayInIsoToPull = "06:30:00.000";
 
     // skip data pull if dev env
     if (Meteor.isDevelopment) return;
 
-    Meteor.setInterval(function(){
-        var _quandlSettings = ServerUtils.getCachedSetting('serverSettings.quandl');
-        var _timeEveryDayInIsoToPull = _quandlSettings.canPullFromQuandlEveryDayAtThisTimeInEasternTime;
-        var _lastQuandlDatePull = _quandlSettings.dateOfLastPullFromQuandl;
-        var _dateRightNowString = new Date().toISOString();
-        var _dateString = _dateRightNowString.substring(0,10);
-        var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
-
-        var _dataAutoPullIsOn = ServerUtils.getCachedSetting('dataImports.autoDataImportsTurnedOn');
-
-        if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
-            ServerUtils.setEarningsReleaseSyncDate(_dateString);
-            ServerUtils.getCachedSetting('serverSettings.quandl', {doRefresh: true});
-
-            importEarningsReleases();
-        }
-
-
-        _serverSideVarCount++;
-    }, 10000);
-
     SyncedCron.add({
         name: 'earnings releases',
         schedule: function(parser) {
-            return parser.text('at 14:00');
+            // 7am & 2pm utc
+            return parser.cron('0 7,14 * * *');
         },
         job: function() {
             Meteor.defer(() => {
@@ -101,10 +78,7 @@ Meteor.methods({
 
         importEarningsReleases();
     },
-    "getVarFromServer": function() {
-        return _serverSideVarCount;
-    }
-    , async "sendMissingEarningsReleaseSymbolsEmail"() {
+    async "sendMissingEarningsReleaseSymbolsEmail"() {
         // get all available stocks (symbols are _id attributes in universal format)
         var _allUniqueStockSymbols = _.uniq(StocksReactUtils.symbols.getLiveSymbols());
 
@@ -123,5 +97,5 @@ Meteor.methods({
                 missingSymbols: _symbolsThatHaveBidsOrAsks
             })
         });
-    }
+    },
 });
