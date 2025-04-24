@@ -1359,7 +1359,13 @@ Meteor.methods({
         };
 
         return [
-            ServerUtils.prices.getTickersUrl(symbol),
+            // subtract 5 business days because there's latency
+            ServerUtils.prices.getPricesUrl(
+                symbol,
+                null,
+                null,
+                Utils.businessAdd(Utils.todaysDate(), -5)
+            ),
             ServerUtils.earningsReleases.getMetadataUrl(symbol),
             ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
         ].some(checkDatatable);
