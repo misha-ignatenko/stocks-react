@@ -330,7 +330,6 @@ Meteor.methods({
                     Email.send({
                         subject: 'getting earnings releases (new)',
                         text: JSON.stringify({
-                            hostname: Meteor.absoluteUrl(),
                             timeNow: new Date(),
                         }),
                     });
