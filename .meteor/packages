@@ -28,3 +28,4 @@ mrt:bootstrap-growl
 jquery
 react-meteor-data
 dburles:collection-helpers
+littledata:synced-cron

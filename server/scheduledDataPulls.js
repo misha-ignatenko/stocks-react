@@ -2,44 +2,83 @@ import moment from 'moment-timezone';
 import _ from 'underscore';
 import { Random } from 'meteor/random';
 
-var _serverSideVarCount = 0;
+function importEarningsReleases() {
+    Meteor.call('importData', [], 'earnings_releases_new', true);
+    Meteor.call('sendMissingEarningsReleaseSymbolsEmail');
+}
 
 Meteor.startup(function() {
-    //var _timeEveryDayInIsoToPull = "06:30:00.000";
 
     // skip data pull if dev env
     if (Meteor.isDevelopment) return;
 
-    Meteor.setInterval(function(){
-        var _quandlSettings = Utils.getSetting('serverSettings.quandl');
-        var _timeEveryDayInIsoToPull = _quandlSettings.canPullFromQuandlEveryDayAtThisTimeInEasternTime;
-        var _lastQuandlDatePull = _quandlSettings.dateOfLastPullFromQuandl;
-        var _dateRightNowString = new Date().toISOString();
-        var _dateString = _dateRightNowString.substring(0,10);
-        var _timeString = _dateRightNowString.substring(11, _dateRightNowString.length - 1);
+    SyncedCron.add({
+        name: 'earnings releases',
+        schedule: function(parser) {
+            // 7am & 2pm utc
+            return parser.cron('0 7,14 * * *');
+        },
+        job: function() {
+            Meteor.defer(() => {
+                importEarningsReleases();
+            });
+        },
+    });
 
-        var _dataAutoPullIsOn = Utils.getSetting('dataImports.autoDataImportsTurnedOn');
+    const baseOptions = {
+        advancePurchaseDays: 1,
+        saleDelayInDays: 2,
+        saleDelayInDaysFinal: 10,
+        ratingChangesLookbackInDays: 500,
+        isForecast: true,
+        includeHistory: true,
+        bizDaysLookbackForHistory: 1000,
+        emailResults: true,
+    };
 
-        if (_dataAutoPullIsOn && _lastQuandlDatePull !== _dateString && _timeString >= _timeEveryDayInIsoToPull) {
-            Settings.update(Utils.getSetting('_id'), {$set: {
-                'serverSettings.quandl.dateOfLastPullFromQuandl': _dateString,
-            }});
+    SyncedCron.add({
+        name: '1st job',
+        schedule: function(parser) {
+            return parser.text('every weekday at 14:30');
+        },
+        job: function() {
+            Meteor.defer(() => {
+                Meteor.call('getEarningsAnalysis', {
+                    startDate: Utils.businessAdd(Utils.todaysDate(), 1),
+                    endDate: Utils.businessAdd(Utils.todaysDate(), 2),
+                    ...baseOptions,
+                });
+            });
+        },
+    });
 
-            Meteor.call('importData', [], 'earnings_releases_new', true);
+    SyncedCron.add({
+        name: '2nd job',
+        schedule: function(parser) {
+            return parser.text('every weekday at 15:00');
+        },
+        job: function() {
+            Meteor.defer(() => {
+                Meteor.call('getEarningsAnalysis', {
+                    startDate: Utils.businessAdd(Utils.todaysDate(), -1),
+                    endDate: Utils.todaysDate(),
+                    ...baseOptions,
+                });
+            });
+        },
+    });
 
-            Meteor.call("sendMissingEarningsReleaseSymbolsEmail");
-        }
+    SyncedCron.start();
 
-
-        _serverSideVarCount++;
-    }, 10000);
 });
 
 Meteor.methods({
-    "getVarFromServer": function() {
-        return _serverSideVarCount;
-    }
-    , async "sendMissingEarningsReleaseSymbolsEmail"() {
+    importEarningsReleases()  {
+        ServerUtils.runPremiumCheck(this);
+
+        importEarningsReleases();
+    },
+    async "sendMissingEarningsReleaseSymbolsEmail"() {
         // get all available stocks (symbols are _id attributes in universal format)
         var _allUniqueStockSymbols = _.uniq(StocksReactUtils.symbols.getLiveSymbols());
 
@@ -52,13 +91,11 @@ Meteor.methods({
 
 
         Email.send({
-            to: ServerUtils.getEmailTo(),
-            from: ServerUtils.getEmailTo(),
             subject: 'MISSING earnings release symbols',
             text: JSON.stringify({
                 timeNow: new Date(),
                 missingSymbols: _symbolsThatHaveBidsOrAsks
             })
         });
-    }
+    },
 });

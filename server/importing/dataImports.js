@@ -116,8 +116,6 @@ Meteor.methods({
         }
 
         Email.send({
-            to: Settings.findOne().serverSettings.dataImports.portfolioItems.emailTo,
-            from: Settings.findOne().serverSettings.dataImports.portfolioItems.emailFrom,
             subject: "imported portfolio items for: " + _portfolio.name + ". date: " + _dateString,
             text: JSON.stringify({ timeNow: new Date(), symbols: _allUniqSymbols })
         });
@@ -316,39 +314,41 @@ Meteor.methods({
                 })
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
 
+                const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
+                _result.importedDatesStr = importedDatesStr;
+
                 Email.send({
-                    to: ServerUtils.getEmailTo(),
-                    from: ServerUtils.getEmailFrom(),
-                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(_.uniq(_.pluck(importData, "dateString"))),
+                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
             } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === 'earnings_releases_new') {
-                const to = ServerUtils.getEmailTo();
 
                 if (scheduledDataPullFlag) {
                     Email.send({
-                        to: to,
-                        from: to,
                         subject: 'getting earnings releases (new)',
                         text: JSON.stringify({
-                            hostname: Meteor.absoluteUrl(),
                             timeNow: new Date(),
                         }),
                     });
                 };
 
+                let dataCount = 0;
                 let numMatching = 0;
                 let numInserted = 0;
 
-                const url = StocksReactServerUtils.earningsReleases.getAllEarningsReleasesUrl();
                 const expectedStatusCode = 200;
                 const expectedNumberOfColumns = 24;
                 const today = moment().format('YYYY-MM-DD');
 
                 try {
+                    let cursorID;
+
+                    do {
+                        const url = ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
+                        console.log('calling url: ', url);
                     const response = HTTP.get(url);
                     if (response.statusCode !== expectedStatusCode) {
                         throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
@@ -363,6 +363,8 @@ Meteor.methods({
                     });
 
                     const data = response.data.datatable.data;
+
+                    dataCount += data.length;
                     data.forEach((row, rowIndex) => {
                         if (row.length !== expectedNumberOfColumns) {
                             throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
@@ -413,20 +415,25 @@ Meteor.methods({
                                 numMatching += 1;
                             });
                         } else {
-                            EarningsReleases.insert(_.extend({lastModified, insertedDate: lastModified}, earningsRelease));
+                            EarningsReleases.insert(_.extend({
+                                lastModified,
+                                insertedDate: lastModified,
+                                insertedDateStr: earningsRelease.asOf,
+                            }, earningsRelease));
                             Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
                             numInserted += 1;
                         }
                     });
 
+                        cursorID = response.data.meta.next_cursor_id;
+                    } while (cursorID);
+
                     if (scheduledDataPullFlag) {
                         Email.send({
-                            to: to,
-                            from: to,
                             subject: 'DONE getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(),
-                                totalNumRecordsFromTheAPI: data.length,
+                                totalNumRecordsFromTheAPI: dataCount,
                                 numInserted, numMatching,
                             }),
                         });
@@ -435,8 +442,6 @@ Meteor.methods({
                     const errorString = error.toString();
                     if (scheduledDataPullFlag) {
                         Email.send({
-                            to: to,
-                            from: to,
                             subject: 'ERROR from getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(), errorString,
@@ -624,6 +629,7 @@ Meteor.methods({
             'lastModified',
             'lastModifiedBy',
             'insertedDate',
+            'insertedDateStr',
         ];
         const query = _.omit(earningsRelease, fieldsToOmit);
         return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
