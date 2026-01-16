@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@babel/runtime": "^7.20.1",
+    "@babel/runtime": "^7.28.6",
     "bcrypt": "^5.1.0",
     "bootstrap": "^5.2.2",
     "convert-array-to-csv": "^2.0.0",
