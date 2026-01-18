@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@babel/runtime": "^7.28.6",
-    "bcrypt": "^5.1.0",
+    "bcrypt": "^6.0.0",
     "bootstrap": "^5.2.2",
     "convert-array-to-csv": "^2.0.0",
     "ejson": "^2.2.3",
@@ -21,7 +21,7 @@
     "react-router-dom": "^6.30.3",
     "reactstrap": "^9.1.5",
     "semver": "^7.5.4",
-    "tar": "^6.2.1",
+    "tar": "^7.5.3",
     "underscore": "^1.13.6"
   }
 }
