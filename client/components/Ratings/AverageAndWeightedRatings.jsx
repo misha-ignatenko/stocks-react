@@ -141,52 +141,6 @@ class AverageAndWeightedRatings extends Component {
         return false;
     }
 
-    getIndividualRatingsEveryDay(prices, ratingChanges, ratingScales) {
-        let _res = [];
-        let _uniqFirmIds = _.uniq(_.pluck(ratingChanges, "researchFirmId"));
-        let _that = this;
-
-        _.each(prices, function (priceObj) {
-            let _ratingsMap = {};
-            _.each(_uniqFirmIds, function (firmId) {
-                let _ratingScaleId = _that.getScaleIdForFirmAndDate(firmId, priceObj.dateString, ratingChanges);
-                let _univVal = ratingScales.filter(function (obj) {
-                    return obj._id === _ratingScaleId
-                })[0].universalScaleValue;
-                _ratingsMap[firmId] = _univVal;
-            });
-
-            _res.push(_.extend(priceObj, {companyRatingsByResearchFirm: _ratingsMap}));
-        });
-
-        return _res;
-    }
-
-    getScaleIdForFirmAndDate(firmId, dateString, allRatingChanges) {
-        let _scaleId;
-        let ratingChanges = allRatingChanges.filter(function (obj) {
-            return obj.researchFirmId === firmId;
-        });
-
-        _.each(ratingChanges, function (ratingChange) {
-            if (_scaleId) {
-                // if value is already set, check if it should be reset to something newer
-                if (ratingChange.dateString <= dateString) {
-                    _scaleId = ratingChange.newRatingId;
-                }
-            } else {
-                // initialize the value. if date of rating change is less or equal to the date string, then grab the new value. otherwise grab
-                if (ratingChange.dateString <= dateString) {
-                    _scaleId = ratingChange.newRatingId;
-                } else {
-                    _scaleId = ratingChange.oldRatingId;
-                }
-            }
-        });
-
-        return _scaleId;
-    }
-
     // source 1: http://stackoverflow.com/questions/11849308/generate-colors-between-red-and-green-for-an-input-range
     // source 2: http://jsfiddle.net/xgJ2e/2/
     hsv2rgb(h, s, v) {
@@ -226,95 +180,6 @@ class AverageAndWeightedRatings extends Component {
 
     toggleFirm(event) {
         console.log(event.target.value);
-    }
-
-    renderHistoricalRatingChangesByCompany() {
-        let _ratingChanges = this.props.ratingChanges;
-        let _uniqueFirmIds = _.uniq(_.pluck(_ratingChanges, "researchFirmId"));
-        let _dateAndUniqFirmIds = ["date"].concat(_uniqueFirmIds);
-        let _firmIdx = ["date"].concat(_.range(_uniqueFirmIds.length));
-        let _prices = this.props.stockPrices;
-        let _individualRatingsEveryDay = this.getIndividualRatingsEveryDay(_prices, _ratingChanges, this.props.ratingScales);
-        let hsv2rgb = this.hsv2rgb;
-        let _regrWeights = this.props.regrWeights;
-
-        return <div>
-            <table>
-                <thead>
-                    <tr>
-                        {_dateAndUniqFirmIds.map((firm, index) => {
-                            let _btnTxt = _regrWeights[firm] && _regrWeights[firm] >= 0.001 ? (index + " (" + _regrWeights[firm].toFixed(2) + ")") : index;
-                            return <th key={firm}>{firm !== "date" ? <button className="btn btn-light" key={firm} value={firm} onClick={this.toggleFirm}>{_btnTxt}</button> : firm}</th>;
-                        })}
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {_individualRatingsEveryDay.reverse().map((row) => {
-                        let _rowKey = row["dateString"];
-
-                        return <tr key={_rowKey}>{_dateAndUniqFirmIds.map((firm) => {
-                            let _val = row["companyRatingsByResearchFirm"][firm];
-                            let _style = {
-                                textAlign: "center"
-                            };
-                            if (parseInt(_val)) {
-                                {/*let r = 255;*/}
-                                {/*let g = Math.floor((100 - _val) / 50 * 255);*/}
-                                {/*let b = Math.floor((100 - _val) / 50 * 255);*/}
-
-                                let n = _val / 120 * 100;
-
-                                {/*let r = Math.floor((255 * n) / 100);*/}
-                                {/*let g = Math.floor((255 * (100 - n)) / 100);*/}
-                                {/*let b = 0;*/}
-
-                                {/*_style = _.extend(_style, {*/}
-                                    {/*backgroundColor: "rgb(" + r + "," + g + "," + b + ")"*/}
-                                {/*});*/}
-
-                                {/*var h= Math.floor((100 - n) * 120 / 100);*/}
-                                var h= Math.floor((n) * 120 / 100);
-                                var s = Math.abs(n - 50)/50;
-                                var v = 1;
-                                _style = _.extend(_style, {
-                                    backgroundColor: hsv2rgb(h, s, 1)
-                                });
-                            }
-                            let _cellKey = _rowKey + firm;
-                            let _strVal = firm === "date" ? (<span style={{margin: "30px"}}>{row["dateString"]}</span>) : (parseInt(_val) || "");
-
-                            return <td style={_style} key={_cellKey}>
-                                {_strVal}
-                                </td>;
-                        })}</tr>;
-                    })}
-                </tbody>
-            </table>
-        </div>;
-    }
-
-    renderAllExistingUpDowngradesForStock() {
-        var _that = this;
-        return <div className="row allUpDowngrades">
-            <br/>
-            {this.props.ratingChanges.length > 0 ? <h3>historic analyst ratings (firm ids are column headers):</h3> : <p>no analyst upgrades/downgrades</p>}
-            {this.renderHistoricalRatingChangesByCompany()}
-            <ul>
-                {/*{this.data.ratingChanges.map((ratingChange, index) => {*/}
-                    {/*let _oldRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.oldRatingId}).universalScaleValue;*/}
-                    {/*let _newRatingValue = _.findWhere(_that.data.ratingScales, {_id: ratingChange.newRatingId}).universalScaleValue;*/}
-                    {/*return(<li key={index}>*/}
-                        {/*<div>*/}
-                            {/*Old rating: {_oldRatingValue ? _oldRatingValue : "unknown"}<br/>*/}
-                            {/*New rating: {_newRatingValue ? _newRatingValue : "unknown"}<br/>*/}
-                            {/*As of: {ratingChange.date.substring(0,16)}<br/>*/}
-                            {/*Firm name: {ratingChange.researchFirmId ? ratingChange.researchFirmId : "no premium access"}*/}
-                        {/*</div>*/}
-                    {/*</li>);*/}
-                {/*})}*/}
-            </ul>
-        </div>
     }
 
     changingStart(date) {
@@ -407,7 +272,6 @@ class AverageAndWeightedRatings extends Component {
                             {this.renderAvgAnalystRatingsGraph()}
                             <br/><br/><br/><br/>
                             <RegressionPerformance symbol={this.props.symbol}/>
-                            {this.renderAllExistingUpDowngradesForStock()}
                             <br/>
                             {this.renderEpsMeanEstimates()}
                             <br/>
