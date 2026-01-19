@@ -23,66 +23,6 @@ const getRatingChangesQuery = () => {
     };
 };
 
-function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
-
-    // step 1. transform datesAndSymbolsMap
-    var _symbolsAndDatesMap = {};
-    var _dates = _.keys(datesAndSymbolsMap);
-    _.each(_dates, function (d) {
-        var _symbolsForDate = datesAndSymbolsMap[d];
-        _.each(_symbolsForDate, function (s) {
-            if (!_symbolsAndDatesMap[s]) {
-                _symbolsAndDatesMap[s] = [d];
-            } else {
-                _symbolsAndDatesMap[s].push(d);
-            }
-        });
-    });
-
-
-
-    // step 2. get all prices
-    var _prices = [];
-    var _responseMap = {};
-    var _symbols = _.keys(_symbolsAndDatesMap);
-    _.each(_symbols, function (s) {
-        try {
-            const prices = ServerUtils.prices.getAllPrices(s);
-            _.each(prices, function (_convertedObj, idx) {
-                // only return the prices that were requested for date and symbol
-                if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
-                    _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
-
-                    // update _responseMap
-                    if (!_responseMap[_convertedObj.dateString]) {
-                        _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
-                    } else {
-                        _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
-                    };
-                }
-            })
-
-        } catch (e) {
-            console.log("ERROR");
-            console.log(s + ": " + e);
-        };
-    });
-
-
-
-    // step 3. quality check
-    var _missingMap = {};
-    _.each(_dates, function (d) {
-        var _symbolsNeeded = datesAndSymbolsMap[d];
-        var _symbolsObtained = _responseMap[d] || [];
-        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
-        _missingMap[d] = _symbolsNotObtained;
-    });
-
-
-    return {prices: _prices, missingMap: _missingMap};
-};
-
 Meteor.methods({
     getLatestRatingChanges() {
         console.log('getLatestRatingChanges');
@@ -259,13 +199,6 @@ Meteor.methods({
         }
 
         return earningsReleases;
-    },
-
-    getPricesFromApi: function (datesAndSymbolsMap) {
-        const _nasdaqData = getPortfolioPricesNasdaq(datesAndSymbolsMap);
-        console.log("final missing map: ", _nasdaqData.missingMap);
-
-        return _nasdaqData.prices;
     },
 
     insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
@@ -1158,129 +1091,6 @@ Meteor.methods({
         return results;
     },
 
-    portfolioItems: function (portfolioIds, startStr, endStr) {
-        check(portfolioIds, [String]);
-        check(startStr, String);
-        check(endStr, String);
-
-        return PortfolioItems.find({
-            $or: [
-                {
-                    weight: {$exists: false},
-                }, {
-                    weight: {$exists: true, $gt: 0},
-                },
-            ],
-            portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
-        }, {
-            sort: {dateString: 1}
-        }).fetch();
-    },
-
-    getDefaultPerformanceDatesFor: function(portfolioId) {
-        check(portfolioId, String);
-
-        var _p = Portfolios.findOne({_id: portfolioId});
-        var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});
-        var _minDateStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: 1}}).dateString : "";
-        var _maxDatrStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: -1}}).dateString : "";
-
-        if (_p.rolling && pItemsExist) {
-            _minDateStr = moment(_minDateStr).tz("America/New_York").add(_p.lookback / 5 * 7, "days").format("YYYY-MM-DD");
-        }
-
-        // a case for combined portfolios (i.e., portfolios consisting of a screen by multiple criteria)
-        if (_p.criteria) {
-            var _ratingScaleIds = [];
-            var _researchFirms = [];
-            var _criteriaRatingScales = [];
-
-            // the purpose of this for loop is to figure out the widest date range where RatingChanges match portfolio's criteria
-            _.each(_p.criteria, function (criterion) {
-                var _query = JSON.parse(criterion);
-                var _ratingScales = RatingScales.find(_query).fetch();
-                _criteriaRatingScales.push(_ratingScales);
-
-                _.each(_ratingScales, function (ratingScaleObj) {
-                    var ratingScaleId = ratingScaleObj._id;
-                    _ratingScaleIds.push(ratingScaleId);
-                    _researchFirms.push(ratingScaleObj.researchFirmId);
-
-                    // check if a rating change with either that newRatingId or oldRatingId exists
-                    var _rChDatesQry = {$or: [{newRatingId: ratingScaleId}, {oldRatingId: ratingScaleId}]};
-                    var _ratingChangesExist = RatingChanges.findOne(_rChDatesQry);
-
-                    var _newMin = _ratingChangesExist ? RatingChanges.findOne(_rChDatesQry, {limit: 1, sort: {dateString: 1}}).dateString : "";
-                    var _newMax = _ratingChangesExist ? RatingChanges.findOne(_rChDatesQry, {limit: 1, sort: {dateString: -1}}).dateString : "";
-
-                    _minDateStr = (_minDateStr === "" ? _newMin : _newMin < _minDateStr ? _newMin : _minDateStr);
-                    _maxDatrStr = (_maxDatrStr === "" ? _newMax : _newMax > _maxDatrStr ? _newMax : _maxDatrStr);
-                })
-            });
-
-            // final RatingChanges are where dateString is between the calculated min and max dates and
-            // either newRatingId or oldRatingId is in the list of RatingScales of interest (based on
-            // portfolio's criteria) -- meaning that some symbol's rating changed TO a rating scale of interest or
-            // it changed FROM a rating scale of interest.
-            var _finalRatingChanges = RatingChanges.find({
-                $and: [{$or: [{newRatingId: {$in: _.uniq(_ratingScaleIds)}}, {oldRatingId: {$in: _.uniq(_ratingScaleIds)}}]}, {dateString: {$gte: _minDateStr}}, {dateString: {$lte: _maxDatrStr}}]
-            }, {
-                fields: {symbol: 1, dateString: 1, oldRatingId: 1, newRatingId: 1}
-            }).fetch();
-
-            return {
-                criteriaRatingScales: _criteriaRatingScales,
-                startDate: _minDateStr,
-                endDate: _maxDatrStr,
-                ratingChanges: _finalRatingChanges
-            };
-        }
-
-        return {
-            startDate: _minDateStr,
-            endDate: _maxDatrStr
-        };
-    },
-
-    insertNewRollingPortfolioItem: function (obj) {
-        // check that the symbol exists
-        var _p = Portfolios.findOne(obj.portfolioId);
-        if (!_p || !_p.rolling) {
-            throw new Meteor.Error("portfolio does not exist or it is not rolling!");
-        }
-
-        if (!Stocks.findOne(obj.symbol)) {
-            throw new Meteor.Error("symbol does not exist!");
-        } else {
-            // check if such portfolio item already exists for that date and symbol
-            var _existingPortfolioItem = PortfolioItems.findOne({symbol: obj.symbol, portfolioId: obj.portfolioId, dateString: obj.dateString});
-            if (_existingPortfolioItem) {
-                throw new Meteor.Error("portfolio item already exists!");
-            } else {
-                if (isNaN((new Date(obj.dateString)).valueOf())) {
-                    throw new Meteor.Error("date is not valid!");
-                } else {
-                    var _user = Meteor.user();
-                    if (!_user) {
-                        throw new Meteor.Error("Please log in to import portfolio items.");
-                    } else {
-                        var _dataImportPermissions = _user.permissions && _user.permissions.dataImports;
-                        var _canImportPortfolioItems = _dataImportPermissions && _dataImportPermissions.indexOf("canImportPortfolioItems") > -1;
-                        if (!_canImportPortfolioItems) {
-                            throw new Meteor.Error("You do not have permission to import portfolio items.");
-                        }
-                    }
-
-                    PortfolioItems.insert({
-                        symbol: obj.symbol,
-                        portfolioId: obj.portfolioId,
-                        dateString: obj.dateString,
-                        short: obj.short
-                    })
-                }
-            }
-        }
-    }
 });
 
 Accounts.onCreateUser(function(options, user) {
@@ -1310,22 +1120,6 @@ Meteor.methods({
         Accounts.setPassword(dummyUserId, newPassword);
         Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
         return {username: newUsername, password: newPassword};
-    },
-    createNewPortfolio: function (name) {
-        // Make sure the user is logged in before inserting a portfolio
-        if (! Meteor.userId()) {
-            throw new Meteor.Error("not-authorized");
-        }
-
-        Portfolios.insert({
-            name: name,
-            private: false,
-            ownerId: Meteor.userId(),
-            researchFirmId: null,
-            lastModifiedOn: moment().toISOString(),
-            lastModifiedBy: Meteor.userId(),
-            ownerName: Meteor.user().username
-        });
     },
 
     getSimilarSymbols(symbol) {

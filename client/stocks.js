@@ -1,3 +1,4 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
 import moment from 'moment-timezone';
 
     Accounts.ui.config({
