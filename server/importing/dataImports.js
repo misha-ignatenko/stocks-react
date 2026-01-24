@@ -6,27 +6,6 @@ var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
-    removeDupRatingChange: function (ratingChangeId) {
-        check(ratingChangeId, String);
-
-        const user = Meteor.user();
-        const dataImportPermissions = user?.permissions?.dataImports || [];
-        if (!_.contains(dataImportPermissions, "canImportUpgradesDowngrades")) {
-            throw new Meteor.Error("no permission to import rating changes")
-        } else {
-            var _rCh = RatingChanges.findOne({_id: ratingChangeId});
-            if (_rCh) {
-                var _newSymbol = _rCh.symbol + "_deleted";
-                RatingChanges.update(
-                    {_id: ratingChangeId},
-                    {$set: {
-                        symbol: _newSymbol
-                    }}
-                );
-            }
-        }
-    },
-
     importPortfolioItems: function(importObj) {
         var _importedIds = [];
         var _duplicatesArr = [];
@@ -303,33 +282,6 @@ Meteor.methods({
                         });
                         if (_result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(_old) === -1) {
                             _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_old);
-                        }
-
-                        // insert the error unless it's already stored
-                        var errorQuery = {
-                            dateString: importItem.dateString,
-                            researchFirmId: _researchCompanyId,
-                            symbol: _universalSymbol,
-                            'originalRatingStrings.old': importItem.oldRatingString,
-                            'originalRatingStrings.new': importItem.newRatingString,
-                        };
-                        if (RatingChanges.find(errorQuery).count() === 0) {
-                            var errorRatingChange = {
-                                date: new Date(importItem.dateString).toUTCString(),
-                                dateString: importItem.dateString,
-                                researchFirmId: _researchCompanyId,
-                                symbol: _universalSymbol,
-                                private: true,
-                                addedBy: Meteor.userId(),
-                                addedOn: new Date().toUTCString(),
-                                source: importItem.source,
-                                originalRatingStrings: {
-                                    old: importItem.oldRatingString,
-                                    new: importItem.newRatingString,
-                                },
-                                isError: true,
-                            };
-                            RatingChanges.insert(errorRatingChange);
                         }
                     }
                 });
