@@ -6,7 +6,6 @@ import ImportRatingScales from './ImportRatingScales.jsx';
 var _ratingScalesImportTabName = "Rating Scales";
 var _ratingChangesImportTabName = "Rating Changes";
 var _ratingChangeConsistency = "Rating Changes Consistency";
-var _portfolioImportTabName = "Portfolios";
 
 export default class DataImportsMain extends Component {
 
@@ -37,7 +36,6 @@ export default class DataImportsMain extends Component {
                     <button type="button" className={this.state.selectedTab === _ratingScalesImportTabName ? _ab : _b} id={_ratingScalesImportTabName} onClick={this.selectTab}>{_ratingScalesImportTabName}</button>
                     <button type="button" className={this.state.selectedTab === _ratingChangesImportTabName ? _ab : _b} id={_ratingChangesImportTabName} onClick={this.selectTab}>{_ratingChangesImportTabName}</button>
                     <button type="button" className={this.state.selectedTab === _ratingChangeConsistency ? _ab : _b} id={_ratingChangeConsistency} onClick={this.selectTab}>{_ratingChangeConsistency}</button>
-                    <button type="button" className={this.state.selectedTab === _portfolioImportTabName ? _ab : _b} id={_portfolioImportTabName} onClick={this.selectTab}>{_portfolioImportTabName}</button>
                 </div>
 
                 {this.state.selectedTab === _ratingScalesImportTabName ? <ImportRatingScales /> : null}
