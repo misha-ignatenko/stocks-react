@@ -2,7 +2,6 @@ import React, { Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Routes, Route, BrowserRouter } from 'react-router-dom';
 
-import StocksApp from '../client/components/StocksApp.jsx';
 import IndividualStock from '../client/components/IndividualStock.jsx';
 import DataImportsMain from './components/dataImports/DataImportsMain.jsx';
 import { UpcomingEarningsReleases } from './components/UpcomingEarningsReleases.jsx';
@@ -18,7 +17,6 @@ Meteor.startup(function() {
             <Navigation />
 
             <Routes>
-                <Route path="/portfolios" element={<StocksApp />} />
                 <Route path="/" element={<RatingChanges />}/>
                 <Route path="/ratingChanges" element={<RatingChanges />}/>
                 <Route path="/stock" element={<IndividualStock />} />
