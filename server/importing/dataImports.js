@@ -6,27 +6,6 @@ var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
-    removeDupRatingChange: function (ratingChangeId) {
-        check(ratingChangeId, String);
-
-        const user = Meteor.user();
-        const dataImportPermissions = user?.permissions?.dataImports || [];
-        if (!_.contains(dataImportPermissions, "canImportUpgradesDowngrades")) {
-            throw new Meteor.Error("no permission to import rating changes")
-        } else {
-            var _rCh = RatingChanges.findOne({_id: ratingChangeId});
-            if (_rCh) {
-                var _newSymbol = _rCh.symbol + "_deleted";
-                RatingChanges.update(
-                    {_id: ratingChangeId},
-                    {$set: {
-                        symbol: _newSymbol
-                    }}
-                );
-            }
-        }
-    },
-
     importPortfolioItems: function(importObj) {
         var _importedIds = [];
         var _duplicatesArr = [];

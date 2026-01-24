@@ -1,7 +1,5 @@
 import React, { Component } from 'react';
 
-import PortfoliosImport from './portfolios/PortfoliosImportMain.jsx';
-import RatingChangesConsistency from './ratingChanges/RatingChangesConsistency.jsx';
 import UpDownGradesJSONDataImport from './UpDownGradesJSONDataImport.jsx';
 import ImportRatingScales from './ImportRatingScales.jsx';
 
@@ -44,8 +42,6 @@ export default class DataImportsMain extends Component {
 
                 {this.state.selectedTab === _ratingScalesImportTabName ? <ImportRatingScales /> : null}
                 {this.state.selectedTab === _ratingChangesImportTabName ? <UpDownGradesJSONDataImport /> : null}
-                {this.state.selectedTab === _ratingChangeConsistency ? <RatingChangesConsistency /> : null}
-                {this.state.selectedTab === _portfolioImportTabName ? <PortfoliosImport /> : null}
             </div>
         );
     }
