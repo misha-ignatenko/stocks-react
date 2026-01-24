@@ -148,26 +148,8 @@ export default withTracker(() => {
     const symbol = selectedSymbol.get();
 
     var _data = {
-        errorRatingChanges: [],
-        researchCompanies: [],
         currentUser: Meteor.user()
     };
-    if (symbol && Meteor.subscribe("allRatingChangesForSymbol", symbol).ready() && Meteor.subscribe("ratingScales").ready()) {
-        _data.allRatingChanges = RatingChanges.find({symbol}, {sort: {dateString: 1}}).fetch();
-        _data.uniqFirmIds = _.uniq(_.pluck(_data.allRatingChanges, "researchFirmId"));
-        _data.ratingScales = RatingScales.find().fetch();
-        var _firmId = selectedFirmId.get();
-        if (_firmId) {
-            _data.rChForFirm = _.filter(_data.allRatingChanges, function (rCh) { return rCh.researchFirmId === _firmId; })
-        }
-    }
-    if (Meteor.subscribe("errorRatingChanges").ready()) {
-        var errorRatingChanges = RatingChanges.find({isError: true}).fetch();
-        if (Meteor.subscribe("researchCompaniesByIDs", _.uniq(_.pluck(errorRatingChanges, 'researchFirmId'))).ready()) {
-            _data.errorRatingChanges = errorRatingChanges;
-            _data.researchCompanies = ResearchCompanies.find().fetch();
-        }
-    }
 
     return _data;
 })(RatingChangesConsistency);
