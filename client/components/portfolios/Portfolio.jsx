@@ -1,12 +1,35 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
+import { EJSON } from 'meteor/ejson';
+
+import PortfolioPerformanceGraph from './PortfolioPerformanceGraph.jsx';
+import _ from 'underscore';
 
 const startDate = new ReactiveVar("");
 const endDate = new ReactiveVar("");
 const pricesLoaded = new ReactiveVar(false);
 const stockPrices = new ReactiveVar(undefined);
+var loadingPortfolioItems = false;
+var lastLoadedPortfolioItemsParams = '';
+const portfolioItems = new ReactiveVar(undefined);
 
+const shiftStartDateBack2X = (startDate, lookback) => {
+    return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
+};
+
+const loadPortfolioItems = (portfolioId, startDate, endDate) => {
+    if (loadingPortfolioItems) return;
+    const params = EJSON.stringify({portfolioId, startDate, endDate});
+    if (params === lastLoadedPortfolioItemsParams) return;
+
+    loadingPortfolioItems = true;
+    Meteor.call("portfolioItems", [portfolioId], startDate, endDate, function(err, res) {
+        portfolioItems.set(res);
+        loadingPortfolioItems = false;
+        lastLoadedPortfolioItemsParams = params;
+    });
+};
 class Portfolio extends Component {
 
     constructor(props) {
@@ -20,86 +43,10 @@ class Portfolio extends Component {
         // this.onDismiss = this.onDismiss.bind(this);
     }
 
-    getMeteorData() {
-        let _portfId = this.props.portfolioId;
-
-        let _data = {};
-
-        if (this.state.startDate !== "" && this.state.endDate !== "" && Meteor.subscribe("getPortfolioById", _portfId).ready()) {
-            _data.portfolio = Portfolios.findOne({_id: _portfId});
-
-            // check if portfolio is an intersection based on rating changes
-            let _hasCriteria = _data.portfolio.criteria ? true : false;
-
-            let _isRolling = _data.portfolio.rolling;
-            let _businessDayLookback = _data.portfolio.lookback;
-            let _lookback = _businessDayLookback / 5 * 7;
-            let _startDate = _isRolling ? this.shiftStartDateBack2X(this.state.startDate, _lookback) : this.state.startDate;
-
-            // 2 cases:
-            //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
-            //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
-            if (
-                (_hasCriteria && Meteor.subscribe("ratingScales").ready() && this.data.ratingChanges) ||
-                (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, this.state.endDate).ready())
-            ) {
-                _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
-                _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, this.state.startDate, _lookback) : _hasCriteria ? this.processRatingChangesFromCriteriaPortfolio(RatingScales.find().fetch(), this.data.ratingChanges, this.state.startDate, this.state.endDate) : _data.rawPortfolioItems;
-                let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
-                _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));
-                let _uniqPortfItemDates = _.uniq(_.pluck(_data.portfolioItems, "dateString"));
-                _data.uniqPortfItemDates = _uniqPortfItemDates;
-
-                let _endDate = this.getEndDateForPrices();
-                let _datesForSub = _.union(_uniqPortfItemDates, [_endDate]);
-
-
-                // generate a map for prices subscription
-                let _pricesSubscrMap = {};
-                let _datesForSubSorted = _.sortBy(_datesForSub);
-                _.each(_datesForSubSorted, function (dateStr, idx) {
-                    let _relevantPortfolioItems = _.filter(_data.portfolioItems, function (obj) {
-                        if (idx > 0) {
-                            // if it's not the first date, include symbols from the previous date
-                            return obj.dateString === dateStr || obj.dateString === _datesForSubSorted[idx - 1]
-                        } else {
-                            return obj.dateString === dateStr;
-                        }
-                    });
-                    let _relevantSymbols = _.uniq(_.pluck(_relevantPortfolioItems, "symbol"));
-                    _pricesSubscrMap[dateStr] = _relevantSymbols.concat(["SPY"]);
-                });
-                var _that = this;
-                if (!_that.state.pricesLoaded) {
-                    Meteor.call("getPricesFromApi", _pricesSubscrMap, function (err, res) {
-                        console.log("done with getPricesFromApi call: ", err, res);
-                        _.each(res, function (px) {
-                            if (!px.adjClose) {
-                                console.log("missing adjClose for: ", px.symbol, px.dateString);
-                            }
-                        })
-                        if (!err) {
-                            _that.setState({
-                                stockPrices: res,
-                                pricesLoaded: true
-                            });
-                        }
-                    });
-                }
-            }
-        }
-
-        return _data;
-    }
-
     componentWillReceiveProps(nextProps) {
         if (!this.state.previouslyLoadedPortfolioId || this.state.previouslyLoadedPortfolioId !== nextProps.portfolioId) {
             this.setUpStartEndDates(nextProps.portfolioId);
         }
-    }
-
-    shiftStartDateBack2X(startDate, lookback) {
-        return moment(startDate).tz("America/New_York").subtract(lookback, "days").format("YYYY-MM-DD");
     }
 
     processRatingChangesFromCriteriaPortfolio(ratingScales, rCh, startDate, endDate) {
@@ -229,7 +176,7 @@ class Portfolio extends Component {
         let _map = {};
         let _that = this;
         _.each(_uniqDates, function (dateStr) {
-            let _startDate = _that.shiftStartDateBack2X(dateStr, lookback);
+            let _startDate = shiftStartDateBack2X(dateStr, lookback);
             let _endDate = dateStr;
             let _itemsOfInterest = _.filter(portfolioItems, function (item) {
                 return item.dateString >= _startDate && item.dateString <= _endDate;
@@ -312,7 +259,7 @@ class Portfolio extends Component {
     }
 
     renderPortfolioUpdateEntry() {
-        let _startDate = this.props.portfolio.rolling ? this.shiftStartDateBack2X(startDate.get(), this.props.portfolio.lookback / 5 * 7) : startDate.get();
+        let _startDate = this.props.portfolio.rolling ? shiftStartDateBack2X(startDate.get(), this.props.portfolio.lookback / 5 * 7) : startDate.get();
         // get the last date
         let _lastRebalanceDate = _.last(_.pluck(this.props.portfolioItems, "dateString"));
         let _latestPortfolioItems = this.props.portfolioItems.filter(function (obj) {
@@ -393,8 +340,8 @@ class Portfolio extends Component {
             // let _purchaseAtType = "close";
             // let _sellAtType = "open";
             // only look at adjClose because there is weirdness with open/close (example: SBUX around Nov 2014)
-            let _purchaseAtType = "close";
-            let _sellAtType = "close";
+            let _purchaseAtType = "adjClose";
+            let _sellAtType = "adjClose";
             let _symbolsToCheckSplitsFor = [];
 
             _.each(_uniqDates, function(date, index) {
@@ -428,6 +375,9 @@ class Portfolio extends Component {
                                 _symbolsToCheckSplitsFor.push(symbol)
                             }
                             let _change = (_sellPrice - _purchasePrice) / _purchasePrice;
+                            if (Math.abs(_change) > 0.25) {
+                                console.log('flagging large change: ', _change, symbol, _startDate, _purchasePrice, _endDate, _sellPrice);
+                            }
 
                             let _weightedChange = pItem.weight * _change;
                             _weightedTotalChange += _weightedChange;
@@ -436,7 +386,7 @@ class Portfolio extends Component {
                         }
                     });
                     if (_totalAbsWgt < .9) {
-                        console.log("this number should be 1: ", _totalAbsWgt);
+                        console.log("this number should be 1: ", _totalAbsWgt, date);
                     }
 
                     _growthRates.push([date, _weightedTotalChange]);
@@ -489,6 +439,13 @@ class Portfolio extends Component {
         var _that = this;
         $('.form-control').on('change', function(event) {
             var _set = StocksReact.ui.getStateForDateRangeChangeEvent(event);
+            if (_.has(_set, 'startDate')) {
+                startDate.set(_set.startDate);
+            }
+            if (_.has(_set, 'endDate')) {
+                endDate.set(_set.endDate);
+            }
+            return;
             _that.setState(_set);
         });
     }
@@ -545,16 +502,19 @@ export default withTracker((props) => {
         let _isRolling = _data.portfolio.rolling;
         let _businessDayLookback = _data.portfolio.lookback;
         let _lookback = _businessDayLookback / 5 * 7;
-        let _startDate = _isRolling ? this.shiftStartDateBack2X(startDate.get(), _lookback) : startDate.get();
+        let _startDate = _isRolling ? shiftStartDateBack2X(startDate.get(), _lookback) : startDate.get();
 
+        if (!_hasCriteria) {
+            loadPortfolioItems(_data.portfolio._id, _startDate, endDate.get());
+        }
         // 2 cases:
         //      1) portfolio has criteria and subscribed to relevant RatingChanges, or
         //      2) portfolio has no criteria and subscribed to PortfolioItems (rolling portfolio or not)
         if (
             (_hasCriteria && Meteor.subscribe("ratingScales").ready() && this.data.ratingChanges) ||
-            (!_hasCriteria && Meteor.subscribe("portfolioItems", [_data.portfolio._id], _startDate, endDate.get()).ready())
+            (!_hasCriteria && portfolioItems.get())
         ) {
-            _data.rawPortfolioItems = PortfolioItems.find({portfolioId: _data.portfolio._id}, {sort: {dateString: 1}}).fetch();
+            _data.rawPortfolioItems = portfolioItems.get();
             _data.portfolioItems = _isRolling ? this.processRollingPortfolioItems(_data.rawPortfolioItems, startDate.get(), _lookback) : _hasCriteria ? this.processRatingChangesFromCriteriaPortfolio(RatingScales.find().fetch(), this.data.ratingChanges, startDate.get(), endDate.get()) : _data.rawPortfolioItems;
             let _uniqStockSymbols = _.uniq(_.pluck(_data.portfolioItems, "symbol"));
             _uniqStockSymbols = _.uniq(_.union(_uniqStockSymbols, ["SPY"]));

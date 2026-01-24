@@ -18,7 +18,9 @@ class RegressionPerformance extends Component {
     componentWillMount() {
         console.log("mounting", this.props.symbol);
         let _maxDateForRatingChanges = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment().tz("America/New_York").subtract(70, "days"));
-        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false);
+        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(
+            this.props.settings.clientSettings.ratingChanges.fourPmInEstTimeString
+        );
 
         var _that = this;
         Meteor.call("getRegressionPerformance", this.props.symbol, _maxDateForRatingChanges, _lastPriceDate, function (err, res) {
@@ -32,20 +34,13 @@ class RegressionPerformance extends Component {
 
     render() {
         var _data = this.state.regressionPerformance;
-        var _wgt = _data && _data.wgt;
-        var _avg = _data && _data.avg;
         var _altAvg = _data && _data.altAvg;
         var _altWgt = _data && _data.altWgt;
         var _regrStartDate = _data && _data.regrStartDate;
         var _regrStartPxActual = _data && _.find(_data.px, function (p) {return p.dateString === _regrStartDate;}).adjClose;
         var _actualStartPrice = _data && _data.actualStart.adjClose;
         var _actualEndPrice = _data && _data.actualEnd.adjClose;
-        var _noRegressionEnd = _data && _avg[_avg.length -  1].price.toFixed(2);
-        var _regressionEnd = _data && _wgt[_wgt.length - 1].price.toFixed(2);
-        var _noRegrPct = _data && ((_noRegressionEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
-        var _regrPct = _data && ((_regressionEnd - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
         var _actualPct = _data && ((_actualEndPrice - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
-        var _actualPct2 = _data && ((_actualEndPrice - _actualStartPrice) / _actualStartPrice * 100).toFixed(2);
 
 
         // rolling
@@ -88,7 +83,7 @@ class RegressionPerformance extends Component {
                 {_data && "Regression stats for: " + this.props.symbol || "Regression performance loading..."}
                 {_data && <p>If you ran a regression on <b>{_data.actualStart.dateString}</b> (avg rating <b>{_data && _data.avgRatingsDaily[_data.avgRatingsDaily.length - 1].avg.toFixed(2)}</b>),
                     weighted rating (calculated via regression) would have been: <b>{_data && _data.wgtRatingsDaily[_data.wgtRatingsDaily.length - 1].weightedRating.toFixed(2)}</b>
-                    <br/>Based on rating changes from <b>{_data && _data.rCh[0].dateString}</b> to {<b>{_data && _data.rCh[_data.rCh.length - 1].dateString}</b>}.
+                    <br/>Based on rating changes from <b>{_data && _data.earliestRatingChangeDate}</b> to {<b>{_data && _data.latestRatingChangeDate}</b>}.
                     <br/>With <b>0.5</b> max downside, <b>0.5</b> max upside per day and <b>{this.state.rollingNum}</b> rolling num, the prices predicted would be as follows:
                     </p>}
                 {_data && <table>

@@ -1,4 +1,5 @@
-import { Component } from 'react';
+import React, { Component } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 
 class PortfolioPerformanceGraph extends Component {
 
@@ -86,3 +87,10 @@ class PortfolioPerformanceGraph extends Component {
         );
     }
 }
+
+export default withTracker(() => {
+
+    return {
+        currentUser: Meteor.user(),
+    }
+})(PortfolioPerformanceGraph);

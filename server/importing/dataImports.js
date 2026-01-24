@@ -1,24 +1,28 @@
+import { check, Match } from 'meteor/check';
 import moment from 'moment-timezone';
+import _ from 'underscore';
 
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
     removeDupRatingChange: function (ratingChangeId) {
-        if (Meteor.user() && Meteor.user().permissions && Meteor.user().permissions.dataImports) {
-            if (!_.contains(Meteor.user().permissions.dataImports, "canImportUpgradesDowngrades")) {
-                throw new Meteor.Error("no permission to import rating changes")
-            } else {
-                var _rCh = RatingChanges.findOne({_id: ratingChangeId});
-                if (_rCh) {
-                    var _newSymbol = _rCh.symbol + "_deleted";
-                    RatingChanges.update(
-                        {_id: ratingChangeId},
-                        {$set: {
-                            symbol: _newSymbol
-                        }}
-                    );
-                }
+        check(ratingChangeId, String);
+
+        const user = Meteor.user();
+        const dataImportPermissions = user?.permissions?.dataImports || [];
+        if (!_.contains(dataImportPermissions, "canImportUpgradesDowngrades")) {
+            throw new Meteor.Error("no permission to import rating changes")
+        } else {
+            var _rCh = RatingChanges.findOne({_id: ratingChangeId});
+            if (_rCh) {
+                var _newSymbol = _rCh.symbol + "_deleted";
+                RatingChanges.update(
+                    {_id: ratingChangeId},
+                    {$set: {
+                        symbol: _newSymbol
+                    }}
+                );
             }
         }
     },
@@ -123,9 +127,10 @@ Meteor.methods({
     },
 
         importData: function(importData, importType, scheduledDataPullFlag) {
+            check(importType, String);
             //run all the checks here
 
-            if (! Meteor.userId() && importType !== "earnings_releases") {
+            if (!Meteor.userId() && !['earnings_releases_new'].includes(importType)) {
                 throw new Meteor.Error("not-authorized");
             }
 
@@ -173,7 +178,6 @@ Meteor.methods({
                 var _numToImport = importData.length;
                 var _newlyImportedNum = 0;
                 var _alreadyExistingNum = 0;
-                var _checkForEarningsReleasesForTheseSymbols = [];
                 if (!Meteor.serverConstants.pullFromQuandEveryNDays) {
                     _result.serverConstantsNotOk = {
                         pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
@@ -181,10 +185,6 @@ Meteor.methods({
                 }
                 importData.forEach(function(importItem) {
                     var _universalSymbol = _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
-                    //check if symbol isn't already in  _checkForEarningsReleasesForTheseSymbols
-                    if (_checkForEarningsReleasesForTheseSymbols.indexOf(_universalSymbol) === -1) {
-                        _checkForEarningsReleasesForTheseSymbols.push(_universalSymbol);
-                    }
 
                     //first, check if that research company exists
                     var _researchCompany = ResearchCompanies.findOne({name: importItem.researchFirmString});
@@ -242,7 +242,7 @@ Meteor.methods({
                         } else if (_universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
                             // can insert
                             var _ratingChange = {
-                                date: new Date(importItem.dateString).toUTCString(),
+                                date: new Date(importItem.dateString),
                                 dateString: importItem.dateString,
                                 //dateValue: moment(importItem.dateString).valueOf(),
                                 researchFirmId: _researchCompanyId,
@@ -251,7 +251,7 @@ Meteor.methods({
                                 oldRatingId: _ratingScaleObjectForOld._id,
                                 private: true,
                                 addedBy: Meteor.userId(),
-                                addedOn: new Date().toUTCString(),
+                                addedOn: new Date(),
                                 source: importItem.source
                             };
                             // if used alternative research company, store the original research company name
@@ -334,10 +334,6 @@ Meteor.methods({
                     }
                 });
 
-                if (_checkForEarningsReleasesForTheseSymbols.length > 0) {
-                    Meteor.call("importData", _checkForEarningsReleasesForTheseSymbols, "earnings_releases", false);
-                }
-
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
                 _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
@@ -348,104 +344,133 @@ Meteor.methods({
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
 
                 Email.send({
-                    to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
-                    from: Settings.findOne().serverSettings.ratingsChanges.emailFrom,
+                    to: ServerUtils.getEmailTo(),
+                    from: ServerUtils.getEmailFrom(),
                     subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(_.uniq(_.pluck(importData, "dateString"))),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
             } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
-            } else if (importType === "earnings_releases") {
-                console.log("earnings_releases import function called with: ", importData);
-                var _earningsReleaseSymbolsRequested = [];
-
-                importData.forEach(function(importItem) {
-                    var _universalSymbol = _getUniversalSymbolFromEarningsReleaseSymbol(importItem);
-                    var _quandlSymbol = _getEarningsReleaseSymbolFromUniversalSymbol(importItem);
-
-                    if (_canPullAgainFromQuandl(_universalSymbol)) {
-                        _earningsReleaseSymbolsRequested.push(_universalSymbol);
-                        //TODO check if this earnings release already exists -- check for plus minus 5 days around it
-                        var _earningRelease = {
-                            symbol: _universalSymbol
-                        };
-
-
-                        var _url = StocksReactServerUtils.earningsReleases.getZeaUrl(_quandlSymbol);
-                        HTTP.get(_url, function (error, result) {
-                            if (!error && result) {
-                                //TODO check if earnings release data for that stock exists.
-                                //TODO should only have 1 record per symbol and expand it WITH NEW STUFF ONLY over time.
-                                var _resultColumnNames = result.data.dataset.column_names;
-                                var _newEarningsData = result.data.dataset.data[0];
-                                var _objectFromQuandlMyDbFormat = {};
-                                var _i = 0;
-                                _resultColumnNames.forEach(function (fieldName, index) {
-                                    var _convertedFieldName = _convertQuandlZEAfieldName(fieldName);
-                                    if (_convertedFieldName) {
-                                        _objectFromQuandlMyDbFormat[_convertedFieldName] = _newEarningsData[index];
-                                        _i++;
-                                    }
-                                });
-                                if (_i === 14) {
-                                    console.log("object from quandl: ", _objectFromQuandlMyDbFormat);
-                                    //now check if any of the existing earnings releases match this one we are trying to import
-
-                                    if (result.statusCode === 200) {
-                                        var _matchingEarningsReleaseId = _matchingEntryExistsInEarningsReleases(_universalSymbol, _objectFromQuandlMyDbFormat);
-                                        _.extend(_earningRelease, _objectFromQuandlMyDbFormat);
-                                        var _lastMod = {
-                                            lastModified: new Date().toUTCString(),
-                                            lastModifiedBy: Meteor.userId()
-                                        };
-                                        _.extend(_earningRelease, _lastMod);
-
-                                        if (!_matchingEarningsReleaseId) {
-                                            console.log("inserting into earningsReleases: ", _earningRelease);
-                                            EarningsReleases.insert(_earningRelease);
-                                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
-                                        } else {
-                                            var _previousAsOfField = EarningsReleases.findOne({_id: _matchingEarningsReleaseId}).asOf;
-                                            var _latestAsOfField = _objectFromQuandlMyDbFormat.asOf;
-                                            if (_previousAsOfField !== _latestAsOfField) {
-                                                EarningsReleases.update(
-                                                    {_id: _matchingEarningsReleaseId},
-                                                    {$set:
-                                                        _.extend({asOf: _objectFromQuandlMyDbFormat.asOf}, _lastMod)
-                                                    }
-                                                );
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    console.log("ERROR. _i is less than 14.");
-                                }
-                            } else {
-                                console.log("error while getting a response from Quandl. Symbol: ", _universalSymbol);
-                                var _err = {
-                                    message: (error.response.data && error.response.data.quandl_error.message) || (error.response.content && JSON.parse(error.response.content).quandl_error.message) || 'no error response',
-                                    asOf: moment(new Date().toISOString()).format("YYYY-MM-DD"),
-                                    symbol: _universalSymbol
-                                };
-                                QuandlDataPullErrors.insert(_err);
-                            }
-                        });
-                    }
-                });
+            } else if (importType === 'earnings_releases_new') {
+                const to = ServerUtils.getEmailTo();
 
                 if (scheduledDataPullFlag) {
                     Email.send({
-                        to: Settings.findOne().serverSettings.ratingsChanges.emailTo,
-                        from: Settings.findOne().serverSettings.ratingsChanges.emailTo,
-                        subject: 'DONE getting earnings releases',
+                        to: to,
+                        from: to,
+                        subject: 'getting earnings releases (new)',
                         text: JSON.stringify({
+                            hostname: Meteor.absoluteUrl(),
                             timeNow: new Date(),
-                            symbolsRequestedFromQuandl: _earningsReleaseSymbolsRequested
-                        })
+                        }),
                     });
                 };
 
+                let numMatching = 0;
+                let numInserted = 0;
+
+                const url = StocksReactServerUtils.earningsReleases.getAllEarningsReleasesUrl();
+                const expectedStatusCode = 200;
+                const expectedNumberOfColumns = 24;
+                const today = moment().format('YYYY-MM-DD');
+
+                try {
+                    const response = HTTP.get(url);
+                    if (response.statusCode !== expectedStatusCode) {
+                        throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
+                    }
+
+                    const columns = response.data.datatable.columns;
+                    if (columns.length !== expectedNumberOfColumns) {
+                        throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
+                    }
+                    columns.forEach(column => {
+                        column.name = column.name.toUpperCase();
+                    });
+
+                    const data = response.data.datatable.data;
+                    data.forEach((row, rowIndex) => {
+                        if (row.length !== expectedNumberOfColumns) {
+                            throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
+                        }
+
+                        let objectFromApi = {};
+                        columns.forEach((columnDefinition, columnDefinitionIndex) => {
+                            const columnName = columnDefinition.name;
+                            const columnType = columnDefinition.type;
+                            let rowData = row[columnDefinitionIndex];
+
+                            // get rid of dashes and convert to a number to match existing format
+                            if (columnType === 'Date' && rowData) {
+                                rowData = parseInt(rowData.replace(/-/g, ''));
+                            }
+
+                            objectFromApi[columnName] = rowData;
+                        });
+
+                        let earningsRelease = {};
+                        _.keys(objectFromApi).forEach(rawKey => {
+                            const dbKey = _convertQuandlZEAfieldName(rawKey);
+                            if (!dbKey) {
+                                throw new Meteor.Error(`unknown key: ${rawKey}`);
+                            } else {
+                                earningsRelease[dbKey] = objectFromApi[rawKey];
+                            }
+                        });
+
+                        // special cases
+                        if (!earningsRelease.asOf) earningsRelease.asOf = today;
+                        earningsRelease.symbol = _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
+
+                        // sanity checks
+                        if (!earningsRelease.asOf || !earningsRelease.symbol) {
+                            throw new Meteor.Error(`something went wrong: ${rowIndex}`);
+                        }
+
+                        const matchingIDs = getMatchingEarningsReleaseIDs(earningsRelease);
+                        const lastModified = new Date();
+                        if (matchingIDs.length) {
+                            // update asOf and lastModified fields
+                            matchingIDs.forEach(id => {
+                                EarningsReleases.update(id, {$set: {
+                                    asOf: earningsRelease.asOf,
+                                    lastModified,
+                                }});
+                                numMatching += 1;
+                            });
+                        } else {
+                            EarningsReleases.insert(_.extend({lastModified, insertedDate: lastModified}, earningsRelease));
+                            Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
+                            numInserted += 1;
+                        }
+                    });
+
+                    if (scheduledDataPullFlag) {
+                        Email.send({
+                            to: to,
+                            from: to,
+                            subject: 'DONE getting earnings releases (new)',
+                            text: JSON.stringify({
+                                timeNow: new Date(),
+                                totalNumRecordsFromTheAPI: data.length,
+                                numInserted, numMatching,
+                            }),
+                        });
+                    };
+                } catch (error) {
+                    const errorString = error.toString();
+                    if (scheduledDataPullFlag) {
+                        Email.send({
+                            to: to,
+                            from: to,
+                            subject: 'ERROR from getting earnings releases (new)',
+                            text: JSON.stringify({
+                                timeNow: new Date(), errorString,
+                            }),
+                        });
+                    }
+                }
             } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
@@ -540,6 +565,28 @@ Meteor.methods({
          PER_END_DATE_QRM3 : Period end date for the one year prior fiscal quarter (QR-3) (YYYYMMDD)
          endDateOneYearAgoFiscalQuarter
 
+         m_ticker: Zacks proprietary master ticker or trading symbol
+
+         ticker: Exchange ticker or trading symbol
+
+         comp_name: Zacks abbreviated company name
+
+         comp_name_2: Full proper company name
+
+         exchange: Exchange traded
+
+         currency_code: Currency code
+
+         street_mean_est_qr1: Zacks consensus estimated earnings per share (EPS) for the next fiscal quarter to be reported, calculated as the arithmetic mean of all individual sell-side EPS estimates, using the Zacks Street accounting methodology.
+
+         exp_rpt_date_fr2: Expected report date for the fiscal year after the next fiscal year to be reported (FR2)
+
+         late_last_desc: Late last description - Indicates whether the report is late and by how long. Values in this field will be one of the following for each record: "Not Late", "More than 3 days late", "More than 20 days late" or "Unknown".
+
+         source_desc: Indicates whether the expected report date comes from a company issued confirmation or from a Zacks mathematical algorithm. Values in this field will be one of the following for each record: "Company" or "Estimated". This field only applies to the next expected quarterly report date, EXP_RPT_DATE_QR1 column. Expected report dates for fiscal periods further out are considered "Estimated" if/until company confirmations are received for those dates
+
+         time_of_day_desc: Time of day description - Indicates the time of day when the earnings announcement is expected. Values in this field will be one of the following for each record: "After market close", "Before the open", "During market trading" or "Unknown"
+
          */
         var _fieldNameToReturn;
 
@@ -571,78 +618,43 @@ Meteor.methods({
             _fieldNameToReturn = "endDateOneYearAgoFiscalQuarter";
         } else if (zeaFieldName === "AS_OF") {
             _fieldNameToReturn = "asOf";
+        } else if (zeaFieldName === 'M_TICKER') {
+            return 'altSymbol';
+        } else if (zeaFieldName === 'TICKER') {
+            return 'symbol';
+        } else if (zeaFieldName === 'COMP_NAME') {
+            return 'companyName';
+        } else if (zeaFieldName === 'COMP_NAME_2') {
+            return 'altCompanyName';
+        } else if (zeaFieldName === 'EXCHANGE') {
+            return 'exchange';
+        } else if (zeaFieldName === 'CURRENCY_CODE') {
+            return 'currencyCode';
+        } else if (zeaFieldName === 'STREET_MEAN_EST_QR1') {
+            return 'streetMeanEstimateNextFiscalQuarter';
+        } else if (zeaFieldName === 'EXP_RPT_DATE_FR2') {
+            return 'reportDateNextNextFiscalYear';
+        } else if (zeaFieldName === 'LATE_LAST_DESC') {
+            return 'lateLastDescription';
+        } else if (zeaFieldName === 'SOURCE_DESC') {
+            return 'sourceDescription';
+        } else if (zeaFieldName === 'TIME_OF_DAY_DESC') {
+            return 'timeOfDayDescription';
         }
 
         return _fieldNameToReturn;
     }
 
-    function _matchingEntryExistsInEarningsReleases(_symbol, _objectFromQuandlMyDbFormat) {
-        var _matchingEarningReleaseId;
-        var _allExistingEarningsReleasesForSymbol = EarningsReleases.find({symbol: _symbol});
-        _allExistingEarningsReleasesForSymbol.forEach(function(existingRelease) {
-            var _allFieldsMatch = true;
-            for (var key in _objectFromQuandlMyDbFormat) {
-                if (key !== "asOf" && _objectFromQuandlMyDbFormat.hasOwnProperty(key) && (!existingRelease.hasOwnProperty(key) || _objectFromQuandlMyDbFormat[key] !== existingRelease[key])) {
-                    _allFieldsMatch = false;
-                    break;
-                }
-            }
-            if (_allFieldsMatch) {
-                _matchingEarningReleaseId = existingRelease._id;
-            }
-        })
-        return _matchingEarningReleaseId;
+    function getMatchingEarningsReleaseIDs(earningsRelease) {
+        const fieldsToOmit = [
+            'asOf',
+            'lastModified',
+            'lastModifiedBy',
+            'insertedDate',
+        ];
+        const query = _.omit(earningsRelease, fieldsToOmit);
+        return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
     }
-
-    function _canPullAgainFromQuandl(symbol) {
-        var _canPull = false;
-        var _canPullFromQuandlEveryNDaysIfPreviousPullWasError = Settings.findOne().serverSettings.quandl.canRepullFromQuandlEveryNDaysIfPreviousPullWasError;
-
-        var _canPullFromQuandlEveryNDays;
-        if (Meteor.serverConstants.pullFromQuandEveryNDays) {
-            _canPullFromQuandlEveryNDays = Meteor.serverConstants.pullFromQuandEveryNDays;
-        }
-
-        var _lastPullFromQuandl;
-        var _latestEarningsRelease = EarningsReleases.findOne({symbol: symbol}, {sort: {asOf: -1}});
-        if (_latestEarningsRelease) {
-            _lastPullFromQuandl = _latestEarningsRelease.asOf;
-        }
-        var _todaysDateInteger = parseInt(moment(new Date().toISOString()).format("YYYYMMDD"));
-
-        var _lastErrorFromQuandl = QuandlDataPullErrors.findOne({symbol: symbol}, {sort: {asOf: -1}});
-        var _lastErrorDateFromQuandl = _lastErrorFromQuandl && _lastErrorFromQuandl.asOf;
-        var _format = "YYYYMMDD";
-        var _days = "days";
-
-
-        var _lastPullDoesNotExist = !_lastPullFromQuandl;
-        var _lastPullExistsAndAboutTimeToRepull = _lastPullFromQuandl &&
-            _canPullFromQuandlEveryNDays &&
-            (parseInt(moment(new Date(_lastPullFromQuandl)).add(_canPullFromQuandlEveryNDays + 1, _days).format(_format)) <= _todaysDateInteger);
-
-
-        if (_lastPullDoesNotExist || _lastPullExistsAndAboutTimeToRepull ) {
-            //great. this means that can pull again based on previous pull history
-
-            var _previousErrorDoesNotExist = !_lastErrorDateFromQuandl;
-            var _previousErrorExistsAndItsAboutTimeToRetry = _lastErrorDateFromQuandl && parseInt(moment(new Date(_lastErrorDateFromQuandl)).add(_canPullFromQuandlEveryNDaysIfPreviousPullWasError + 1, _days).format(_format)) <= _todaysDateInteger;
-            //now make sure that there were no latest error that would prevent us from pulling again
-            if (_previousErrorDoesNotExist || _previousErrorExistsAndItsAboutTimeToRetry) {_canPull = true;}
-        }
-
-        return _canPull;
-    };
-
-    function _getEarningsReleaseSymbolFromUniversalSymbol(universalSymbol) {
-        var _query = {from: 'earnings_release', universalSymbolStr: universalSymbol};
-
-        if (SymbolMappings.find(_query).count() === 1) {
-            return SymbolMappings.findOne(_query).symbolStr;
-        } else {
-            return universalSymbol;
-        }
-    };
 
     function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
         var _query = {

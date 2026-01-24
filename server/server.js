@@ -1,6 +1,26 @@
+import { Meteor } from 'meteor/meteor';
 import moment from 'moment-timezone';
+import _ from 'underscore';
+import { check, Match } from 'meteor/check';
+import { EJSON } from 'meteor/ejson';
+const momentBiz = require('moment-business-days');
 
 var _maxStocksAllowedPerUnregisteredUser = 5;
+
+const dateStringSortDesc = {dateString: -1};
+const researchFirmIDsToExclude = [
+    'vt29AuAATaAu7r3rS',
+    'TMbx3pyYK8gSqH3W6',
+];
+const YYYYMMDD = 'YYYYMMDD';
+const YYYY_MM_DD = 'YYYY-MM-DD';
+const ADJ_CLOSE = 'adjClose';
+const getRatingChangesQuery = () => {
+    return {
+        researchFirmId: {$nin: researchFirmIDsToExclude},
+        dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+    };
+};
 
 function getPortfolioPricesWiki(datesAndSymbolsMap) {
     // todo: LIMIT COLUMNS requested
@@ -154,14 +174,172 @@ function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
 };
 
 Meteor.methods({
+    getLatestRatingChanges() {
+        console.log('getLatestRatingChanges');
+        const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
+            sort: dateStringSortDesc,
+            limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
+        }).fetch();
+
+        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
+    getLatestRatingChangesForSymbol(symbol) {
+        check(symbol, String);
+
+        const ratingChanges = RatingChanges.find(_.extend(getRatingChangesQuery(), {
+            symbol: symbol,
+        }), {
+            sort: dateStringSortDesc,
+            limit: StocksReactServerUtils.ratingsChangesLimitSymbol(),
+        }).fetch();
+
+        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+    },
+
+    getRatingChangeMetadata() {
+        return {
+            numChanges: RatingChanges.find().count(),
+            numFirms: ResearchCompanies.find().count(),
+        };
+    },
+
+    ratingChangesForSymbol(options) {
+        check(options, {
+            symbol: String,
+            startDate: String,
+            endDate: String,
+        });
+        const {symbol, startDate, endDate} =  options;
+        console.log('calling ratingChangesForSymbol', options);
+
+        let query = {
+            symbol,
+            $and: [
+                {dateString: {$gte: startDate, $lte: endDate}},
+            ],
+        };
+        if (!Permissions.isPremium()) {
+            const lookback = Utils.getSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
+            const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
+
+            query.$and.push({
+                dateString: {$gte: noUserStartDate},
+            });
+        }
+
+        return RatingChanges.find(query, {
+            fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1},
+            sort: {dateString: 1},
+        }).fetch();
+    },
+
     getPricesForSymbol: function (symbol) {
+        check(symbol, String);
         var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
         return _prices;
     },
 
     getEarliestRatingChange: function (symbol) {
-        var _r = RatingChanges.findOne({symbol: symbol}, {sort: {dateString: 1}});
-        return _r && _r.dateString;
+        check(symbol, String);
+
+        const r = RatingChanges.findOne({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
+        return r?.dateString;
+    },
+
+    getUpcomingEarningsReleases(options) {
+        check(options, {
+            startDate: Number,
+            endDate: Number,
+            companyConfirmedOnly: Match.Maybe(Boolean),
+            sortDirection: Match.Maybe(String),
+            withRatingChangesCounts: Match.Maybe(Boolean),
+            symbols: Match.Maybe([String]),
+        });
+        console.log('getUpcomingEarningsReleases', options);
+        const {
+            startDate,
+            endDate,
+            companyConfirmedOnly,
+            sortDirection,
+            withRatingChangesCounts,
+            symbols,
+        } = options;
+
+        const query = {
+            $and: [
+                {
+                    // make sure to only ever look forward
+                    reportDateNextFiscalQuarter: {
+                        $gte: +StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
+                    }
+                },
+                {
+                    reportDateNextFiscalQuarter: {
+                        $gte: startDate, $lte: endDate,
+                    },
+                },
+                {
+                    currencyCode: {$nin: ['CND']},
+                },
+                {
+                    // exclude toronto
+                    symbol: {$not: new RegExp('^T\\.')},
+                },
+            ],
+            ...(companyConfirmedOnly ? {reportSourceFlag: 1} : {}),
+        };
+
+        if (!_.isEmpty(symbols)) {
+            query.$and.push({
+                symbol: {$in: symbols},
+            });
+        }
+
+        const earningsReleases = EarningsReleases.find(
+            query,
+            {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
+        ).fetch();
+
+        if (withRatingChangesCounts) {
+            const symbols = _.uniq(_.pluck(earningsReleases, 'symbol'));
+
+            const counts = Object.fromEntries(Promise.await(RatingChanges.rawCollection().aggregate([
+                {$match: {symbol: {$in: symbols}}},
+                {$group : {_id: '$symbol', count: {$sum: 1}}},
+            ]).toArray()).map(({_id, count}) => [_id, count]));
+            earningsReleases.forEach(e => {
+                e.countRatingChanges = counts[e.symbol];
+            });
+        }
+
+        const timeOfDayMap = {
+            1: 'After market close',
+            2: 'Before the open',
+            3: 'During market trading',
+            4: 'Unknown',
+        };
+
+        if (sortDirection === 'ascReportDate') {
+            const sorted = _.sortBy(earningsReleases, (e) => {
+                // see _convertQuandlZEAfieldName for more info
+                return e.reportDateNextFiscalQuarter * 10 + (e.reportTimeOfDayCode === 2 ? 1 : e.reportTimeOfDayCode === 3 ? 2 : e.reportTimeOfDayCode === 1 ? 3 : 4 );
+            });
+            let currentTimePeriodIndex = -1;
+            let lastFullDescription;
+            sorted.forEach((e) => {
+                const timeOfDay = timeOfDayMap[e.reportTimeOfDayCode];
+                e.fullTimeOfDayDescription = `${e.reportDateNextFiscalQuarter}, ${timeOfDay}`;
+                if (e.fullTimeOfDayDescription !== lastFullDescription) {
+                    lastFullDescription = e.fullTimeOfDayDescription;
+                    currentTimePeriodIndex += 1;
+                }
+                e.index = currentTimePeriodIndex;
+            });
+            return sorted;
+        }
+
+        return earningsReleases;
     },
 
     getPricesFromApi: function (datesAndSymbolsMap) {
@@ -246,6 +424,10 @@ Meteor.methods({
     },
 
     getRegressionPerformance: function (symbol, maxRatingChangeDate, priceCheckDate) {
+        check(symbol, String);
+        check(maxRatingChangeDate, String);
+        check(priceCheckDate, String);
+        console.log('getRegressionPerformance', symbol, maxRatingChangeDate, priceCheckDate);
 
         // step 1. get all rating changes for symbol up to maxRatingChangeDate
         var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
@@ -259,9 +441,10 @@ Meteor.methods({
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
-        var _availablePricesEnd = _pricesForRegr[_pricesForRegr.length - 1].dateString;
+        var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
-            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd);
+            const ratingChanges = RatingChanges.find({symbol}).fetch();
+            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
             var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
 
             var _priceReactionDelayInDays = 0;
@@ -282,29 +465,15 @@ Meteor.methods({
             console.log("length 1: ", _futurePrices.length);
 
             // step 6. make sure all the needed future prices are in the db
-            if (_futurePrices[0].dateString !== _regrEnd || _futurePrices[_futurePrices.length - 1].dateString !== priceCheckDate) {
+            if (_futurePrices[0].dateString !== _regrEnd || _.last(_futurePrices).dateString !== priceCheckDate) {
                 throw new Meteor.Error("make sure there are prices for " + symbol + " from " + _regrEnd + " to " + priceCheckDate);
             }
 
             // step 7.1: project last item in _avgRatingsSeriesEveryDay to all future prices
-            var _lastAvg = _avgRatingsSeriesEveryDay[_avgRatingsSeriesEveryDay.length - 1];
-            var _futureAvgProjection = _.map(_futurePrices, function (p) {
-                return {date: p.date, rating: _lastAvg.avg, dateString: p.dateString};
-            });
-
-            // step 7.2: get predictions based on projected future avg ratings.
-            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureAvgProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+            var _lastAvg = _.last(_avgRatingsSeriesEveryDay);
 
             // step 8.1: project last item in _weightedRatingsSeriesEveryDay to all future prices
-            var _lastWgt = _weightedRatingsSeriesEveryDay[_weightedRatingsSeriesEveryDay.length - 1];
-            var _futureWgtProjection = _.map(_futurePrices, function (p) {
-                return {date: p.date, rating: _lastWgt.weightedRating, dateString: p.dateString};
-            });
-
-            // step 8.2: get predictions based on projected future wgt ratings.
-            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
-                _futureWgtProjection, _futurePrices, "adjClose", false, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+            var _lastWgt = _.last(_weightedRatingsSeriesEveryDay);
 
             // figure out the same but if predictions were based on the entire date range (regr + future)
             // step 5*. get all prices
@@ -312,7 +481,7 @@ Meteor.methods({
             console.log("length 2: ", _regrAndFuturePrices.length);
 
             // step 6*. make sure have all the needed prices
-            if (_regrAndFuturePrices[0].dateString !== _regrStart || _regrAndFuturePrices[_regrAndFuturePrices.length - 1].dateString !== priceCheckDate) {
+            if (_regrAndFuturePrices[0].dateString !== _regrStart || _.last(_regrAndFuturePrices).dateString !== priceCheckDate) {
                 throw new Meteor.Error("make sure there are prices for " + symbol + " from " + _regrStart + " to " + priceCheckDate);
             }
 
@@ -367,13 +536,12 @@ Meteor.methods({
                 avgRatingsExtended: _regrAndFutureAvgRatingsEveryDay,
                 wgtRatingsExtended: _regrAndFutureWgtRatingsEveryDay,
                 px: _regrAndFuturePrices,
-                avg: _predictionsBasedOnAvgRatings,
-                wgt: _predictionsBasedOnWeightedRatings,
                 altAvg: _predictOnAvgRegrAndFut,
                 altWgt: _predictOnWgtRegrAndFut,
-                actualStart: _futurePrices[0],
-                actualEnd: _futurePrices[_futurePrices.length - 1],
-                rCh: _ratingChangesForRegr,
+                actualStart: _.first(_futurePrices),
+                actualEnd: _.last(_futurePrices),
+                earliestRatingChangeDate: _ratingChangesForRegr[0]?.dateString,
+                latestRatingChangeDate: _.last(_ratingChangesForRegr)?.dateString,
                 avgRatingsDaily: _avgRatingsSeriesEveryDay,
                 wgtRatingsDaily: _weightedRatingsSeriesEveryDay,
                 rollingRegrStart: _rollingPx,
@@ -386,8 +554,551 @@ Meteor.methods({
         }
     },
 
+    generatePrediction(options) {
+        check(options, {
+            symbol: String,
+            startDate: Match.Maybe(String),
+            endDate: String,
+            priceReactionDelayDays: Match.Maybe(Number),
+            showAvgRatings: Match.Maybe(Boolean),
+            showWeightedRating: Match.Maybe(Boolean),
+            pctDownPerDay: Match.Maybe(Number),
+            pctUpPerDay: Match.Maybe(Number),
+            stepSizePow: Match.Maybe(Number),
+            regrIterNum: Match.Maybe(Number),
+            pxRollingDays: Match.Maybe(Number),
+        });
+
+        let {
+            symbol,
+            startDate,
+            endDate,
+            priceReactionDelayDays = 0,
+            showAvgRatings = true,
+            showWeightedRating = true,
+            pctDownPerDay = 0.5,
+            pctUpPerDay = 0.5,
+            stepSizePow = -7,
+            regrIterNum = 30,
+            pxRollingDays = 50,
+        } = options;
+
+        if (!Permissions.isPremium()) {
+            throw new Meteor.Error('you do not have access');
+        }
+
+        const allStockPrices = Meteor.call('getPricesForSymbol', symbol);
+
+        if (!startDate) {
+            startDate = Meteor.call('getEarliestRatingChange', symbol);
+        }
+
+        const simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(
+            allStockPrices,
+            startDate,
+            pxRollingDays
+        );
+
+        const pricesReady = allStockPrices?.[0].symbol === symbol;
+        if (!pricesReady) {
+            return {};
+        }
+        let _data = {};
+        let _settings = Settings.findOne();
+        if (!_settings || !startDate) {
+            return {};
+        }
+
+        const rC = Meteor.call('ratingChangesForSymbol', {symbol, startDate, endDate});
+        if (_.isEmpty(rC)) {
+            throw new Meteor.Error(`there are no rating changes ${symbol} ${startDate} ${endDate}`);
+        }
+
+        var _pricesWithNoAdjClose = _.filter(allStockPrices, function (price) { return !price[ADJ_CLOSE];})
+        if (_pricesWithNoAdjClose.length > 0) {
+            console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
+        }
+
+        const relevantPrices = StocksReactUtils.stockPrices.getPricesBetween(allStockPrices, startDate, endDate);
+        let result = {
+            symbol,
+            historicalData: relevantPrices,
+        };
+        _data.stockPrices = relevantPrices;
+
+        _data.stocksToGraphObjs = [];
+        var _startDate = startDate;
+        var _endDate = endDate;
+        var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
+        //TODO: start date and end date for regression are coming from a different date picker
+        var _startDateForRegression = _startDate;
+        var _endDateForRegression = _endDate;
+        if (result && relevantPrices) {
+            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
+                _averageAnalystRatingSeries,
+                relevantPrices
+            );
+            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
+                _avgRatingsSeriesEveryDay,
+                _startDateForRegression,
+                _endDateForRegression,
+                relevantPrices,
+                priceReactionDelayDays,
+                ADJ_CLOSE,
+                pctDownPerDay,
+                pctUpPerDay,
+                Math.pow(10, stepSizePow),
+                regrIterNum
+            );
+            _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
+            _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
+            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+                return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
+            }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+                return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
+            }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
+
+            var _objToGraph = result;
+            if (showAvgRatings && showWeightedRating) {
+                _objToGraph = _.extend(_objToGraph, {
+                    avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                    weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
+                    predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings,
+                    predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
+                })
+            } else if (showAvgRatings) {
+                _objToGraph = _.extend(_objToGraph, {
+                    avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+                    predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
+                })
+            } else if (showWeightedRating) {
+                _objToGraph = _.extend(_objToGraph, {
+                    weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
+                    predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings
+                })
+            }
+
+            _data.stocksToGraphObjs = [JSON.parse(JSON.stringify(_objToGraph))];
+        }
+
+        const _allEarningsReleasesForSymbol = Meteor.call('getUpcomingEarningsReleases', {
+            startDate: Utils.convertToNumberDate(startDate),
+            endDate: Utils.convertToNumberDate(endDate),
+            companyConfirmedOnly: true, symbols: [symbol],
+        });
+
+        _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
+        _data.ratingChanges = rC;
+        _data.ratingScales = StocksReactUtils.ratingChanges.getRatingScalesForRatingChanges(rC);
+        _data.earningsReleases = _allEarningsReleasesForSymbol;
+        _data.allGraphData = _.extend(result, {
+            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
+            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
+        });
+
+        return _data;
+    },
+
+    getEarningsAnalysis(options) {
+        check(options, {
+            startDate: String,
+            endDate: String,
+            saleDelayInDays: Match.Maybe(Number),
+            saleDelayInDaysFinal: Match.Maybe(Number),
+            ratingChangesDelayInDays: Match.Maybe(Number),
+            ratingChangesLookbackInDays: Match.Maybe(Number),
+            isForecast: Match.Maybe(Boolean),
+            advancePurchaseDays: Match.Maybe(Number),
+            symbol: Match.Optional(String),
+            isRecursive: Match.Optional(Boolean),
+            includeHistory: Match.Optional(Boolean),
+            bizDaysLookbackForHistory: Match.Optional(Number),
+        });
+
+        if (!Permissions.isPremium()) {
+            throw new Meteor.Error('you do not have access');
+        }
+
+        const {
+            startDate,
+            endDate,
+            saleDelayInDays = 5,
+            saleDelayInDaysFinal = 10,
+            ratingChangesDelayInDays = 5,
+            ratingChangesLookbackInDays = 750,
+            isForecast = false,
+            advancePurchaseDays = 0,
+            symbol,
+            isRecursive = false,
+            includeHistory = false,
+            bizDaysLookbackForHistory = 500,
+        } = options;
+
+        console.log('getEarningsAnalysis', {
+            startDate,
+            endDate,
+            saleDelayInDays,
+            saleDelayInDaysFinal,
+            ratingChangesDelayInDays,
+            ratingChangesLookbackInDays,
+            isForecast,
+            advancePurchaseDays,
+            symbol,
+            isRecursive,
+            includeHistory,
+            bizDaysLookbackForHistory,
+        });
+
+        if (symbol && isRecursive) {
+            const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, true);
+            const lastReportDate = _.last(reportDates);
+            return reportDates.map(reportDate => {
+                const dateString = Utils.convertToStringDate(reportDate);
+                const isLastReportDate = reportDate === lastReportDate;
+                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                    isRecursive: false,
+                    startDate: dateString,
+                    endDate: dateString,
+                    isForecast: isForecast && isLastReportDate,
+                }));
+            }).flat();
+        }
+
+        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
+
+        const expectedReleasesQuery = {
+            epsMeanEstimateNextFiscalQuarter: {$nin: [
+                null,
+            ]},
+            reportDateNextFiscalQuarter: {
+                $gte: Utils.convertToNumberDate(startDate),
+                $lte: Utils.convertToNumberDate(endDate),
+            },
+            reportSourceFlag: 1,
+            asOf: {
+                // allow 1 more day, because legacy earnings releases do not have
+                // `insertedDate` and their `asOf` gets moved to the next
+                // day right after release if latest release isn't in the API yet
+                $lte: moment(endDate).add(1, 'days').format(YYYY_MM_DD),
+            },
+
+            currencyCode: {$nin: ['CND']},
+
+            exchange: {$nin: [
+                'NASDAQ Other OTC',
+            ]},
+        };
+        if (symbol) {
+            expectedReleasesQuery.symbol = symbol;
+        }
+        if (isForecast) {
+            expectedReleasesQuery.$or = [
+                {
+                    reportDateNextFiscalQuarter: Utils.convertToNumberDate(startDate),
+                    // after market close
+                    reportTimeOfDayCode: {$in: [
+                        1,
+                    ]},
+                },
+                {
+                    reportDateNextFiscalQuarter: Utils.convertToNumberDate(endDate),
+                    // before or during open
+                    reportTimeOfDayCode: {$in: [
+                        2,
+                        3,
+                    ]},
+                },
+            ];
+        }
+        if (advancePurchaseDays) {
+            // expectedReleasesQuery.insertedDate = {
+            //     $lte: momentBiz(startDate).businessAdd(-advancePurchaseDays).toDate(),
+            // };
+        }
+
+        // these are the expected earnings releases within the requested date range
+        const expectedEarningsReleases = EarningsReleases.find(
+            expectedReleasesQuery,
+            {
+                sort: {asOf: -1},
+            }
+        ).fetch();
+
+        if (expectedEarningsReleases.length === 0) {
+            if (symbol) {
+                console.log('cannot find expected release for', symbol);
+            }
+            return [];
+        }
+
+        console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
+
+        if (includeHistory) {
+            const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
+            return symbols.map(symbol => {
+                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                    startDate: momentBiz(startDate).businessAdd(-bizDaysLookbackForHistory).format(YYYY_MM_DD),
+                    isRecursive: true,
+                    symbol,
+                    includeHistory: false,
+                }))
+            }).flat();
+        }
+
+        const expectedMap = new Map();
+        const uniqueExpectedEarningsReleases = expectedEarningsReleases.filter(e => {
+            const {
+                symbol,
+                asOf,
+                reportDateNextFiscalQuarter,
+            } = e;
+
+            if (expectedMap.has(symbol)) {
+                return false;
+            }
+
+            // see note above in `expectedReleasesQuery` for why `subtract` is needed
+            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(1, 'days').format(YYYY_MM_DD));
+            if (asOfFormatted <= reportDateNextFiscalQuarter) {
+                expectedMap.set(symbol, e);
+                return true;
+            }
+        });
+        if (uniqueExpectedEarningsReleases.length === 0) {
+            // todo: address this
+            console.log('NO uniqueExpectedEarningsReleases', expectedEarningsReleases);
+            return [];
+        }
+
+        const actualReleasesQuery = {
+            $or: uniqueExpectedEarningsReleases.map(e => {
+                const {
+                    /**
+                     * the endDateNextFiscalQuarter of the expected earnings release maps to the endDatePreviousFiscalQuarter
+                     * of the actual release
+                     */
+                    endDateNextFiscalQuarter: endDatePreviousFiscalQuarter,
+                    symbol,
+                    /**
+                     * the asOf date of the actual release should be after the expected release date
+                     */
+                    reportDateNextFiscalQuarter: minAsOfDate,
+                } = e;
+
+                return {
+                    symbol,
+                    endDatePreviousFiscalQuarter,
+                    asOf: {$gt: Utils.convertToStringDate(minAsOfDate)},
+                };
+            }),
+        };
+        const actualEarningsReleases = EarningsReleases.find(
+            actualReleasesQuery,
+            {
+                sort: {asOf: 1},
+                ...(symbol && {limit: 1}),
+            }
+        ).fetch();
+        const actualMap = new Map();
+        const uniqueActualEarningsReleases = actualEarningsReleases.filter(e => {
+            const {
+                symbol,
+            } = e;
+            if (actualMap.has(symbol)) {
+                return;
+            }
+            actualMap.set(symbol, e);
+            return true;
+        });
+
+        const expectedSymbols = _.pluck(uniqueExpectedEarningsReleases, 'symbol');
+        const actualSymbols = _.pluck(uniqueActualEarningsReleases, 'symbol');
+        console.log('cannot find a corresponding earnings release for expected: ', _.difference(expectedSymbols, actualSymbols));
+
+        const results = [];
+
+        const getRateOfChange = (exp, act) => {
+            if (_.isNumber(exp) && _.isNumber(act)) {
+                if (exp === act) {
+                    return 0;
+                }
+                if (act === 0) {
+                    return exp / Math.abs(exp);
+                }
+                const diff = exp - act;
+                return diff / Math.abs(act);
+            }
+        };
+
+        (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases).forEach(e => {
+            const {
+                symbol,
+            } = e;
+
+            const expectedE = expectedMap.get(symbol);
+            const actualE = actualMap.get(symbol);
+
+            expectedE.adjustForSplits();
+            if (actualE) {
+                actualE.adjustForSplits();
+            }
+
+            const actualEps = actualE?.epsActualPreviousFiscalQuarter;
+
+            const reportDate = expectedE.reportDateNextFiscalQuarter;
+
+            const expectedAsOf = expectedE.asOf;
+            const {
+                reportTimeOfDayCode,
+                timeOfDayDescription,
+                insertedDate,
+                epsMeanEstimateNextFiscalQuarter: expectedEps,
+                epsActualPreviousFiscalQuarter,
+                epsActualOneYearAgoFiscalQuarter,
+                endDateNextFiscalQuarter,
+            } = expectedE;
+
+            const firstEverExpectation = EarningsReleases.findOne(
+                {
+                    symbol,
+                    endDateNextFiscalQuarter,
+                },
+                {
+                    sort: {asOf: 1},
+                    fields: {
+                        epsMeanEstimateNextFiscalQuarter: 1,
+                        asOf: 1,
+                        insertedDate: 1,
+                        symbol: 1,
+                    },
+                }
+            );
+            firstEverExpectation.adjustForSplits();
+            const {
+                epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
+                asOf: originalAsOfExpectation,
+            } = firstEverExpectation;
+
+            const isAfterMarketClose = reportTimeOfDayCode === 1;
+            // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
+            const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays);
+            const saleDate1 = expectedE.getSaleDate(0);
+            const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
+            const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
+
+            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
+            const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
+            const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
+            const salePrice3 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
+
+            const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
+            const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
+            const ratingChanges = ServerUtils.getLatestRatings(
+                symbol,
+                ratingChangesEarliestDate,
+                // todo: if isForecast is true, ignore the ratingChangesCutoffDate
+                ratingChangesCutoffDate,
+                validRatingScaleIDsMap,
+            );
+            const sumOfDatesMs = Utils.sum(
+                ratingChanges.map(r => moment(r.dateString).valueOf())
+            );
+            const averageRatingChangeDate = moment(sumOfDatesMs / ratingChanges.length).format(YYYY_MM_DD);
+            const ratings = ratingChanges.map(rc => validRatingScaleIDsMap.get(rc.newRatingId));
+            const avgRating = Utils.avg(ratings);
+
+            const altRatingsWithAdjRatings = ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
+            const altAvgRatingWithAdjRatings = Utils.avg(altRatingsWithAdjRatings);
+
+            let numRecentUpgrades;
+            let numRecentDowngrades;
+            let priorSaleDate;
+            let priorSalePrice;
+            const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
+            if (priorConfirmedRelease) {
+                const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
+                priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
+                priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
+                const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
+                const ratingChangesSinceLastEarningsRelease = ServerUtils.getLatestRatings(
+                    symbol,
+                    newRatingChangesStartDate,
+                    ratingChangesCutoffDate
+                );
+                numRecentUpgrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isUpgrade(rc)).length;
+                numRecentDowngrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isDowngrade(rc)).length;
+            }
+
+            const data = {
+                insertedDate,
+                symbol,
+                expectedEps,
+                actualEps,
+                reportDate,
+                expectedAsOf,
+                timeOfDayDescription,
+                endDateNextFiscalQuarter,
+                originalEpsExpectation,
+                pctExpEpsOverOriginalEpsExpectation: getRateOfChange(expectedEps, originalEpsExpectation),
+                originalAsOfExpectation,
+
+                isAfterMarketClose,
+                purchaseDate,
+                saleDate1,
+                saleDate2,
+                saleDate3,
+                priorSaleDate,
+                ratingChangesCutoffDate,
+                avgRating,
+                numRatings: ratings.length,
+                numRecentDowngrades,
+                numRecentUpgrades,
+                averageRatingChangeDate,
+                altAvgRatingWithAdjRatings,
+
+                epsActualPreviousFiscalQuarter,
+                pctExpEpsOverPrevQt: getRateOfChange(expectedEps, epsActualPreviousFiscalQuarter),
+                epsActualOneYearAgoFiscalQuarter,
+                pctExpEpsOverOneYearAgo: getRateOfChange(expectedEps, epsActualOneYearAgoFiscalQuarter),
+
+                purchasePrice,
+                salePrice1,
+                salePrice2,
+                salePrice3,
+                priorSalePrice,
+            };
+            results.push(data);
+        });
+
+        return results;
+    },
+
+    portfolioItems: function (portfolioIds, startStr, endStr) {
+        check(portfolioIds, [String]);
+        check(startStr, String);
+        check(endStr, String);
+
+        return PortfolioItems.find({
+            $or: [
+                {
+                    weight: {$exists: false},
+                }, {
+                    weight: {$exists: true, $gt: 0},
+                },
+            ],
+            portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
+        }, {
+            sort: {dateString: 1}
+        }).fetch();
+    },
+
     getDefaultPerformanceDatesFor: function(portfolioId) {
-        var _p = Portfolios.findOne(portfolioId);
+        check(portfolioId, String);
+
+        var _p = Portfolios.findOne({_id: portfolioId});
         var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});
         var _minDateStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: 1}}).dateString : "";
         var _maxDatrStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: -1}}).dateString : "";
@@ -395,7 +1106,7 @@ Meteor.methods({
         if (_p.rolling && pItemsExist) {
             _minDateStr = moment(_minDateStr).tz("America/New_York").add(_p.lookback / 5 * 7, "days").format("YYYY-MM-DD");
         }
-        
+
         // a case for combined portfolios (i.e., portfolios consisting of a screen by multiple criteria)
         if (_p.criteria) {
             var _ratingScaleIds = [];
@@ -449,53 +1160,7 @@ Meteor.methods({
         };
     },
 
-    ensureRatingChangesSymbolsDefinedInStocksCollection: function () {
-        var _uniqRatingChangesSymbols = _.uniq(_.pluck(RatingChanges.find({}, {fields: {symbol: 1}}).fetch(), "symbol"));
-
-        // make sure that all these unique symbols in RatingChanges collection exist in Stocks collection
-        var _uniqStocks = _.uniq(_.pluck(Stocks.find({}, {fields: {_id: 1}}).fetch(), "_id"));
-
-        var _symbolsNotInStocksCollection = _.difference(_uniqRatingChangesSymbols, _uniqStocks);
-
-        var _thisArrShouldBeEmpty = [];
-        _.each(_symbolsNotInStocksCollection, function (symbol) {
-            // look up each symbol in symbol mapping collection. if it's not there with "rating_changes" flag, then
-            // push to _thisArrShouldBeEmpty
-
-            var _symbolMapping = SymbolMappings.findOne({
-                "symbolStr" : symbol,
-                "from" : "rating_change"
-            });
-            if (_symbolMapping) {
-                // do nothing
-            } else {
-                _thisArrShouldBeEmpty.push({
-                    symbol: symbol,
-                    ratingChangesDates: _.pluck(RatingChanges.find({symbol: symbol}, {fields: {dateString: 1}}).fetch(), "dateString")
-                });
-            }
-        });
-
-        return _thisArrShouldBeEmpty;
-    }
-
-    , getRatingChangeHistoryForSymbolAndFirm(symbol, firmName) {
-        var _firm = ResearchCompanies.find({name: firmName}).fetch();
-        if (_firm.length === 1) {
-            var _firmId = _firm[0]._id;
-            var _ratingChanges = RatingChanges.find({symbol: symbol, researchFirmId: _firmId}, {sort: {dateString: 1}}).fetch();
-            _.each(_ratingChanges, function (rCh) {
-                console.log("date: ", rCh.dateString);
-                console.log("old: ", RatingScales.findOne(rCh.oldRatingId).universalScaleValue);
-                console.log("new: ", RatingScales.findOne(rCh.newRatingId).universalScaleValue);
-                console.log("--------------------------------------");
-            })
-        } else {
-            console.log("cannot find the needed firm: ", _firm);
-        }
-    }
-    
-    , insertNewRollingPortfolioItem: function (obj) {
+    insertNewRollingPortfolioItem: function (obj) {
         // check that the symbol exists
         var _p = Portfolios.findOne(obj.portfolioId);
         if (!_p || !_p.rolling) {
@@ -534,173 +1199,133 @@ Meteor.methods({
             }
         }
     }
-})
+});
 
-// inner futures link: http://stackoverflow.com/questions/25940806/meteor-synchronizing-multiple-async-queries-before-returning
+Accounts.onCreateUser(function(options, user) {
+    var _createdUser;
+    if (options.registered === undefined) {
+        _createdUser = _.extend(user, {registered: false});
+    } else {
+        _createdUser = _.extend(user, {registered: options.registered});
+    }
 
-if (Meteor.isServer) {
-    Meteor.publish("earningsReleases", function (startDate, endDate, companyConfirmedOnly) {
-        console.log("inside earningsReleases publication")
+    //set premium to false no matter what
+    _createdUser.premium = false;
+    _createdUser.permissions = {};
+    _createdUser.showDataImportsTab = false;
 
-        var _query = {
-            reportDateNextFiscalQuarter: {
-                $gte: startDate, $lte: endDate,
-            }
-        };
+    return _createdUser;
+});
 
-        if (companyConfirmedOnly) {
-            _query = _.extend(_query, {
-                reportSourceFlag: 1
-            });
-        };
+Meteor.methods({
 
-        var _allEarningsReleases = EarningsReleases.find(_query, {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}});
+    registerRealAccountFromDummy: function(newUsername, newPassword) {
+        check(newUsername, String);
+        check(newPassword, String);
 
-        return _allEarningsReleases;
-    });
-
-    Meteor.publish("portfolios", function() {
-        if (this.userId) {
-            // TODO: add logic here to also return portfolios that you have either view or edit access in PortfolioPermissions collection
-            //portfolios that are either public or the user is owner
-            return Portfolios.find(
-                { $or: [ {private: false}, {ownerId: this.userId} ] },
-                {fields: {_id: 1, name: 1, researchFirmId: 1, ownerId: 1, private: 1}}
-                );
-        } else {
-            return Portfolios.find({private: false}, {fields: {_id: 1, name: 1}});
-        }
-    });
-
-    Meteor.publish(null, function() {
-        var _user = this.userId ? Meteor.users.find({_id: this.userId}, {fields: {_id: 1, username: 1, individualStocksAccess: 1, registered: 1, lastModified: 1, showDataImportsTab: 1}}) : null;
-        return _user;
-    });
-
-    Accounts.onCreateUser(function(options, user) {
-        var _createdUser;
-        if (options.registered === undefined) {
-            _createdUser = _.extend(user, {registered: false});
-        } else {
-            _createdUser = _.extend(user, {registered: options.registered});
+        var dummyUserId = Meteor.userId();
+        Accounts.setUsername(dummyUserId, newUsername);
+        Accounts.setPassword(dummyUserId, newPassword);
+        Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
+        return {username: newUsername, password: newPassword};
+    },
+    createNewPortfolio: function (name) {
+        // Make sure the user is logged in before inserting a portfolio
+        if (! Meteor.userId()) {
+            throw new Meteor.Error("not-authorized");
         }
 
-        //set premium to false no matter what
-        _createdUser.premium = false;
-        _createdUser.permissions = {};
-        _createdUser.showDataImportsTab = false;
+        Portfolios.insert({
+            name: name,
+            private: false,
+            ownerId: Meteor.userId(),
+            researchFirmId: null,
+            lastModifiedOn: moment().toISOString(),
+            lastModifiedBy: Meteor.userId(),
+            ownerName: Meteor.user().username
+        });
+    },
 
-        return _createdUser;
-    })
+    getSimilarSymbols(symbol) {
+        check(symbol, String);
 
-    Meteor.methods({
+        if (symbol.length < 1) return [];
 
-        registerRealAccountFromDummy: function(newUsername, newPassword) {
-            var dummyUserId = Meteor.userId();
-            Accounts.setUsername(dummyUserId, newUsername);
-            Accounts.setPassword(dummyUserId, newPassword);
-            Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
-            return {username: newUsername, password: newPassword};
-        },
-        addIndividualStockToUser: function(userId, symbol) {
-            var _user = Meteor.users.findOne(userId);
-            if (_user.individualStocksAccess &&
-                (_user.individualStocksAccess.length < _maxStocksAllowedPerUnregisteredUser || _user.registered) &&
-                _.indexOf(_user.individualStocksAccess, symbol) === -1
-            ) {
-                Meteor.users.update({_id: userId}, {$push: { individualStocksAccess: symbol }});
-            } else if (!_user.individualStocksAccess) {
-                Meteor.users.update({_id: userId}, {$set: { individualStocksAccess: [symbol]}});
-            }
-        },
-        createNewPortfolio: function (name) {
-            // Make sure the user is logged in before inserting a portfolio
-            if (! Meteor.userId()) {
-                throw new Meteor.Error("not-authorized");
-            }
+        const symbols = Stocks.find({
+            _id: {$regex: symbol.toUpperCase()},
+        }, {
+            fields: {_id: 1},
+            limit: 25,
+        }).fetch();
+        return _.pluck(symbols, '_id');
+    },
 
-            Portfolios.insert({
-                name: name,
-                private: false,
-                ownerId: Meteor.userId(),
-                researchFirmId: null,
-                lastModifiedOn: moment().toISOString(),
-                lastModifiedBy: Meteor.userId(),
-                ownerName: Meteor.user().username
-            });
-        },
-        removeStockFromPickList: function(pickListItemId, dateRemoved) {
-            var _pickListItem = PickListItems.findOne(pickListItemId);
-            if (_pickListItem && !_pickListItem.dateRemoved) {
-                PickListItems.update({_id: pickListItemId}, {$set: {dateRemoved: dateRemoved}})
-            }
-        },
-        removePickListItem: function(pickListItemId) {
-            PickListItems.remove(pickListItemId);
-        },
+    checkIfSymbolExists: function (symbol) {
+        check(symbol, String);
 
-        checkIfSymbolExists: function (symbol) {
-            var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
-            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
-            var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
+        var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
+        var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
+        var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
+        const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
 
-            function _checkWiki() {
-                try {
-                    var _res = HTTP.get(_wikiUrl);
-                    if (_res.data.datatable.data.length > 0) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } catch (e) {
-                    return false;
-                }
-            };
-
-            function _checkNasdaq() {
-                try {
-                    var _res = HTTP.get(_nasdaqUrl);
+        function checkDatatable(url) {
+            try {
+                var _res = HTTP.get(url);
+                if (_res.data.datatable.data.length > 0) {
                     return true;
-                } catch (e) {
-                    return false;
-                }
-            }
-
-            function _checkZEA() {
-                try {
-                    var _res = HTTP.get(_zeaUrl);
-                    return true;
-                } catch (e) {
-                    return false;
-                }
-            }
-
-            return _checkWiki() || _checkNasdaq() || _checkZEA();
-        },
-
-        insertNewStockSymbols: function(symbolsArray) {
-            var _res = {};
-            var _symbolsAllCapsArray = [];
-            symbolsArray.forEach(function(symbol) {
-                _symbolsAllCapsArray.push(symbol.toUpperCase());
-            });
-
-            _.each(_symbolsAllCapsArray, function (s) {
-                if (Stocks.findOne({_id: s})) {
-                    _res[s] = true;
                 } else {
-                    Meteor.call("checkIfSymbolExists", s, function (error, result) {
-                        if (result) {
-                            Stocks.insert({_id: s});
-                            _res[s] = true;
-                        } else {
-                            _res[s] = false;
-                        }
-                    })
+                    return false;
                 }
-            });
+            } catch (e) {
+                return false;
+            }
+        };
 
-            return _res;
-        },
-    });
-}
+        function _checkNasdaq() {
+            try {
+                var _res = HTTP.get(_nasdaqUrl);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function _checkZEA() {
+            try {
+                var _res = HTTP.get(_zeaUrl);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+    },
+
+    insertNewStockSymbols: function(symbolsArray) {
+        check(symbolsArray, [String]);
+
+        var _res = {};
+        var _symbolsAllCapsArray = [];
+        symbolsArray.forEach(function(symbol) {
+            _symbolsAllCapsArray.push(symbol.toUpperCase());
+        });
+
+        _.each(_symbolsAllCapsArray, function (s) {
+            if (Stocks.findOne({_id: s})) {
+                _res[s] = true;
+            } else {
+                Meteor.call("checkIfSymbolExists", s, function (error, result) {
+                    if (result) {
+                        Stocks.insert({_id: s});
+                        _res[s] = true;
+                    } else {
+                        _res[s] = false;
+                    }
+                })
+            }
+        });
+
+        return _res;
+    },
+});

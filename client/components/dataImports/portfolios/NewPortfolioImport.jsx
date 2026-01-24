@@ -24,7 +24,7 @@ export default class NewPortfolioImport extends Component {
             private: this.state.private,
             firmName: ReactDOM.findDOMNode(this.refs.firmName).value.trim()
         };
-        Meteor.call("importData", _obj, "portfolio", function(error, result) {
+        Meteor.call('importData', _obj, 'portfolio', function(error, result) {
             if (!error && result && result.newPortfolioId) {
                 _that.props.onNewPortfolioCreate(result.newPortfolioId);
             } else if (error) {

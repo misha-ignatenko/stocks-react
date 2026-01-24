@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
+import { Random } from 'meteor/random';
 
 import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings.jsx';
 
@@ -11,7 +12,6 @@ class IndividualStock extends Component {
         this.state = {
             individualStockStartDate: null,
             individualStockEndDate: null,
-            individualStockSearchResults: [],
             selectedStock: null,
             stocksToGraphObjects: [],
             showRegisterNewAccountFields: false,
@@ -22,12 +22,15 @@ class IndividualStock extends Component {
 
         this.selectTab = this.selectTab.bind(this);
         this.searchingStock = this.searchingStock.bind(this);
+        this.selectFirstSearchResult = this.selectFirstSearchResult.bind(this);
+        this.clearSelectedStock = this.clearSelectedStock.bind(this);
     }
 
     componentWillMount() {
         if (_.isNull(Meteor.user())) {
             var _username = Random.id() + "@ign-stocks.com";
             var _password = Random.id();
+            return;
             Accounts.createUser({
                 username: _username,
                 password: _password,
@@ -37,34 +40,20 @@ class IndividualStock extends Component {
     }
     searchingStock() {
         $("#individualStockSearch").val($("#individualStockSearch").val().toUpperCase());
-        let _arrayOfStockSymbolsAvailable = this.props.currentUser.individualStocksAccess ? this.props.currentUser.individualStocksAccess : [];
-        let _searchCandidates = _arrayOfStockSymbolsAvailable.filter(function(symbol) {
-            if ($("#individualStockSearch").val() && symbol.search($("#individualStockSearch").val()) > -1) {
-                return true;
-            }
-            return false;
-        })
         //TODO get rid of non-letter charachers (except for . -- allowed)
-        this.setState({
-            individualStockSearchResults: _searchCandidates
-        });
     }
     renderSearchResults() {
-        return (this.state.selectedStock || this.state.individualStockSearchResults.length > 0) ? this.state.individualStockSearchResults.map((symbol) => {
-            return <button key={symbol} onClick={this.setSelectedStock.bind(this, symbol)}>{symbol}</button>;
-        }) : null;
+        return (this.state.selectedStock) ? [] : null;
     }
     setSelectedStock(key) {
         $("#individualStockSearch").val(key);
         this.setState({
             selectedStock: key,
-            individualStockSearchResults: []
         });
     }
     clearSelectedStock() {
         this.setState({
             selectedStock: null,
-            individualStockSearchResults: []
         });
         $("#individualStockSearch").val("");
     }
@@ -85,7 +74,6 @@ class IndividualStock extends Component {
             var _s = $("#individualStockSearch").val();
             Meteor.call("insertNewStockSymbols", [_s], function (err, res) {
                 if (res[_s]) {
-                    Meteor.call("addIndividualStockToUser", Meteor.userId(), _s);
                     _that.setSelectedStock(_s);
                 } else {
                     console.log("the symbol is invalid: ", _s);
@@ -186,6 +174,7 @@ class IndividualStock extends Component {
                     {this.state.selectedStock ?
                         <div className="container">
                             <AverageAndWeightedRatings
+                                earningsReleases={[]}
                                 symbol={this.state.selectedStock}
                                 showAvgRatings={this.state.showAvgRatings}
                                 showWeightedRating={this.state.showWeightedRating}/>
@@ -193,7 +182,7 @@ class IndividualStock extends Component {
                         null
                     }
 
-                </div> : "u havta be logged in."}
+                </div> : "You must be logged in to view this page."}
             </div>
         )
     }
@@ -204,6 +193,5 @@ export default withTracker(() => {
     let _user = Meteor.user();
     return {
         currentUser: _user
-        , allStockNames: Meteor.subscribe("allStockNames").ready() && Stocks.find().fetch()
     }
 })(IndividualStock);

@@ -13,6 +13,9 @@ export default class ExistingPortfolioImport extends Component {
         };
 
         this.changeWeightConfig = this.changeWeightConfig.bind(this);
+        this.convertToCells = this.convertToCells.bind(this);
+        this.clearCells = this.clearCells.bind(this);
+        this.verifyAndImport = this.verifyAndImport.bind(this);
     }
 
     changeWeightConfig() {
