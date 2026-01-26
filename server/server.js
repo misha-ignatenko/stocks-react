@@ -6,8 +6,6 @@ import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
 const { performance } = require('perf_hooks');
 
-var _maxStocksAllowedPerUnregisteredUser = 5;
-
 const dateStringSortDesc = {dateString: -1};
 const researchFirmIDsToExclude = [
     'vt29AuAATaAu7r3rS',
