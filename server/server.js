@@ -5,8 +5,6 @@ import { check, Match } from 'meteor/check';
 import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
 
-var _maxStocksAllowedPerUnregisteredUser = 5;
-
 const dateStringSortDesc = {dateString: -1};
 const researchFirmIDsToExclude = [
     'vt29AuAATaAu7r3rS',
