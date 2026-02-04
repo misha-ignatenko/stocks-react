@@ -187,6 +187,12 @@ ServerUtils = {
         return validRatingScaleIDsMap;
     },
 
+    maybePopulateDateFromContent(response) {
+        if (!response.data && response.content) {
+            response.data = EJSON.parse(response.content);
+        }
+    },
+
     apiKey: function () {
         return this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
@@ -303,6 +309,7 @@ ServerUtils = {
                 do {
                     const url = ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
                     const result = HTTP.get(url);
+                    ServerUtils.maybePopulateDateFromContent(result);
 
                     const datatable = result.data.datatable;
                     const columns = datatable.columns;
@@ -486,6 +493,7 @@ ServerUtils = {
             const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
             console.log('calling hasSplits', symbol);
             const response = HTTP.get(url);
+            ServerUtils.maybePopulateDateFromContent(response);
             const {
                 columns,
                 data,
