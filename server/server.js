@@ -1140,7 +1140,7 @@ Meteor.methods({
         function checkDatatable(url) {
             try {
                 var _res = HTTP.get(url);
-                ServerUtils.maybePopulateDateFromContent(_res);
+                ServerUtils.maybePopulateDataFromContent(_res);
                 if (_res.data.datatable.data.length > 0) {
                     return true;
                 } else {

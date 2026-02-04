@@ -203,7 +203,7 @@ Meteor.methods({
                         const url = ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
                         console.log('calling url: ', url);
                     const response = HTTP.get(url);
-                    ServerUtils.maybePopulateDateFromContent(response);
+                    ServerUtils.maybePopulateDataFromContent(response);
                     if (response.statusCode !== expectedStatusCode) {
                         throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
                     }

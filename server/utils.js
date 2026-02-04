@@ -187,7 +187,7 @@ ServerUtils = {
         return validRatingScaleIDsMap;
     },
 
-    maybePopulateDateFromContent(response) {
+    maybePopulateDataFromContent(response) {
         if (!response.data && response.content) {
             response.data = EJSON.parse(response.content);
         }
@@ -309,7 +309,7 @@ ServerUtils = {
                 do {
                     const url = ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
                     const result = HTTP.get(url);
-                    ServerUtils.maybePopulateDateFromContent(result);
+                    ServerUtils.maybePopulateDataFromContent(result);
 
                     const datatable = result.data.datatable;
                     const columns = datatable.columns;
@@ -493,7 +493,7 @@ ServerUtils = {
             const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
             console.log('calling hasSplits', symbol);
             const response = HTTP.get(url);
-            ServerUtils.maybePopulateDateFromContent(response);
+            ServerUtils.maybePopulateDataFromContent(response);
             const {
                 columns,
                 data,
