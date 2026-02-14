@@ -5,6 +5,19 @@ import { check, Match } from 'meteor/check';
 import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
 const { performance } = require('perf_hooks');
+import {
+    EarningsReleases,
+    RatingChanges,
+    ResearchCompanies,
+    RatingScales,
+    Settings,
+    Stocks,
+    SymbolMappings,
+} from '../lib/collections';
+import { Permissions } from '../lib/permissions';
+import { Utils } from '../lib/utils';
+import { StocksReactUtils } from '../lib/utils';
+import { ServerUtils } from './utils';
 
 const dateStringSortDesc = {dateString: -1};
 const researchFirmIDsToExclude = [
@@ -47,8 +60,8 @@ Meteor.methods({
 
     getRatingChangeMetadata() {
         return {
-            numChanges: RatingChanges.find().count(),
-            numFirms: ResearchCompanies.find().count(),
+            numChanges: RatingChanges.find().countAsync(),
+            numFirms: ResearchCompanies.find().countAsync(),
         };
     },
 
