@@ -14,17 +14,10 @@ export const ServerUtils = {
         5 * 60 * 1000
     ),
 
-    setSetting(field, value) {
-        return Settings.update(Utils.getSetting('_id'), {$set: {
+    async setSetting(field, value) {
+        return await Settings.updateAsync(await Utils.getSetting('_id'), {$set: {
             [field]: value,
         }});
-    },
-
-    setEarningsReleaseSyncDate(dateString) {
-        return this.setSetting(
-            'serverSettings.quandl.dateOfLastPullFromQuandl',
-            dateString
-        );
     },
 
     getEmailTo() {
@@ -198,8 +191,8 @@ export const ServerUtils = {
         }
     },
 
-    apiKey: function () {
-        return this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
+    apiKey: async function () {
+        return await this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
 
     earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',

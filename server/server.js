@@ -138,7 +138,7 @@ Meteor.methods({
                 {
                     // make sure to only ever look forward
                     reportDateNextFiscalQuarter: {
-                        $gte: +Utils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
+                        $gte: +await Utils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
                     }
                 },
                 {
@@ -209,8 +209,8 @@ Meteor.methods({
         return earningsReleases;
     },
 
-    insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
-        var _user = Meteor.user();
+    insertAltRatingScale: async function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
+        var _user = await Meteor.userAsync();
         if (!_user) {
             throw new Meteor.Error("Please log in.");
         } else {
@@ -224,7 +224,7 @@ Meteor.methods({
         var _researchFirmQuery = {
             name: { $regex: firmNameStr }
         };
-        var _firms = ResearchCompanies.find(_researchFirmQuery).fetch();
+        var _firms = await ResearchCompanies.find(_researchFirmQuery).fetchAsync();
 
         var _firmId = _firms.length === 1 ? _firms[0]._id : null;
         if (_firmId) {
@@ -233,7 +233,7 @@ Meteor.methods({
                 firmRatingFullString: mainRatingStringExactMatchBool ? mainRatingString : { $regex: mainRatingString },
                 researchFirmId: _firmId
             };
-            var _ratingScales = RatingScales.find(_ratingScaleQuery).fetch();
+            var _ratingScales = await RatingScales.find(_ratingScaleQuery).fetchAsync();
 
             var _ratingScaleId = _ratingScales.length === 1 ? _ratingScales[0]._id : null;
             if (_ratingScaleId) {
@@ -246,8 +246,8 @@ Meteor.methods({
                     referenceRatingScaleId: _ratingScaleId
                 };
 
-                if (!RatingScales.findOne(_alternativeRatingScale)) {
-                    var _newId = RatingScales.insert(_alternativeRatingScale);
+                if (!await RatingScales.findOneAsync(_alternativeRatingScale)) {
+                    var _newId = await RatingScales.insertAsync(_alternativeRatingScale);
                     console.log("inserted id: ", _newId);
                 }
             } else {
@@ -259,14 +259,14 @@ Meteor.methods({
 
         return;
     },
-    addNewSymbolMapping: function(localStr, fromStr, universalStr) {
+    addNewSymbolMapping: async function(localStr, fromStr, universalStr) {
         var _obj = {
             symbolStr: localStr,
             from: fromStr,
             universalSymbolStr: universalStr
         };
-        if (SymbolMappings.find(_obj).count() == 0) {
-            return SymbolMappings.insert(_obj);
+        if (await SymbolMappings.find(_obj).countAsync() == 0) {
+            return await SymbolMappings.insertAsync(_obj);
         }
     },
 
@@ -281,7 +281,7 @@ Meteor.methods({
 
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
         //moment().toISOString().substring(10,24)
-        var _regrStart = Utils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
+        var _regrStart = await Utils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
         var _allPrices = await ServerUtils.prices.getAllPrices(symbol);
         var _pricesForRegr = Utils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
@@ -291,7 +291,7 @@ Meteor.methods({
         var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
             const ratingChanges = await RatingChanges.find({symbol}).fetchAsync();
-            var _averageAnalystRatingSeries = Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
+            var _averageAnalystRatingSeries = await Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
             var _avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
 
             var _priceReactionDelayInDays = 0;
@@ -451,7 +451,7 @@ Meteor.methods({
             return {};
         }
         let _data = {};
-        let _settings = Settings.findOne();
+        let _settings = await Settings.findOneAsync();
         if (!_settings || !startDate) {
             return {};
         }
@@ -476,7 +476,7 @@ Meteor.methods({
         _data.stocksToGraphObjs = [];
         var _startDate = startDate;
         var _endDate = endDate;
-        var _averageAnalystRatingSeries = Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
+        var _averageAnalystRatingSeries = await Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
         //TODO: start date and end date for regression are coming from a different date picker
         var _startDateForRegression = _startDate;
         var _endDateForRegression = _endDate;
@@ -529,7 +529,7 @@ Meteor.methods({
             _data.stocksToGraphObjs = [JSON.parse(JSON.stringify(_objToGraph))];
         }
 
-        const _allEarningsReleasesForSymbol = Meteor.call('getUpcomingEarningsReleases', {
+        const _allEarningsReleasesForSymbol = await Meteor.callAsync('getUpcomingEarningsReleases', {
             startDate: Utils.convertToNumberDate(startDate),
             endDate: Utils.convertToNumberDate(endDate),
             companyConfirmedOnly: true, symbols: [symbol],
@@ -537,7 +537,7 @@ Meteor.methods({
 
         _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
         _data.ratingChanges = rC;
-        _data.ratingScales = Utils.ratingChanges.getRatingScalesForRatingChanges(rC);
+        _data.ratingScales = await Utils.ratingChanges.getRatingScalesForRatingChanges(rC);
         _data.earningsReleases = _allEarningsReleasesForSymbol;
         _data.allGraphData = _.extend(result, {
             avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,

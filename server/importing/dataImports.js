@@ -316,46 +316,46 @@ Meteor.methods({
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
                 //get an id of that research company
-                var _researchCompany = ResearchCompanies.findOne({name: _researchFirmString});
+                var _researchCompany = await ResearchCompanies.findOneAsync({name: _researchFirmString});
                 var _researchCompanyId;
                 if (_researchCompany) {
                     _researchCompanyId = _researchCompany._id;
                 } else {
-                    _researchCompanyId = ResearchCompanies.insert({name: _researchFirmString});
+                    _researchCompanyId = await ResearchCompanies.insertAsync({name: _researchFirmString});
                 }
 
                 var _noneOfGradingScalesForThisFirmAlreadyExist = true;
-                _allRatings.forEach(function(ratingString) {
-                    if (RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: ratingString})) {
+                for (const ratingString of _allRatings) {
+                    if (await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: ratingString})) {
                         _noneOfGradingScalesForThisFirmAlreadyExist = false;
                     }
-                });
+                }
 
                 if (_noneOfGradingScalesForThisFirmAlreadyExist) {
                     //now eval approx how many points each and insert into collection.
                     var _valuePerThreshold = Math.round(_totalMaxGradingValue / _allRatings.length)
-                    _allRatings.forEach(function(value, index) {
-                        RatingScales.insert({
+                    for (const [index, value] of _allRatings.entries()) {
+                        await RatingScales.insertAsync({
                             researchFirmId: _researchCompanyId,
                             firmRatingFullString: value,
                             universalScaleValue: index * _valuePerThreshold + Math.round(_valuePerThreshold / 2)
                         });
-                    })
+                    }
                 }
 
                 var _beforeCoverageInitiatedString = importData.beforeCoverageInitiatedString;
                 var _coverageDroppedString = importData.coverageDroppedString;
                 var _coverageTemporarilySuspendedString = importData.coverageTemporarilySuspendedString;
-                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
-                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
+                if (!await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
+                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
                 }
 
-                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
-                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
+                if (!await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
+                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
                 }
 
-                if (_coverageTemporarilySuspendedString && !RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"})) {
-                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
+                if (_coverageTemporarilySuspendedString && !await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"})) {
+                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
             } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
