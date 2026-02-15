@@ -1195,26 +1195,25 @@ Meteor.methods({
     async insertNewStockSymbols(symbolsArray) {
         check(symbolsArray, [String]);
 
-        const _res = {};
-        const _symbolsAllCapsArray = [];
-        symbolsArray.forEach(function(symbol) {
-            _symbolsAllCapsArray.push(symbol.toUpperCase());
-        });
+        const result = {};
+        const symbols = symbolsArray.map(s => s.toUpperCase());
 
-        for (const s of _symbolsAllCapsArray) {
-            if (await Stocks.findOneAsync({_id: s})) {
-                _res[s] = true;
+        // Look up all symbols in one query
+        const existingSymbols = new Set(await Stocks.rawCollection().distinct('_id', {_id: {$in: symbols}}));
+
+        // Process all symbols in one pass
+        for (const symbol of symbols) {
+            if (existingSymbols.has(symbol)) {
+                result[symbol] = true;
             } else {
-                const result = await Meteor.callAsync("checkIfSymbolExists", s);
-                if (result) {
-                    await Stocks.insertAsync({_id: s});
-                    _res[s] = true;
-                } else {
-                    _res[s] = false;
+                const exists = await Meteor.callAsync("checkIfSymbolExists", symbol);
+                if (exists) {
+                    await Stocks.insertAsync({_id: symbol});
                 }
+                result[symbol] = exists;
             }
         }
 
-        return _res;
+        return result;
     },
 });
