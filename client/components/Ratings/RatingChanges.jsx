@@ -5,6 +5,8 @@ import { NavLink } from 'react-router-dom';
 import {
     Table,
 } from 'reactstrap';
+import { Meteor } from 'meteor/meteor';
+import { StocksReactUtils} from '../../../lib/utils';
 
 const ALL_MODE = 'all';
 const SYMBOL_MODE = 'symbol';

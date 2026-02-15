@@ -6,7 +6,7 @@ var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
-        importData: function(importData, importType, scheduledDataPullFlag) {
+        importData: async function(importData, importType, scheduledDataPullFlag) {
             check(importType, String);
             //run all the checks here
 

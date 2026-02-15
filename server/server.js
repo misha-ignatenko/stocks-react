@@ -35,33 +35,33 @@ const getRatingChangesQuery = () => {
 };
 
 Meteor.methods({
-    getLatestRatingChanges() {
+    async getLatestRatingChanges() {
         console.log('getLatestRatingChanges');
-        const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
+        const ratingChanges = await RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
-            limit: ServerUtils.ratingsChangesLimitGlobal(),
+            limit: await ServerUtils.ratingsChangesLimitGlobal(),
         }).fetch();
 
-        return ServerUtils.getExtraRatingChangeData(ratingChanges);
+        return await ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
 
-    getLatestRatingChangesForSymbol(symbol) {
+    async getLatestRatingChangesForSymbol(symbol) {
         check(symbol, String);
 
-        const ratingChanges = RatingChanges.find(_.extend(getRatingChangesQuery(), {
+        const ratingChanges = await RatingChanges.find(_.extend(getRatingChangesQuery(), {
             symbol: symbol,
         }), {
             sort: dateStringSortDesc,
-            limit: ServerUtils.ratingsChangesLimitSymbol(),
+            limit: await ServerUtils.ratingsChangesLimitSymbol(),
         }).fetch();
 
-        return ServerUtils.getExtraRatingChangeData(ratingChanges);
+        return await ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
 
-    getRatingChangeMetadata() {
+    async getRatingChangeMetadata() {
         return {
-            numChanges: RatingChanges.find().countAsync(),
-            numFirms: ResearchCompanies.find().countAsync(),
+            numChanges: await RatingChanges.find().countAsync(),
+            numFirms: await ResearchCompanies.find().countAsync(),
         };
     },
 
@@ -1133,12 +1133,12 @@ Meteor.methods({
         return {username: newUsername, password: newPassword};
     },
 
-    getSimilarSymbols(symbol) {
+    async getSimilarSymbols(symbol) {
         check(symbol, String);
 
         if (symbol.length < 1) return [];
 
-        const symbols = Stocks.find({
+        const symbols = await Stocks.find({
             _id: {$regex: symbol.toUpperCase()},
         }, {
             fields: {_id: 1},

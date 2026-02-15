@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import { NavLink } from 'react-router-dom';
+import { Meteor } from 'meteor/meteor';
+import { Permissions } from '../../lib/permissions';
 
 import AccountsUIWrapper from './AccountsUIWrapper.jsx';
 

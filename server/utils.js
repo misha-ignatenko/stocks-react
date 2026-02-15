@@ -65,22 +65,22 @@ export const ServerUtils = {
         });
     },
 
-    ratingsChangesLimitGlobal() {
-        return this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+    async ratingsChangesLimitGlobal() {
+        return await this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
-    ratingsChangesLimitSymbol() {
-        return this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+    async ratingsChangesLimitSymbol() {
+        return await this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
     },
-    getExtraRatingChangeData(ratingChanges) {
+    async getExtraRatingChangeData(ratingChanges) {
         let firmMap = new Map();
         const firmIDs = _.pluck(ratingChanges, 'researchFirmId');
-        ResearchCompanies.find({
+        (await ResearchCompanies.find({
             _id: {$in: firmIDs},
         }, {
             fields: {
                 name: 1,
             },
-        }).forEach(company => {
+        }).fetch()).forEach(company => {
             firmMap.set(company._id, company);
         });
 
@@ -88,13 +88,13 @@ export const ServerUtils = {
         const oldRatingIDs = _.pluck(ratingChanges, 'oldRatingId');
         const newRatingIDs = _.pluck(ratingChanges, 'newRatingId');
         const ratingIDs = _.union(oldRatingIDs, newRatingIDs);
-        RatingScales.find({
+        (await RatingScales.find({
             _id: {$in: ratingIDs},
         }, {
             fields: {
                 firmRatingFullString: 1,
             },
-        }).forEach(rating => {
+        }).fetch()).forEach(rating => {
             ratingMap.set(rating._id, rating);
         });
 

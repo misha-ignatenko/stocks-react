@@ -1,6 +1,7 @@
 import moment from 'moment-timezone';
 import _ from 'underscore';
 import { Random } from 'meteor/random';
+import { Meteor } from 'meteor/meteor';
 
 function importEarningsReleases() {
     Meteor.call('importData', [], 'earnings_releases_new', true);
