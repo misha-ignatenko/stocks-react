@@ -40,11 +40,11 @@ class Navigation extends Component {
     }
 }
 
-export default withTracker((props) => {
+export default withTracker(async (props) => {
     const userID = Meteor.userId();
     const user = Meteor.users.findOne(userID, {fields: {showDataImportsTab: 1}});
     const showDataImportsTab = user?.showDataImportsTab;
-    const isPremium = Permissions.isPremium();
+    const isPremium = await Permissions.isPremium();
 
     return {
         showDataImportsTab,

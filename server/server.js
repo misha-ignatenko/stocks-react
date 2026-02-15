@@ -65,7 +65,7 @@ Meteor.methods({
         };
     },
 
-    ratingChangesForSymbol(options) {
+    async ratingChangesForSymbol(options) {
         check(options, {
             symbol: String,
             startDate: String,
@@ -80,8 +80,8 @@ Meteor.methods({
                 {dateString: {$gte: startDate, $lte: endDate}},
             ],
         };
-        if (!Permissions.isPremium()) {
-            const lookback = ServerUtils.getCachedSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
+        if (!await Permissions.isPremium()) {
+            const lookback = await ServerUtils.getCachedSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
             const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
 
             query.$and.push({
@@ -89,25 +89,23 @@ Meteor.methods({
             });
         }
 
-        return RatingChanges.find(query, {
+        return await RatingChanges.find(query, {
             fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1},
             sort: {dateString: 1},
-        }).fetch();
+        }).fetchAsync();
     },
 
-    getPricesForSymbol: function (symbol) {
+    async getPricesForSymbol(symbol) {
         check(symbol, String);
 
-        ServerUtils.runPremiumCheck(this);
-
-        var _prices = ServerUtils.prices.getAllPrices(symbol);
-        return _prices;
+        await ServerUtils.runPremiumCheck(this);
+        return await ServerUtils.prices.getAllPrices(symbol);
     },
 
-    emailPricesForSymbol(symbol) {
-        const prices = Meteor.call('getPricesForSymbol', symbol);
+    async emailPricesForSymbol(symbol) {
+        const prices = await Meteor.callAsync('getPricesForSymbol', symbol);
         const maxDate = Utils.getMinMaxDate(prices).max;
-        ServerUtils.emailJSON(prices, `${symbol}_prices_${maxDate}.json`, `prices for ${symbol} - ${maxDate}`);
+        await ServerUtils.emailJSON(prices, `${symbol}_prices_${maxDate}.json`, `prices for ${symbol} - ${maxDate}`);
     },
 
     getEarliestRatingChange: function (symbol) {
@@ -404,7 +402,7 @@ Meteor.methods({
         }
     },
 
-    generatePrediction(options) {
+    async generatePrediction(options) {
         check(options, {
             symbol: String,
             startDate: Match.Maybe(String),
@@ -433,14 +431,14 @@ Meteor.methods({
             pxRollingDays = 50,
         } = options;
 
-        if (!Permissions.isPremium()) {
+        if (!await Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
 
-        const allStockPrices = Meteor.call('getPricesForSymbol', symbol);
+        const allStockPrices = await Meteor.callAsync('getPricesForSymbol', symbol);
 
         if (!startDate) {
-            startDate = Meteor.call('getEarliestRatingChange', symbol);
+            startDate = await Meteor.callAsync('getEarliestRatingChange', symbol);
         }
 
         const simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(
@@ -459,7 +457,7 @@ Meteor.methods({
             return {};
         }
 
-        const rC = Meteor.call('ratingChangesForSymbol', {symbol, startDate, endDate});
+        const rC = await Meteor.callAsync('ratingChangesForSymbol', {symbol, startDate, endDate});
         if (_.isEmpty(rC)) {
             throw new Meteor.Error(`there are no rating changes ${symbol} ${startDate} ${endDate}`);
         }

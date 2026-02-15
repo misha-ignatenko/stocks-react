@@ -64,10 +64,9 @@ Meteor.startup(function() {
 });
 
 Meteor.methods({
-    importEarningsReleases()  {
-        ServerUtils.runPremiumCheck(this);
-
-        importEarningsReleases();
+    async importEarningsReleases()  {
+        await ServerUtils.runPremiumCheck(this);
+        await importEarningsReleases();
     },
     async "sendMissingEarningsReleaseSymbolsEmail"() {
         // get all available stocks (symbols are _id attributes in universal format)

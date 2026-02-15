@@ -1,14 +1,11 @@
-/**
- * Created by mykhayloignatenko on 4/2/18.
- */
-import moment from 'moment-timezone';
 import _ from 'underscore';
 import { EJSON } from 'meteor/ejson';
-const momentBiz = require('moment-business-days');
 const { convertArrayToCSV } = require('convert-array-to-csv');
 import { Utils } from '../lib/utils';
 import { Permissions } from '../lib/permissions';
 import { ResearchCompanies, RatingScales, EarningsReleases, RatingChanges, Settings } from '../lib/collections';
+import { Meteor } from 'meteor/meteor';
+import { Email } from './email';
 
 export const ServerUtils = {
 
@@ -36,10 +33,10 @@ export const ServerUtils = {
     getEmailFrom() {
         return this.getCachedSetting('serverSettings.ratingsChanges.emailFrom');
     },
-    emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
+    async emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
         const csv = convertArrayToCSV(rows);
 
-        Email.send({
+        await Email.send({
             subject,
             text,
             attachments: [
@@ -50,10 +47,10 @@ export const ServerUtils = {
             ],
         });
     },
-    emailJSON(data, fileName = 'sample.json', subject = 'json file', text = 'see attached') {
+    async emailJSON(data, fileName = 'sample.json', subject = 'json file', text = 'see attached') {
         const json = JSON.stringify(data);
 
-        Email.send({
+        await Email.send({
             subject,
             text,
             attachments: [
