@@ -550,7 +550,7 @@ Meteor.methods({
         return _data;
     },
 
-    getEarningsAnalysis(options) {
+    async getEarningsAnalysis(options) {
         check(options, {
             startDate: String,
             endDate: String,
@@ -569,7 +569,7 @@ Meteor.methods({
             isHistory: Match.Optional(Boolean),
         });
 
-        ServerUtils.runPremiumCheck(this);
+        await ServerUtils.runPremiumCheck(this);
 
         const start = performance.now();
         const getEmailText = () => EJSON.stringify({
@@ -619,13 +619,11 @@ Meteor.methods({
         if (symbol && isRecursive) {
             const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, false, true);
             const lastQuarter = _.max(_.pluck(reportDates, 'endDateNextFiscalQuarter'));
-            return reportDates.map(({
-                reportDateNextFiscalQuarter: reportDate,
-                endDateNextFiscalQuarter: quarter,
-            }) => {
+            const results = [];
+            for (const {reportDateNextFiscalQuarter: reportDate, endDateNextFiscalQuarter: quarter} of reportDates) {
                 const dateString = Utils.convertToStringDate(reportDate);
                 const isLastReportDate = quarter === lastQuarter;
-                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                const result = await Meteor.callAsync('getEarningsAnalysis', _.extend({}, options, {
                     isRecursive: false,
                     startDate: dateString,
                     endDate: dateString,
@@ -633,10 +631,12 @@ Meteor.methods({
                     emailResults: false,
                     isHistory: true,
                 }));
-            }).flat();
+                results.push(...result);
+            }
+            return results;
         }
 
-        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
+        const validRatingScaleIDsMap = await ServerUtils.getNumericRatingScalesMap();
 
         const expectedReleasesQuery = { $and: [{
             epsMeanEstimateNextFiscalQuarter: {$nin: [
@@ -709,12 +709,12 @@ Meteor.methods({
         }
 
         // these are the expected earnings releases within the requested date range
-        const expectedEarningsReleases = EarningsReleases.find(
+        const expectedEarningsReleases = await EarningsReleases.find(
             expectedReleasesQuery,
             {
                 sort: {asOf: -1},
             }
-        ).fetch();
+        ).fetchAsync();
 
         if (expectedEarningsReleases.length === 0) {
             if (symbol) {
@@ -748,7 +748,7 @@ Meteor.methods({
             });
             */
 
-            expectedEarningsReleases.forEach(expectedRelease => {
+            for (const expectedRelease of expectedEarningsReleases) {
                 const dateBefore = expectedRelease.getPurchaseDate(advancePurchaseDays);
                 const dateAfter = expectedRelease.getSaleDate(0);
 
@@ -758,17 +758,17 @@ Meteor.methods({
                 });
 
                 const symbol = expectedRelease.symbol;
-                _.range(-lookback, lookahead + 1).forEach(daysToAdd => {
+                for (const daysToAdd of _.range(-lookback, lookahead + 1)) {
                     const dateString = Utils.businessAdd(dateBefore, daysToAdd);
                     const key = `${symbol}_${dateString}`;
                     if (pricesSet.has(key)) {
-                        return;
+                        continue;
                     }
 
                     pricesSet.add(key);
 
-                    const price = ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
-                    const vooPrice = ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
+                    const price = await ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
+                    const vooPrice = await ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
 
                     prices.push({
                         symbol,
@@ -776,8 +776,8 @@ Meteor.methods({
                         price,
                         vooPrice,
                     });
-                });
-            });
+                }
+            };
 
             const uniqueReleases = _.uniq(expectedEarningsReleases, false, (e) => {
                 return `${e.symbol}_${e.dateBefore}`;
@@ -800,15 +800,17 @@ Meteor.methods({
 
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
-            const historicalRows = symbols.map(symbol => {
-                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+            const historicalRows = [];
+            for (const symbol of symbols) {
+                const result = await Meteor.callAsync('getEarningsAnalysis', _.extend({}, options, {
                     startDate: momentBiz(startDate).businessAdd(-bizDaysLookbackForHistory).format(YYYY_MM_DD),
                     isRecursive: true,
                     symbol,
                     includeHistory: false,
                     emailResults: false,
-                }))
-            }).flat();
+                }));
+                historicalRows.push(...result);
+            }
 
             if (emailResults) {
                 ServerUtils.emailCSV(
@@ -870,13 +872,13 @@ Meteor.methods({
                 };
             }),
         };
-        const actualEarningsReleases = EarningsReleases.find(
+        const actualEarningsReleases = await EarningsReleases.find(
             actualReleasesQuery,
             {
                 sort: {asOf: 1},
                 ...(symbol && {limit: 1}),
             }
-        ).fetch();
+        ).fetchAsync();
         const actualMap = new Map();
         const uniqueActualEarningsReleases = actualEarningsReleases.filter(e => {
             const {
@@ -908,7 +910,7 @@ Meteor.methods({
             }
         };
 
-        (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases).forEach(e => {
+        for (const e of (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases)) {
             const {
                 symbol,
             } = e;
@@ -916,9 +918,9 @@ Meteor.methods({
             const expectedE = expectedMap.get(symbol);
             const actualE = actualMap.get(symbol);
 
-            expectedE.adjustForSplits();
+            await expectedE.adjustForSplits();
             if (actualE) {
-                actualE.adjustForSplits();
+                await actualE.adjustForSplits();
             }
 
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
@@ -938,7 +940,7 @@ Meteor.methods({
                 companyName,
             } = expectedE;
 
-            const firstEverExpectation = EarningsReleases.findOne(
+            const firstEverExpectation = await EarningsReleases.findOneAsync(
                 {
                     symbol,
                     endDateNextFiscalQuarter,
@@ -953,7 +955,7 @@ Meteor.methods({
                     },
                 }
             );
-            firstEverExpectation.adjustForSplits();
+            await firstEverExpectation.adjustForSplits();
             const {
                 epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
                 asOf: originalAsOfExpectation,
@@ -969,8 +971,8 @@ Meteor.methods({
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
-            const vooPrices = ServerUtils.prices.getAllPrices('VOO');
-            const vooOpenPriceOnPurchaseDate = StocksReactUtils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
+            const vooPrices = await ServerUtils.prices.getAllPrices('VOO');
+            const vooOpenPriceOnPurchaseDate = await StocksReactUtils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
             const vooSMA50Date = momentBiz(purchaseDate).businessAdd(-50).format(YYYY_MM_DD);
             const vooSMA50DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA50Date, 10, !isForecast);
             const vooSMA200Date = momentBiz(purchaseDate).businessAdd(-200).format(YYYY_MM_DD);
@@ -982,17 +984,17 @@ Meteor.methods({
             const inc50SMA = vooSMA / vooSMA50DaysAgo;
             const inc200SMA = vooSMA / vooSMA200DaysAgo;
 
-            const prices = ServerUtils.prices.getAllPrices(symbol);
-            const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const prices = await ServerUtils.prices.getAllPrices(symbol);
+            const purchasePrice = await StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
             const purchasePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 50, !isForecast);
             const purchasePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 200, !isForecast);
-            const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
-            const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
-            const salePrice3 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
+            const salePrice1 = await StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
+            const salePrice2 = await StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
+            const salePrice3 = await StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
 
             const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
             const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
-            const ratingChanges = ServerUtils.getLatestRatings(
+            const ratingChanges = await ServerUtils.getLatestRatings(
                 symbol,
                 ratingChangesEarliestDate,
                 // todo: if isForecast is true, ignore the ratingChangesCutoffDate
@@ -1006,7 +1008,7 @@ Meteor.methods({
             const ratings = ratingChanges.map(rc => validRatingScaleIDsMap.get(rc.newRatingId));
             const avgRating = Utils.avg(ratings);
 
-            const altRatingsWithAdjRatings = ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
+            const altRatingsWithAdjRatings = await ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
             const altAvgRatingWithAdjRatings = Utils.avg(altRatingsWithAdjRatings);
 
             let numRecentUpgrades;
@@ -1015,22 +1017,29 @@ Meteor.methods({
             let priorSalePrice;
             let priorSalePriceSMA50;
             let priorSalePriceSMA200;
-            const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
+            const priorConfirmedRelease = await expectedE.getPriorConfirmedRelease();
             if (priorConfirmedRelease) {
                 const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
                 priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
-                priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                priorSalePrice = await StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
                 priorSalePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 50);
                 priorSalePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 200);
                 const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
                 const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
-                const ratingChangesSinceLastEarningsRelease = ServerUtils.getLatestRatings(
+                const ratingChangesSinceLastEarningsRelease = await ServerUtils.getLatestRatings(
                     symbol,
                     newRatingChangesStartDate,
                     ratingChangesCutoffDate
                 );
-                numRecentUpgrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isUpgrade(rc)).length;
-                numRecentDowngrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isDowngrade(rc)).length;
+                numRecentUpgrades = 0;
+                numRecentDowngrades = 0;
+                for (const rc of ratingChangesSinceLastEarningsRelease) {
+                    if (await ServerUtils.ratingChanges.isUpgrade(rc)) {
+                        numRecentUpgrades++;
+                    } else if (await ServerUtils.ratingChanges.isDowngrade(rc)) {
+                        numRecentDowngrades++;
+                    }
+                }
             }
 
             const data = {
@@ -1088,7 +1097,7 @@ Meteor.methods({
                 inc200SMA,
             };
             results.push(data);
-        });
+        }
 
         if (emailResults && !includeHistory) {
             ServerUtils.emailCSV(

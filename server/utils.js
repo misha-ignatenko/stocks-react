@@ -115,7 +115,10 @@ export const ServerUtils = {
             ]);
         });
     },
-    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap=ServerUtils.getNumericRatingScalesMap()) {
+    async getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
+        if (!validRatingScaleIDsMap) {
+            validRatingScaleIDsMap = await ServerUtils.getNumericRatingScalesMap();
+        }
         const dateString = {
             $gte: startDate,
         };
@@ -126,7 +129,7 @@ export const ServerUtils = {
             symbol,
             dateString,
         };
-        const ratingChanges = Promise.await(RatingChanges.rawCollection().aggregate([
+        const ratingChanges = (await RatingChanges.rawCollection().aggregate([
             {$match},
             {$sort: {dateString: -1}},
             {$group: {
@@ -141,50 +144,52 @@ export const ServerUtils = {
 
         return ratingChanges;
     },
-    getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
+    async getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
         /**
          * this factor means if a stock has the max possible rating, it's expected
          * to increase its price by this factor
          */
         const factor = 2;
-        const priceOnPurchaseDay = Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
-        const ratingScales = ServerUtils.getNumericRatingScalesMap();
+        const priceOnPurchaseDay = await Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
+        const ratingScales = await ServerUtils.getNumericRatingScalesMap();
         const midpoint = Utils.constantFeatureValue;
 
-        return ratingChanges.map(r => {
+        const results = [];
+        for (const r of ratingChanges) {
             const {
                 dateString: ratingChangeDate,
                 newRatingId,
             } = r;
-            const priceOnRatingChangeDay = Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
+            const priceOnRatingChangeDay = await Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
             const priceIncreaseRatio = priceOnPurchaseDay / priceOnRatingChangeDay;
             const progressRatio = (priceIncreaseRatio - 1) / (factor - 1);
             const currentRating = ratingScales.get(newRatingId);
             const adjRating = midpoint + (1 - progressRatio) * (currentRating - midpoint);
 
-            return adjRating;
-        });
+            results.push(adjRating);
+        }
+        return results;
     },
 
     cachedRatingScales: undefined,
-    getNumericRatingScalesMap() {
+    async getNumericRatingScalesMap() {
         if (!this.cachedRatingScales) {
-            this.cachedRatingScales = this.getNumericRatingScalesMapNonCached();
+            this.cachedRatingScales = await this.getNumericRatingScalesMapNonCached();
             Meteor.setTimeout(() => {
                 this.cachedRatingScales = undefined;
             }, 10 * 60 * 1000); // 10 min
         }
         return this.cachedRatingScales;
     },
-    getNumericRatingScalesMapNonCached() {
+    async getNumericRatingScalesMapNonCached() {
         const validRatingScaleIDsMap = new Map();
-        RatingScales.find(
+        (await RatingScales.find(
             {universalScaleValue: {
                 $not: {$type: 2},
                 $exists: true,
             }},
             {fields: {universalScaleValue: 1}}
-        ).forEach(({_id, universalScaleValue}) => {
+        ).fetchAsync()).forEach(({_id, universalScaleValue}) => {
             validRatingScaleIDsMap.set(_id, universalScaleValue);
         });
         return validRatingScaleIDsMap;
@@ -256,20 +261,20 @@ export const ServerUtils = {
         clearAdjustmentsCache() {
             this.adjustmentsCache = {};
         },
-        getAllAdjustments(symbol) {
+        async getAllAdjustments(symbol) {
             if (!_.has(this.adjustmentsCache, symbol)) {
-                this.adjustmentsCache[symbol] = this.getAllAdjustmentsNonCached(symbol);
+                this.adjustmentsCache[symbol] = await this.getAllAdjustmentsNonCached(symbol);
                 Meteor.setTimeout(() => {
                     delete this.adjustmentsCache[symbol];
                 }, 10 * 60 * 1000); // 10 min
             }
             return this.adjustmentsCache[symbol];
         },
-        getAllAdjustmentsNonCached(symbol) {
-            const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
+        async getAllAdjustmentsNonCached(symbol) {
+            const hasSplits = await ServerUtils.earningsReleases.hasSplits(symbol);
             if (hasSplits) {
                 const {splitDate} = hasSplits;
-                const adjustments = ServerUtils.prices.getAllPrices(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
+                const adjustments = (await ServerUtils.prices.getAllPrices(symbol, undefined, splitDate)).filter(p => p.hasAdjustment);
                 return adjustments;
             }
 
@@ -278,9 +283,9 @@ export const ServerUtils = {
 
         pricesCache: {},
         pricesCacheMap: new Map(),
-        getAllPrices(symbol, getMap = false) {
+        async getAllPrices(symbol, getMap = false) {
             if (!_.has(this.pricesCache, symbol)) {
-                const pricesForSymbol = this.getAllPricesNonCached(symbol);
+                const pricesForSymbol = await this.getAllPricesNonCached(symbol);
                 this.pricesCache[symbol] = pricesForSymbol;
 
                 this.pricesCacheMap.set(symbol, new Map());
@@ -302,7 +307,7 @@ export const ServerUtils = {
             }
             return this.pricesCache[symbol];
         },
-        getAllPricesNonCached(symbol, isUnadj = false) {
+        async getAllPricesNonCached(symbol, isUnadj = false) {
             const prices = [];
             console.log("inside getPricesForSymbol: ", symbol);
 
@@ -310,8 +315,9 @@ export const ServerUtils = {
                 let cursorID;
 
                 do {
-                    const url = ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
-                    const result = HTTP.get(url);
+                    const url = await ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
+                    const response = await fetch(url);
+                    const result = {data: await response.json()};
                     ServerUtils.maybePopulateDataFromContent(result);
 
                     const datatable = result.data.datatable;
@@ -337,14 +343,14 @@ export const ServerUtils = {
 
             return _.sortBy(prices, 'dateString');
         },
-        getPriceOnDayNew({
+        async getPriceOnDayNew({
             symbol,
             dateString,
             returnObj = false,
             priceField = 'adjClose',
             isStrict = true,
         }) {
-            const symbolPricesMap = this.getAllPrices(symbol, true);
+            const symbolPricesMap = await this.getAllPrices(symbol, true);
             const priceObj = symbolPricesMap.get(dateString);
             if (returnObj) {
                 return priceObj;
@@ -356,39 +362,39 @@ export const ServerUtils = {
         },
     },
     ratingChanges: {
-        isUpgrade(rc) {
+        async isUpgrade(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) > map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
                 return map.get(newRatingId) > 60;
             }
         },
-        isDowngrade(rc) {
+        async isDowngrade(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) < map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
                 return map.get(newRatingId) < 60;
             }
         },
-        getOldAndNewRatings(rc) {
+        async getOldAndNewRatings(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             return {
                 oldRating: map.get(oldRatingId),
                 newRating: map.get(newRatingId),
@@ -495,12 +501,13 @@ export const ServerUtils = {
         hasSplits: async (symbol) => {
             const url = await ServerUtils.earningsReleases.getMetadataUrl(symbol);
             console.log('calling hasSplits', symbol);
-            const response = HTTP.get(url);
-            ServerUtils.maybePopulateDataFromContent(response);
+            const response = await fetch(url);
+            const json = {data: await response.json()};
+            ServerUtils.maybePopulateDataFromContent(json);
             const {
                 columns,
                 data,
-            } = response.data.datatable;
+            } = json.data.datatable;
 
             const firstRow = data[0];
             if (!firstRow) {
@@ -660,11 +667,11 @@ export const ServerUtils = {
             });
         },
     },
-    runPremiumCheck(context) {
+    async runPremiumCheck(context) {
         if (!context) {
             throw new Meteor.Error('something is not right');
         }
-        if (context.connection && !Permissions.isPremium()) {
+        if (context.connection && !await Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
     },
