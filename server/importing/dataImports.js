@@ -44,7 +44,7 @@ Meteor.methods({
                     };
                 }
                 for (const importItem of importData) {
-                    var _universalSymbol = _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
+                    var _universalSymbol = await _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
 
                     //first, check if that research company exists
                     var _researchCompany = await ResearchCompanies.findOneAsync({name: importItem.researchFirmString});
@@ -495,7 +495,7 @@ Meteor.methods({
             'insertedDateStr',
         ];
         const query = _.omit(earningsRelease, fieldsToOmit);
-        return (await EarningsReleases.find(query, {fields: {_id: 1}}).fetch()).map(({_id})=>_id);
+        return (await EarningsReleases.find(query, {fields: {_id: 1}}).fetchAsync()).map(({_id})=>_id);
     }
 
     async function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
@@ -510,13 +510,13 @@ Meteor.methods({
         }
     };
 
-    function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
+    async function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
         var _query = {
             from: 'rating_change',
             symbolStr: ratingChangeSymbol
         };
-        if (SymbolMappings.find(_query).count() === 1) {
-            return SymbolMappings.findOne(_query).universalSymbolStr;
+        if (await SymbolMappings.find(_query).countAsync() === 1) {
+            return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
         } else {
             return ratingChangeSymbol;
         }

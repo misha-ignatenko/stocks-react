@@ -40,7 +40,7 @@ Meteor.methods({
         const ratingChanges = await RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
             limit: await ServerUtils.ratingsChangesLimitGlobal(),
-        }).fetch();
+        }).fetchAsync();
 
         return await ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
@@ -53,7 +53,7 @@ Meteor.methods({
         }), {
             sort: dateStringSortDesc,
             limit: await ServerUtils.ratingsChangesLimitSymbol(),
-        }).fetch();
+        }).fetchAsync();
 
         return await ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
@@ -115,7 +115,7 @@ Meteor.methods({
         return r?.dateString;
     },
 
-    getUpcomingEarningsReleases(options) {
+    async getUpcomingEarningsReleases(options) {
         check(options, {
             startDate: Number,
             endDate: Number,
@@ -164,15 +164,15 @@ Meteor.methods({
             });
         }
 
-        const earningsReleases = EarningsReleases.find(
+        const earningsReleases = await EarningsReleases.find(
             query,
             {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
-        ).fetch();
+        ).fetchAsync();
 
         if (withRatingChangesCounts) {
             const symbols = _.uniq(_.pluck(earningsReleases, 'symbol'));
 
-            const counts = Object.fromEntries(Promise.await(RatingChanges.rawCollection().aggregate([
+            const counts = Object.fromEntries((await RatingChanges.rawCollection().aggregate([
                 {$match: {symbol: {$in: symbols}}},
                 {$group : {_id: '$symbol', count: {$sum: 1}}},
             ]).toArray()).map(({_id, count}) => [_id, count]));
@@ -615,7 +615,7 @@ Meteor.methods({
         });
 
         if (symbol && isRecursive) {
-            const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, false, true);
+            const reportDates = await ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, false, true);
             const lastQuarter = _.max(_.pluck(reportDates, 'endDateNextFiscalQuarter'));
             const results = [];
             for (const {reportDateNextFiscalQuarter: reportDate, endDateNextFiscalQuarter: quarter} of reportDates) {
@@ -781,13 +781,13 @@ Meteor.methods({
                 return `${e.symbol}_${e.dateBefore}`;
             });
 
-            ServerUtils.emailCSV(
+            await ServerUtils.emailCSV(
                 uniqueReleases,
                 fileName,
                 fileName,
                 getEmailText()
             );
-            ServerUtils.emailCSV(
+            await ServerUtils.emailCSV(
                 prices,
                 fileName,
                 fileName + ' prices',
@@ -811,7 +811,7 @@ Meteor.methods({
             }
 
             if (emailResults) {
-                ServerUtils.emailCSV(
+                await ServerUtils.emailCSV(
                     ServerUtils.earningsReleases.processRowsForCSV(historicalRows),
                     fileName,
                     fileName,
@@ -1098,7 +1098,7 @@ Meteor.methods({
         }
 
         if (emailResults && !includeHistory) {
-            ServerUtils.emailCSV(
+            await ServerUtils.emailCSV(
                 ServerUtils.earningsReleases.processRowsForCSV(results),
                 fileName,
                 fileName,
@@ -1150,7 +1150,7 @@ Meteor.methods({
         }, {
             fields: {_id: 1},
             limit: 25,
-        }).fetch();
+        }).fetchAsync();
         return _.pluck(symbols, '_id');
     },
 

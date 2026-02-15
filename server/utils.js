@@ -77,7 +77,7 @@ export const ServerUtils = {
             fields: {
                 name: 1,
             },
-        }).fetch()).forEach(company => {
+        }).fetchAsync()).forEach(company => {
             firmMap.set(company._id, company);
         });
 
@@ -91,7 +91,7 @@ export const ServerUtils = {
             fields: {
                 firmRatingFullString: 1,
             },
-        }).fetch()).forEach(rating => {
+        }).fetchAsync()).forEach(rating => {
             ratingMap.set(rating._id, rating);
         });
 
@@ -399,7 +399,7 @@ export const ServerUtils = {
         },
     },
     earningsReleases: {
-        getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false, returnObjects=false) {
+        async getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false, returnObjects=false) {
             const validRecordsQuery = {
                 symbol,
                 currencyCode: {$nin: ['CND']},
@@ -421,7 +421,7 @@ export const ServerUtils = {
             if (returnObjects) {
                 const deduplicationSet = new Set();
 
-                return EarningsReleases.find(query, {
+                return (await EarningsReleases.find(query, {
                     fields: {
                         reportDateNextFiscalQuarter: 1,
                         endDateNextFiscalQuarter: 1,
@@ -429,7 +429,7 @@ export const ServerUtils = {
                     sort: {
                         reportDateNextFiscalQuarter: 1,
                     },
-                }).fetch().filter(e => {
+                }).fetchAsync()).filter(e => {
                     const stringified = EJSON.stringify(_.pick(e, [
                         'reportDateNextFiscalQuarter',
                         'endDateNextFiscalQuarter',
@@ -445,7 +445,7 @@ export const ServerUtils = {
             }
 
             const relevantReportDates = _.sortBy(
-                Promise.await(EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query)),
+                await EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query),
                 _.identity
             );
 
