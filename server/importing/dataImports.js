@@ -1,12 +1,22 @@
 import { check, Match } from 'meteor/check';
 import moment from 'moment-timezone';
 import _ from 'underscore';
+import { Meteor } from 'meteor/meteor';
+import { Email } from '../email';
+import { ServerUtils } from '../utils';
+import {
+    SymbolMappings,
+    EarningsReleases,
+    ResearchCompanies,
+    RatingScales,
+    RatingChanges,
+} from '../../lib/collections';
 
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
-        importData: function(importData, importType, scheduledDataPullFlag) {
+        importData: async function(importData, importType, scheduledDataPullFlag) {
             check(importType, String);
             //run all the checks here
 
@@ -16,14 +26,13 @@ Meteor.methods({
 
             var _result = {};
 
-            var _user = Meteor.user();
-            var _userId = Meteor.userId();
-            var _permissions = _userId && Meteor.users.findOne(_userId).permissions;
-            var _dataImportingPermissions = _permissions && _permissions.dataImports;
-            var _upgradesDowngradesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportUpgradesDowngrades") > -1;
-            var _ratingScalesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportRatingScales") > -1;
+            const user = await Meteor.userAsync();
+            const permissions = user?.permissions;
+            const dataImportingPermissions = permissions && permissions.dataImports;
+            const upgradesDowngradesImportPermission = dataImportingPermissions?.includes("canImportUpgradesDowngrades");
+            const ratingScalesImportPermission = dataImportingPermissions?.includes("canImportRatingScales");
 
-            if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
+            if (importType === "upgrades_downgrades" && upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
@@ -34,46 +43,46 @@ Meteor.methods({
                         pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
                     };
                 }
-                importData.forEach(function(importItem) {
-                    var _universalSymbol = _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
+                for (const importItem of importData) {
+                    var _universalSymbol = await _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
 
                     //first, check if that research company exists
-                    var _researchCompany = ResearchCompanies.findOne({name: importItem.researchFirmString});
+                    var _researchCompany = await ResearchCompanies.findOneAsync({name: importItem.researchFirmString});
                     var originalCompanyId;
                     var _researchCompanyId;
                     if (_researchCompany) {
                         _researchCompanyId = _researchCompany._id;
                         if (_researchCompany.type === "alternative") {
-                            var mainResearchCompany = _researchCompany.referenceId && ResearchCompanies.findOne(_researchCompany.referenceId);
+                            var mainResearchCompany = _researchCompany.referenceId && await ResearchCompanies.findOneAsync(_researchCompany.referenceId);
                             if (mainResearchCompany) {
                                 originalCompanyId = _researchCompany._id;
                                 _researchCompanyId = mainResearchCompany._id;
                             }
                         }
                     } else {
-                        _researchCompanyId = ResearchCompanies.insert({name: importItem.researchFirmString});
+                        _researchCompanyId = await ResearchCompanies.insertAsync({name: importItem.researchFirmString});
                     }
 
                     //second, get rating scales id so that can check if item already exists in RatingChanges
-                    var _ratingScaleObjectForNew = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
-                    var _ratingScaleObjectForOld = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
+                    var _ratingScaleObjectForNew = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
+                    var _ratingScaleObjectForOld = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
 
 
                     var _originalOldRatingString;
                     var _originalNewRatingString;
                     //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
                     if (!_ratingScaleObjectForNew) {
-                        var _secondaryNew = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
+                        var _secondaryNew = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
                         if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
-                            _ratingScaleObjectForNew = RatingScales.findOne({_id: _secondaryNew.referenceRatingScaleId});
+                            _ratingScaleObjectForNew = await RatingScales.findOneAsync({_id: _secondaryNew.referenceRatingScaleId});
                             _originalNewRatingString = importItem.newRatingString;
                         }
                     }
 
                     if (!_ratingScaleObjectForOld) {
-                        var _secondaryOld = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
+                        var _secondaryOld = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
                         if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
-                            _ratingScaleObjectForOld = RatingScales.findOne({_id: _secondaryOld.referenceRatingScaleId});
+                            _ratingScaleObjectForOld = await RatingScales.findOneAsync({_id: _secondaryOld.referenceRatingScaleId});
                             _originalOldRatingString = importItem.oldRatingString;
                         }
                     }
@@ -81,7 +90,7 @@ Meteor.methods({
 
                     if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
                         //can try to check if this RatingChanges item already exists. if not then insert it.
-                        var _existingRatingChange = RatingChanges.findOne({
+                        var _existingRatingChange = await RatingChanges.findOneAsync({
                             researchFirmId: _researchCompanyId,
                             symbol: _universalSymbol,
                             newRatingId: _ratingScaleObjectForNew._id,
@@ -133,8 +142,8 @@ Meteor.methods({
                             }
 
                             console.log("adding rating change for universal symbol: ", _universalSymbol);
-                            RatingChanges.insert(_ratingChange);
-                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
+                            await RatingChanges.insertAsync(_ratingChange);
+                            await Meteor.callAsync('insertNewStockSymbols', [_universalSymbol]);
                             _newlyImportedNum++;
                         }
                     } else {
@@ -156,7 +165,7 @@ Meteor.methods({
                             _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_old);
                         }
                     }
-                });
+                }
 
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
@@ -170,17 +179,17 @@ Meteor.methods({
                 const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
                 _result.importedDatesStr = importedDatesStr;
 
-                Email.send({
+                await Email.send({
                     subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
-            } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
+            } else if (importType === "upgrades_downgrades" && !upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === 'earnings_releases_new') {
 
                 if (scheduledDataPullFlag) {
-                    Email.send({
+                    await Email.send({
                         subject: 'getting earnings releases (new)',
                         text: JSON.stringify({
                             timeNow: new Date(),
@@ -192,7 +201,6 @@ Meteor.methods({
                 let numMatching = 0;
                 let numInserted = 0;
 
-                const expectedStatusCode = 200;
                 const expectedNumberOfColumns = 24;
                 const today = moment().format('YYYY-MM-DD');
 
@@ -200,15 +208,16 @@ Meteor.methods({
                     let cursorID;
 
                     do {
-                        const url = ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
+                        const url = await ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
                         console.log('calling url: ', url);
-                    const response = HTTP.get(url);
-                    ServerUtils.maybePopulateDataFromContent(response);
-                    if (response.statusCode !== expectedStatusCode) {
-                        throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
-                    }
+                        const response = await fetch(url);
+                        if (!response.ok) { // Check if the response status is in the 200-299 range
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                    const json = {data: await response.json()};
+                    ServerUtils.maybePopulateDataFromContent(json);
 
-                    const columns = response.data.datatable.columns;
+                    const columns = json.data.datatable.columns;
                     if (columns.length !== expectedNumberOfColumns) {
                         throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
                     }
@@ -216,10 +225,10 @@ Meteor.methods({
                         column.name = column.name.toUpperCase();
                     });
 
-                    const data = response.data.datatable.data;
+                    const data = json.data.datatable.data;
 
                     dataCount += data.length;
-                    data.forEach((row, rowIndex) => {
+                    for (const [rowIndex, row] of data.entries()) {
                         if (row.length !== expectedNumberOfColumns) {
                             throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
                         }
@@ -250,40 +259,40 @@ Meteor.methods({
 
                         // special cases
                         if (!earningsRelease.asOf) earningsRelease.asOf = today;
-                        earningsRelease.symbol = _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
+                        earningsRelease.symbol = await _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
 
                         // sanity checks
                         if (!earningsRelease.asOf || !earningsRelease.symbol) {
                             throw new Meteor.Error(`something went wrong: ${rowIndex}`);
                         }
 
-                        const matchingIDs = getMatchingEarningsReleaseIDs(earningsRelease);
+                        const matchingIDs = await getMatchingEarningsReleaseIDs(earningsRelease);
                         const lastModified = new Date();
                         if (matchingIDs.length) {
                             // update asOf and lastModified fields
-                            matchingIDs.forEach(id => {
-                                EarningsReleases.update(id, {$set: {
+                            for (const id of matchingIDs) {
+                                await EarningsReleases.updateAsync(id, {$set: {
                                     asOf: earningsRelease.asOf,
                                     lastModified,
                                 }});
                                 numMatching += 1;
-                            });
+                            }
                         } else {
-                            EarningsReleases.insert(_.extend({
+                            await EarningsReleases.insertAsync(_.extend({
                                 lastModified,
                                 insertedDate: lastModified,
                                 insertedDateStr: earningsRelease.asOf,
                             }, earningsRelease));
-                            Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
+                            await Meteor.callAsync('insertNewStockSymbols', [earningsRelease.symbol]);
                             numInserted += 1;
                         }
-                    });
+                    };
 
-                        cursorID = response.data.meta.next_cursor_id;
+                        cursorID = json.data.meta.next_cursor_id;
                     } while (cursorID);
 
                     if (scheduledDataPullFlag) {
-                        Email.send({
+                        await Email.send({
                             subject: 'DONE getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(),
@@ -295,7 +304,7 @@ Meteor.methods({
                 } catch (error) {
                     const errorString = error.toString();
                     if (scheduledDataPullFlag) {
-                        Email.send({
+                        await Email.send({
                             subject: 'ERROR from getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(), errorString,
@@ -303,53 +312,53 @@ Meteor.methods({
                         });
                     }
                 }
-            } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
+            } else if (importType === "grading_scales" && ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
                 //get an id of that research company
-                var _researchCompany = ResearchCompanies.findOne({name: _researchFirmString});
+                var _researchCompany = await ResearchCompanies.findOneAsync({name: _researchFirmString});
                 var _researchCompanyId;
                 if (_researchCompany) {
                     _researchCompanyId = _researchCompany._id;
                 } else {
-                    _researchCompanyId = ResearchCompanies.insert({name: _researchFirmString});
+                    _researchCompanyId = await ResearchCompanies.insertAsync({name: _researchFirmString});
                 }
 
                 var _noneOfGradingScalesForThisFirmAlreadyExist = true;
-                _allRatings.forEach(function(ratingString) {
-                    if (RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: ratingString})) {
+                for (const ratingString of _allRatings) {
+                    if (await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: ratingString})) {
                         _noneOfGradingScalesForThisFirmAlreadyExist = false;
                     }
-                });
+                }
 
                 if (_noneOfGradingScalesForThisFirmAlreadyExist) {
                     //now eval approx how many points each and insert into collection.
                     var _valuePerThreshold = Math.round(_totalMaxGradingValue / _allRatings.length)
-                    _allRatings.forEach(function(value, index) {
-                        RatingScales.insert({
+                    for (const [index, value] of _allRatings.entries()) {
+                        await RatingScales.insertAsync({
                             researchFirmId: _researchCompanyId,
                             firmRatingFullString: value,
                             universalScaleValue: index * _valuePerThreshold + Math.round(_valuePerThreshold / 2)
                         });
-                    })
+                    }
                 }
 
                 var _beforeCoverageInitiatedString = importData.beforeCoverageInitiatedString;
                 var _coverageDroppedString = importData.coverageDroppedString;
                 var _coverageTemporarilySuspendedString = importData.coverageTemporarilySuspendedString;
-                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
-                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
+                if (!await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
+                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
                 }
 
-                if (!RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
-                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
+                if (!await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
+                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
                 }
 
-                if (_coverageTemporarilySuspendedString && !RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"})) {
-                    RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
+                if (_coverageTemporarilySuspendedString && !await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"})) {
+                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
-            } else if (importType === "grading_scales" && !_ratingScalesImportPermission) {
+            } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
                 _result.cannotImportGradingScalesDueToMissingPermissions = true;
             }
 
@@ -477,7 +486,7 @@ Meteor.methods({
         return _fieldNameToReturn;
     }
 
-    function getMatchingEarningsReleaseIDs(earningsRelease) {
+    async function getMatchingEarningsReleaseIDs(earningsRelease) {
         const fieldsToOmit = [
             'asOf',
             'lastModified',
@@ -486,28 +495,28 @@ Meteor.methods({
             'insertedDateStr',
         ];
         const query = _.omit(earningsRelease, fieldsToOmit);
-        return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
+        return (await EarningsReleases.find(query, {fields: {_id: 1}}).fetchAsync()).map(({_id})=>_id);
     }
 
-    function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
+    async function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
         var _query = {
             from: 'earnings_release',
             symbolStr: earnRelSymbol
         };
-        if (SymbolMappings.find(_query).count() === 1) {
-            return SymbolMappings.findOne(_query).universalSymbolStr;
+        if (await SymbolMappings.find(_query).countAsync() === 1) {
+            return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
         } else {
             return earnRelSymbol;
         }
     };
 
-    function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
+    async function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
         var _query = {
             from: 'rating_change',
             symbolStr: ratingChangeSymbol
         };
-        if (SymbolMappings.find(_query).count() === 1) {
-            return SymbolMappings.findOne(_query).universalSymbolStr;
+        if (await SymbolMappings.find(_query).countAsync() === 1) {
+            return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
         } else {
             return ratingChangeSymbol;
         }

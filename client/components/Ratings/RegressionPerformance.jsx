@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import { withTracker } from 'meteor/react-meteor-data';
 import moment from 'moment-timezone';
+import { Settings } from '../../../lib/collections.js';
+import { Utils } from '../../../lib/utils.js';
 
 import StocksGraph from '../StocksGraph.jsx';
 
@@ -17,8 +19,8 @@ class RegressionPerformance extends Component {
 
     componentWillMount() {
         console.log("mounting", this.props.symbol);
-        let _maxDateForRatingChanges = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment().tz("America/New_York").subtract(70, "days"));
-        let _lastPriceDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(
+        let _maxDateForRatingChanges = Utils.getClosestPreviousWeekDayDateByCutoffTime(false, moment().tz("America/New_York").subtract(70, "days"));
+        let _lastPriceDate = Utils.getClosestPreviousWeekDayDateByCutoffTime(
             this.props.settings.clientSettings.ratingChanges.fourPmInEstTimeString
         );
 

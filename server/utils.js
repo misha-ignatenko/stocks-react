@@ -1,30 +1,23 @@
-/**
- * Created by mykhayloignatenko on 4/2/18.
- */
-import moment from 'moment-timezone';
 import _ from 'underscore';
 import { EJSON } from 'meteor/ejson';
-const momentBiz = require('moment-business-days');
 const { convertArrayToCSV } = require('convert-array-to-csv');
+import { Utils } from '../lib/utils';
+import { Permissions } from '../lib/permissions';
+import { ResearchCompanies, RatingScales, EarningsReleases, RatingChanges, Settings } from '../lib/collections';
+import { Meteor } from 'meteor/meteor';
+import { Email } from './email';
 
-ServerUtils = {
+export const ServerUtils = {
 
     getCachedSetting: Utils.cacheFor(
         Utils.getSetting,
         5 * 60 * 1000
     ),
 
-    setSetting(field, value) {
-        return Settings.update(Utils.getSetting('_id'), {$set: {
+    async setSetting(field, value) {
+        return await Settings.updateAsync(await Utils.getSetting('_id'), {$set: {
             [field]: value,
         }});
-    },
-
-    setEarningsReleaseSyncDate(dateString) {
-        return this.setSetting(
-            'serverSettings.quandl.dateOfLastPullFromQuandl',
-            dateString
-        );
     },
 
     getEmailTo() {
@@ -33,10 +26,10 @@ ServerUtils = {
     getEmailFrom() {
         return this.getCachedSetting('serverSettings.ratingsChanges.emailFrom');
     },
-    emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
+    async emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
         const csv = convertArrayToCSV(rows);
 
-        Email.send({
+        await Email.send({
             subject,
             text,
             attachments: [
@@ -47,10 +40,10 @@ ServerUtils = {
             ],
         });
     },
-    emailJSON(data, fileName = 'sample.json', subject = 'json file', text = 'see attached') {
+    async emailJSON(data, fileName = 'sample.json', subject = 'json file', text = 'see attached') {
         const json = JSON.stringify(data);
 
-        Email.send({
+        await Email.send({
             subject,
             text,
             attachments: [
@@ -62,22 +55,22 @@ ServerUtils = {
         });
     },
 
-    ratingsChangesLimitGlobal() {
-        return this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+    async ratingsChangesLimitGlobal() {
+        return await this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
-    ratingsChangesLimitSymbol() {
-        return this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+    async ratingsChangesLimitSymbol() {
+        return await this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
     },
-    getExtraRatingChangeData(ratingChanges) {
+    async getExtraRatingChangeData(ratingChanges) {
         let firmMap = new Map();
         const firmIDs = _.pluck(ratingChanges, 'researchFirmId');
-        ResearchCompanies.find({
+        (await ResearchCompanies.find({
             _id: {$in: firmIDs},
         }, {
             fields: {
                 name: 1,
             },
-        }).forEach(company => {
+        }).fetchAsync()).forEach(company => {
             firmMap.set(company._id, company);
         });
 
@@ -85,13 +78,13 @@ ServerUtils = {
         const oldRatingIDs = _.pluck(ratingChanges, 'oldRatingId');
         const newRatingIDs = _.pluck(ratingChanges, 'newRatingId');
         const ratingIDs = _.union(oldRatingIDs, newRatingIDs);
-        RatingScales.find({
+        (await RatingScales.find({
             _id: {$in: ratingIDs},
         }, {
             fields: {
                 firmRatingFullString: 1,
             },
-        }).forEach(rating => {
+        }).fetchAsync()).forEach(rating => {
             ratingMap.set(rating._id, rating);
         });
 
@@ -112,7 +105,10 @@ ServerUtils = {
             ]);
         });
     },
-    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap=ServerUtils.getNumericRatingScalesMap()) {
+    async getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
+        if (!validRatingScaleIDsMap) {
+            validRatingScaleIDsMap = await ServerUtils.getNumericRatingScalesMap();
+        }
         const dateString = {
             $gte: startDate,
         };
@@ -123,7 +119,7 @@ ServerUtils = {
             symbol,
             dateString,
         };
-        const ratingChanges = Promise.await(RatingChanges.rawCollection().aggregate([
+        const ratingChanges = (await RatingChanges.rawCollection().aggregate([
             {$match},
             {$sort: {dateString: -1}},
             {$group: {
@@ -138,50 +134,52 @@ ServerUtils = {
 
         return ratingChanges;
     },
-    getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
+    async getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
         /**
          * this factor means if a stock has the max possible rating, it's expected
          * to increase its price by this factor
          */
         const factor = 2;
-        const priceOnPurchaseDay = Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
-        const ratingScales = ServerUtils.getNumericRatingScalesMap();
+        const priceOnPurchaseDay = await Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
+        const ratingScales = await ServerUtils.getNumericRatingScalesMap();
         const midpoint = Utils.constantFeatureValue;
 
-        return ratingChanges.map(r => {
+        const results = [];
+        for (const r of ratingChanges) {
             const {
                 dateString: ratingChangeDate,
                 newRatingId,
             } = r;
-            const priceOnRatingChangeDay = Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
+            const priceOnRatingChangeDay = await Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
             const priceIncreaseRatio = priceOnPurchaseDay / priceOnRatingChangeDay;
             const progressRatio = (priceIncreaseRatio - 1) / (factor - 1);
             const currentRating = ratingScales.get(newRatingId);
             const adjRating = midpoint + (1 - progressRatio) * (currentRating - midpoint);
 
-            return adjRating;
-        });
+            results.push(adjRating);
+        }
+        return results;
     },
 
     cachedRatingScales: undefined,
-    getNumericRatingScalesMap() {
+    async getNumericRatingScalesMap() {
         if (!this.cachedRatingScales) {
-            this.cachedRatingScales = this.getNumericRatingScalesMapNonCached();
+            this.cachedRatingScales = await this.getNumericRatingScalesMapNonCached();
             Meteor.setTimeout(() => {
                 this.cachedRatingScales = undefined;
             }, 10 * 60 * 1000); // 10 min
         }
         return this.cachedRatingScales;
     },
-    getNumericRatingScalesMapNonCached() {
+    async getNumericRatingScalesMapNonCached() {
         const validRatingScaleIDsMap = new Map();
-        RatingScales.find(
+        (await RatingScales.find(
             {universalScaleValue: {
                 $not: {$type: 2},
                 $exists: true,
             }},
             {fields: {universalScaleValue: 1}}
-        ).forEach(({_id, universalScaleValue}) => {
+        ).fetchAsync()).forEach(({_id, universalScaleValue}) => {
             validRatingScaleIDsMap.set(_id, universalScaleValue);
         });
         return validRatingScaleIDsMap;
@@ -193,8 +191,8 @@ ServerUtils = {
         }
     },
 
-    apiKey: function () {
-        return this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
+    apiKey: async function () {
+        return await this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
 
     earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
@@ -204,11 +202,11 @@ ServerUtils = {
 
     prices: {
 
-        getPricesUrl(symbol, cursorID, isUnadj = false, date = null) {
+        async getPricesUrl(symbol, cursorID, isUnadj = false, date = null) {
             const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
             const datePostfix = date ? `&date=${date}` : '';
 
-            return `${isUnadj ? ServerUtils.pricesUrlUnadj : ServerUtils.pricesUrl}?symbol=${symbol}&api_key=${ServerUtils.apiKey()}${cursorPostfix}${datePostfix}`;
+            return `${isUnadj ? ServerUtils.pricesUrlUnadj : ServerUtils.pricesUrl}?symbol=${symbol}&api_key=${await ServerUtils.apiKey()}${cursorPostfix}${datePostfix}`;
         },
 
         getFormattedPriceObj(item, columnDefinitions) {
@@ -253,20 +251,20 @@ ServerUtils = {
         clearAdjustmentsCache() {
             this.adjustmentsCache = {};
         },
-        getAllAdjustments(symbol) {
+        async getAllAdjustments(symbol) {
             if (!_.has(this.adjustmentsCache, symbol)) {
-                this.adjustmentsCache[symbol] = this.getAllAdjustmentsNonCached(symbol);
+                this.adjustmentsCache[symbol] = await this.getAllAdjustmentsNonCached(symbol);
                 Meteor.setTimeout(() => {
                     delete this.adjustmentsCache[symbol];
                 }, 10 * 60 * 1000); // 10 min
             }
             return this.adjustmentsCache[symbol];
         },
-        getAllAdjustmentsNonCached(symbol) {
-            const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
+        async getAllAdjustmentsNonCached(symbol) {
+            const hasSplits = await ServerUtils.earningsReleases.hasSplits(symbol);
             if (hasSplits) {
                 const {splitDate} = hasSplits;
-                const adjustments = ServerUtils.prices.getAllPrices(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
+                const adjustments = (await ServerUtils.prices.getAllPrices(symbol, undefined, splitDate)).filter(p => p.hasAdjustment);
                 return adjustments;
             }
 
@@ -275,9 +273,9 @@ ServerUtils = {
 
         pricesCache: {},
         pricesCacheMap: new Map(),
-        getAllPrices(symbol, getMap = false) {
+        async getAllPrices(symbol, getMap = false) {
             if (!_.has(this.pricesCache, symbol)) {
-                const pricesForSymbol = this.getAllPricesNonCached(symbol);
+                const pricesForSymbol = await this.getAllPricesNonCached(symbol);
                 this.pricesCache[symbol] = pricesForSymbol;
 
                 this.pricesCacheMap.set(symbol, new Map());
@@ -299,7 +297,7 @@ ServerUtils = {
             }
             return this.pricesCache[symbol];
         },
-        getAllPricesNonCached(symbol, isUnadj = false) {
+        async getAllPricesNonCached(symbol, isUnadj = false) {
             const prices = [];
             console.log("inside getPricesForSymbol: ", symbol);
 
@@ -307,8 +305,9 @@ ServerUtils = {
                 let cursorID;
 
                 do {
-                    const url = ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
-                    const result = HTTP.get(url);
+                    const url = await ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
+                    const response = await fetch(url);
+                    const result = {data: await response.json()};
                     ServerUtils.maybePopulateDataFromContent(result);
 
                     const datatable = result.data.datatable;
@@ -334,14 +333,14 @@ ServerUtils = {
 
             return _.sortBy(prices, 'dateString');
         },
-        getPriceOnDayNew({
+        async getPriceOnDayNew({
             symbol,
             dateString,
             returnObj = false,
             priceField = 'adjClose',
             isStrict = true,
         }) {
-            const symbolPricesMap = this.getAllPrices(symbol, true);
+            const symbolPricesMap = await this.getAllPrices(symbol, true);
             const priceObj = symbolPricesMap.get(dateString);
             if (returnObj) {
                 return priceObj;
@@ -353,39 +352,39 @@ ServerUtils = {
         },
     },
     ratingChanges: {
-        isUpgrade(rc) {
+        async isUpgrade(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) > map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
                 return map.get(newRatingId) > 60;
             }
         },
-        isDowngrade(rc) {
+        async isDowngrade(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) < map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
                 return map.get(newRatingId) < 60;
             }
         },
-        getOldAndNewRatings(rc) {
+        async getOldAndNewRatings(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             return {
                 oldRating: map.get(oldRatingId),
                 newRating: map.get(newRatingId),
@@ -393,7 +392,7 @@ ServerUtils = {
         },
     },
     earningsReleases: {
-        getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false, returnObjects=false) {
+        async getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false, returnObjects=false) {
             const validRecordsQuery = {
                 symbol,
                 currencyCode: {$nin: ['CND']},
@@ -415,7 +414,7 @@ ServerUtils = {
             if (returnObjects) {
                 const deduplicationSet = new Set();
 
-                return EarningsReleases.find(query, {
+                return (await EarningsReleases.find(query, {
                     fields: {
                         reportDateNextFiscalQuarter: 1,
                         endDateNextFiscalQuarter: 1,
@@ -423,7 +422,7 @@ ServerUtils = {
                     sort: {
                         reportDateNextFiscalQuarter: 1,
                     },
-                }).fetch().filter(e => {
+                }).fetchAsync()).filter(e => {
                     const stringified = EJSON.stringify(_.pick(e, [
                         'reportDateNextFiscalQuarter',
                         'endDateNextFiscalQuarter',
@@ -439,7 +438,7 @@ ServerUtils = {
             }
 
             const relevantReportDates = _.sortBy(
-                Promise.await(EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query)),
+                await EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query),
                 _.identity
             );
 
@@ -479,25 +478,26 @@ ServerUtils = {
                 console.log('--------------------------------------');
             });
         },
-        getAllEarningsReleasesUrl: (cursorID) => {
+        getAllEarningsReleasesUrl: async (cursorID) => {
             const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
-            return `${ServerUtils.earningsReleasesUrl}?api_key=${ServerUtils.apiKey()}${cursorPostfix}`;
+            return `${ServerUtils.earningsReleasesUrl}?api_key=${await ServerUtils.apiKey()}${cursorPostfix}`;
         },
-        getEarningsReleasesUrl: (symbol) => {
-            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+        getEarningsReleasesUrl: async (symbol) => {
+            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
-        getMetadataUrl(symbol) {
-            return `${ServerUtils.mtUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+        getMetadataUrl: async (symbol) => {
+            return `${ServerUtils.mtUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
-        hasSplits(symbol) {
-            const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
+        hasSplits: async (symbol) => {
+            const url = await ServerUtils.earningsReleases.getMetadataUrl(symbol);
             console.log('calling hasSplits', symbol);
-            const response = HTTP.get(url);
-            ServerUtils.maybePopulateDataFromContent(response);
+            const response = await fetch(url);
+            const json = {data: await response.json()};
+            ServerUtils.maybePopulateDataFromContent(json);
             const {
                 columns,
                 data,
-            } = response.data.datatable;
+            } = json.data.datatable;
 
             const firstRow = data[0];
             if (!firstRow) {
@@ -657,11 +657,11 @@ ServerUtils = {
             });
         },
     },
-    runPremiumCheck(context) {
+    async runPremiumCheck(context) {
         if (!context) {
             throw new Meteor.Error('something is not right');
         }
-        if (context.connection && !Permissions.isPremium()) {
+        if (context.connection && !await Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
     },

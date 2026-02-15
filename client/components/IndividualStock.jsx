@@ -68,18 +68,21 @@ class IndividualStock extends Component {
 
     //TODO: add alert to prevent user from adding too many stocks
 
-    selectFirstSearchResult(event) {
+    async selectFirstSearchResult(event) {
         if (event.keyCode === 13) {
-            var _that = this;
             var _s = $("#individualStockSearch").val();
-            Meteor.call("insertNewStockSymbols", [_s], function (err, res) {
+            try {
+                const res = await Meteor.callAsync("insertNewStockSymbols", [_s]);
                 if (res[_s]) {
-                    _that.setSelectedStock(_s);
+                    this.setSelectedStock(_s);
                 } else {
                     console.log("the symbol is invalid: ", _s);
-                    _that.clearSelectedStock();
+                    this.clearSelectedStock();
                 }
-            });
+            } catch (err) {
+                console.error("Error inserting stock symbol:", err);
+                this.clearSelectedStock();
+            }
         }
     }
     showRegisterAccountFields() {

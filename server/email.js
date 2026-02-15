@@ -1,3 +1,6 @@
+import { Meteor } from 'meteor/meteor';
+import { ServerUtils } from './utils';
+
 const MAIL_URL = process.env.MAIL_URL;
 const mailUrlSplit = MAIL_URL.split(':');
 
@@ -12,12 +15,12 @@ let transporter = nodemailer.createTransport({
     },
 });
 
-const send = (params) => {
-    const to = ServerUtils.getEmailTo();
+const send = async (params) => {
+    const to = await ServerUtils.getEmailTo();
     params.to = to;
     params.replyTo = to;
     if (!params.from) {
-        params.from = ServerUtils.getEmailFrom();
+        params.from = await ServerUtils.getEmailFrom();
     }
 
     console.log('inside send email', params.subject);
@@ -28,14 +31,14 @@ const send = (params) => {
     });
 };
 
-Email = {
+export const Email = {
     send,
 };
 
 Meteor.methods({
-    "sendSampleEmail": function() {
+    "sendSampleEmail": async function() {
 
-        Email.send({
+        await Email.send({
             subject: 'test email',
             text: JSON.stringify({
                 timeNow: new Date(),

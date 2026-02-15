@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTracker } from 'meteor/react-meteor-data';
+import { Meteor } from 'meteor/meteor';
+import { Settings } from '../../lib/collections';
 import moment from 'moment-timezone';
 import 'react-dates/initialize';
 import { DateRangePicker } from 'react-dates';
