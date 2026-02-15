@@ -26,14 +26,13 @@ Meteor.methods({
 
             var _result = {};
 
-            var _user = Meteor.user();
-            var _userId = Meteor.userId();
-            var _permissions = _userId && Meteor.users.findOne(_userId).permissions;
-            var _dataImportingPermissions = _permissions && _permissions.dataImports;
-            var _upgradesDowngradesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportUpgradesDowngrades") > -1;
-            var _ratingScalesImportPermission = _dataImportingPermissions && _dataImportingPermissions.indexOf("canImportRatingScales") > -1;
+            const user = await Meteor.userAsync();
+            const permissions = user?.permissions;
+            const dataImportingPermissions = permissions && permissions.dataImports;
+            const upgradesDowngradesImportPermission = dataImportingPermissions?.includes("canImportUpgradesDowngrades");
+            const ratingScalesImportPermission = dataImportingPermissions?.includes("canImportRatingScales");
 
-            if (importType === "upgrades_downgrades" && _upgradesDowngradesImportPermission) {
+            if (importType === "upgrades_downgrades" && upgradesDowngradesImportPermission) {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
@@ -185,7 +184,7 @@ Meteor.methods({
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
-            } else if (importType === "upgrades_downgrades" && !_upgradesDowngradesImportPermission) {
+            } else if (importType === "upgrades_downgrades" && !upgradesDowngradesImportPermission) {
                 _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === 'earnings_releases_new') {
 
@@ -313,7 +312,7 @@ Meteor.methods({
                         });
                     }
                 }
-            } else if (importType === "grading_scales" && _ratingScalesImportPermission) {
+            } else if (importType === "grading_scales" && ratingScalesImportPermission) {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
                 //get an id of that research company
@@ -359,7 +358,7 @@ Meteor.methods({
                     RatingScales.insert({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
-            } else if (importType === "grading_scales" && !_ratingScalesImportPermission) {
+            } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
                 _result.cannotImportGradingScalesDueToMissingPermissions = true;
             }
 
