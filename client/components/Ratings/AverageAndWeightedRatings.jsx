@@ -4,6 +4,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import moment from 'moment-timezone';
 import { EJSON } from 'meteor/ejson';
+import { Settings, RatingScales } from '../../../lib/collections.js';
+import { Utils } from '../../../lib/utils.js';
 
 import StocksGraph from '../StocksGraph.jsx';
 import RegressionPerformance from './RegressionPerformance.jsx';
@@ -27,7 +29,7 @@ class AverageAndWeightedRatings extends Component {
 
         let _settings = Settings.findOne();
         var _4PMEST_IN_ISO = _settings && _settings.clientSettings.ratingChanges.fourPmInEstTimeString || "16:00:00";
-        let _avgRatingEndDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
+        let _avgRatingEndDate = Utils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
 
         this.state = {
             pxRollingDays: 50,
@@ -98,7 +100,7 @@ class AverageAndWeightedRatings extends Component {
         Meteor.call("getPricesForSymbol", symbol, function (err1, res1) {
             Meteor.call("getEarliestRatingChange", symbol, function (err2, res2) {
                 if (res1 && res1.length > 0 && res2 && !err1 && !err2) {
-                    var _simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(res1, res2, _that.state.pxRollingDays);
+                    var _simpleRollingPx = Utils.stockPrices.getSimpleRollingPx(res1, res2, _that.state.pxRollingDays);
                     _that.syncReactiveVarsAndState([
                         avgRatingStartDate,
                         allStockPrices,
@@ -340,26 +342,26 @@ export default withTracker((props) => {
 
             if (rC.length > 0) {
 
-                let result = _.extend(_allAvailablePricesForSymbol, {historicalData: StocksReactUtils.stockPrices.getPricesBetween(_allAvailablePricesForSymbol.historicalData, _startDateForRatingChangesSubscription, _endDateRatingChanges)});
+                let result = _.extend(_allAvailablePricesForSymbol, {historicalData: Utils.stockPrices.getPricesBetween(_allAvailablePricesForSymbol.historicalData, _startDateForRatingChangesSubscription, _endDateRatingChanges)});
                 _data.stockPrices = result.historicalData;
 
                 _data.stocksToGraphObjs = [];
                 var _startDate = _startDateForRatingChangesSubscription;
                 var _endDate = _endDateRatingChanges;
-                var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate, rC);
+                var _averageAnalystRatingSeries = Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate, rC);
                 //TODO: start date and end date for regression are coming from a different date picker
                 var _startDateForRegression = _startDate;
                 var _endDateForRegression = _endDate;
                 if (result && result.historicalData) {
-                    var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
+                    var _avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
                     var _priceReactionDelayInDays = priceReactionDelayDays.get();
-                    var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", pctDownPerDay.get(), pctUpPerDay.get(), Math.pow(10, stepSizePow.get()), regrIterNum.get());
+                    var _weightedRatingsSeriesEveryDay = Utils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", pctDownPerDay.get(), pctUpPerDay.get(), Math.pow(10, stepSizePow.get()), regrIterNum.get());
                     _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
                     _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
-                    var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+                    var _predictionsBasedOnAvgRatings = Utils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                         return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
                     }), result.historicalData, "adjClose", simpleRollingPx.get(), 0, 120, 60, pctDownPerDay.get(), pctUpPerDay.get());
-                    var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+                    var _predictionsBasedOnWeightedRatings = Utils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
                         return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
                     }), result.historicalData, "adjClose", simpleRollingPx.get(), 0, 120, 60, pctDownPerDay.get(), pctUpPerDay.get());
 

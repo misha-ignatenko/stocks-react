@@ -108,10 +108,10 @@ Meteor.methods({
         await ServerUtils.emailJSON(prices, `${symbol}_prices_${maxDate}.json`, `prices for ${symbol} - ${maxDate}`);
     },
 
-    getEarliestRatingChange: function (symbol) {
+    async getEarliestRatingChange(symbol) {
         check(symbol, String);
 
-        const r = RatingChanges.findOne({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
+        const r = await RatingChanges.findOneAsync({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
         return r?.dateString;
     },
 
@@ -271,27 +271,27 @@ Meteor.methods({
         }
     },
 
-    getRegressionPerformance: function (symbol, maxRatingChangeDate, priceCheckDate) {
+    getRegressionPerformance: async function (symbol, maxRatingChangeDate, priceCheckDate) {
         check(symbol, String);
         check(maxRatingChangeDate, String);
         check(priceCheckDate, String);
         console.log('getRegressionPerformance', symbol, maxRatingChangeDate, priceCheckDate);
 
         // step 1. get all rating changes for symbol up to maxRatingChangeDate
-        var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
+        var _ratingChangesForRegr = await RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetchAsync();
 
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
         //moment().toISOString().substring(10,24)
         var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
-        var _allPrices = ServerUtils.prices.getAllPrices(symbol);
+        var _allPrices = await ServerUtils.prices.getAllPrices(symbol);
         var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
         var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
-            const ratingChanges = RatingChanges.find({symbol}).fetch();
+            const ratingChanges = await RatingChanges.find({symbol}).fetchAsync();
             var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
             var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
 
