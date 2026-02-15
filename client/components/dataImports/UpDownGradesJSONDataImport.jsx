@@ -1,243 +1,215 @@
-import React, { Component } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
+import React, { useState } from 'react';
+import { useTracker } from 'meteor/react-meteor-data';
+import { Meteor } from 'meteor/meteor';
+import _ from 'underscore';
+import toast, { Toaster } from 'react-hot-toast';
 
-class UpDownGradesJSONDataImport extends Component {
+function UpDownGradesJSONDataImport() {
+    const [sourceChoices] = useState(['f', 'b', 's', 'other']);
+    const [selectedSource, setSelectedSource] = useState("");
+    const [textAreaValue, setTextAreaValue] = useState('');
+    const [splitIntoCells, setSplitIntoCells] = useState(false);
+    const [cellValues, setCellValues] = useState([]);
 
-    constructor(props) {
-        super(props);
+    const { currentUser } = useTracker(() => ({
+        currentUser: Meteor.user()
+    }), []);
 
-        this.state = {
-            sourceChoices: [
-                'f',
-                'b',
-                's',
-                'other',
-            ],
-            selectedSource: "",
-            textAreaValue: '',
-            splitIntoCells: false,
-            cellValues: []
-        };
+    const handleChange = (event) => {
+        const textAreaNewValue = event.target.value;
+        const allLines = textAreaNewValue.split("\n");
+        const splitByTabsAndNewLines = allLines.map(line => line.split("\t"));
 
-        this.handleChange = this.handleChange.bind(this);
-        this.handleIndividualCellChange = this.handleIndividualCellChange.bind(this);
-        this.verifyAndImportUpDownGradesJSONData = this.verifyAndImportUpDownGradesJSONData.bind(this);
-        this.clearCells = this.clearCells.bind(this);
-    }
+        const parsed = [];
+        if (splitByTabsAndNewLines.length > 0) {
+            const keys = splitByTabsAndNewLines[0];
+            // Remove keys row
+            const dataRows = splitByTabsAndNewLines.slice(1);
 
-    handleChange(event) {
-        //parse stuff here and set splitIntoCells to true of all items contain the keys from 1st object
-        var _textAreaNewValue = event.target.value;
-        var _allLines = _textAreaNewValue.split("\n");
-        var _splitByTabsAndNewLines = [];
-        _allLines.forEach(function(line) {
-            var _splitLine = line.split("\t");
-            _splitByTabsAndNewLines.push(_splitLine);
-        });
-        var _parsed = [];
-        if (_splitByTabsAndNewLines.length > 0) {
-            var _keyz = _splitByTabsAndNewLines[0];
-            //remove keys, which is the first item in this array
-            _splitByTabsAndNewLines.shift();
-            _splitByTabsAndNewLines.forEach(function(dataArr){
-                var _everyItemInDataArrIsNonBlank = true;
-                dataArr.forEach(function(val) {
-                    if (val === "") {
-                        _everyItemInDataArrIsNonBlank = false;
-                    }
-                });
-                if (_everyItemInDataArrIsNonBlank) {
-                    var _row = {};
-                    _keyz.forEach(function(key, index) {
-                        _row[key] = dataArr[index];
+            dataRows.forEach(dataArr => {
+                const everyItemInDataArrIsNonBlank = dataArr.every(val => val !== "");
+
+                if (everyItemInDataArrIsNonBlank) {
+                    const row = {};
+                    keys.forEach((key, index) => {
+                        row[key] = dataArr[index];
                     });
-                    _parsed.push(_row);
+                    parsed.push(row);
                 }
             });
         }
 
+        if (parsed.length > 0) {
+            const firstObj = parsed[0];
+            const keys = Object.keys(firstObj);
 
-
-        //var _importObjects = '[' + _textAreaNewValue.substring(0,_textAreaNewValue.length-1) + ']';
-        //var _parsed = JSON.parse(_importObjects);
-        if (_parsed.length > 0) {
-            var _firstObj = _parsed[0];
-            var _keys = [];
-            for (var key in _firstObj) {
-                _keys.push(key);
-            }
-            //make sure that every object in parsed contains these fields
-            // if not, then alert the user
-            var _problems = [];
-            _parsed.forEach(function(obj, index) {
-                _keys.forEach(function(key) {
+            // Validate all objects have required fields
+            const problems = [];
+            parsed.forEach((obj, index) => {
+                keys.forEach(key => {
                     if (!obj[key]) {
-                        _problems.push({
-                            index: index,
-                            key: key
-                        });
+                        problems.push({ index, key });
                     }
                 });
             });
-            if (_problems.length > 0) {
-                //todo alert the user
-                console.log("problems: ", _problems);
+
+            if (problems.length > 0) {
+                console.log("problems: ", problems);
+                toast.error(`Missing fields: ${JSON.stringify(problems)}`);
             } else {
-                this.setState({
-                    splitIntoCells: true,
-                    cellValues: _parsed
-                });
+                setSplitIntoCells(true);
+                setCellValues(parsed);
             }
         }
 
-        this.setState({
-            textAreaValue: _textAreaNewValue
-        })
-    }
-    verifyAndImportUpDownGradesJSONData() {
-        //var _importObjects = '[' + this.state.textAreaValue.substring(0,this.state.textAreaValue.length-1) + ']';
-        //var _parsed = JSON.parse(_importObjects);
-        //this.setState({
-        //    textAreaValue: ""
-        //});
-        var _parsed = this.state.cellValues;
-        let _source = this.state.selectedSource;
-        _parsed = _.map(_parsed, function (importItem) {
-            return _.extend(importItem, {"source": _source});
-        });
-        this.clearCells();
-        Meteor.call('importData', _parsed, 'upgrades_downgrades', function(error, result) {
+        setTextAreaValue(textAreaNewValue);
+    };
+
+    const verifyAndImportUpDownGradesJSONData = () => {
+        let parsed = cellValues.map(importItem => ({
+            ...importItem,
+            source: selectedSource
+        }));
+
+        clearCells();
+
+        Meteor.call('importData', parsed, 'upgrades_downgrades', (error, result) => {
             if (!error && result) {
                 if (result.noPermissionToImportUpgradesDowngrades) {
-                    $.bootstrapGrowl("You do not have permission to import upgrades/downgrades.", {
-                        type: 'danger',
-                        align: 'center',
-                        width: 400,
-                        delay: 10000000
+                    toast.error("You do not have permission to import upgrades/downgrades.", {
+                        duration: 60 * 60 * 1000 // 1 hour
                     });
-                } else if (result.couldNotFindGradingScalesForTheseUpDowngrades.length > 0) {
-                    $.bootstrapGrowl("Missing Rating Scales for the following: " + JSON.stringify(result), {
-                        type: 'danger',
-                        align: 'center',
-                        width: 800,
-                        delay: 10000000
+                } else if (result.couldNotFindGradingScalesForTheseUpDowngrades?.length > 0) {
+                    toast.error(`Missing Rating Scales for the following: ${JSON.stringify(result)}`, {
+                        duration: 60 * 60 * 1000 // 1 hour
                     });
                 } else if (result.upgradesDowngradesImportStats) {
-                    var _importStats = result.upgradesDowngradesImportStats;
-                    $.bootstrapGrowl("imported stats<br>new: " + _importStats.new + "<br>duplicates: " + _importStats.duplicates +
-                        "<br>out of: " + _importStats.total + `<br>dates: ${JSON.stringify(result.importedDatesStr)}`, {
-                        type: 'success',
-                        align: 'center',
-                        width: 250,
-                        delay: 10000000
-                    });
-                } else {
-                    //TODO show success bootstrapGrowl
+                    const importStats = result.upgradesDowngradesImportStats;
+                    toast.success(
+                        `Imported stats\nNew: ${importStats.new}\nDuplicates: ${importStats.duplicates}\nOut of: ${importStats.total}\nDates: ${JSON.stringify(result.importedDatesStr)}`,
+                        { duration: 60 * 60 * 1000 } // 1 hour
+                    );
                 }
+            } else if (error) {
+                toast.error(`Import failed: ${error.message}`);
             }
         });
-    }
+    };
 
-    componentWillUnmount() {
-        $(".bootstrap-growl").remove();
-    }
+    const handleIndividualCellChange = (index, key, value) => {
+        const updatedCellValues = [...cellValues];
+        updatedCellValues[index][key] = value;
+        setCellValues(updatedCellValues);
+    };
 
-    handleIndividualCellChange(event) {
-        var _id = $(event.target).attr("id");
-        var _key = _id.split("_")[1];
-        var _index = _id.split("_")[0];
+    const renderCells = () => {
+        if (cellValues.length === 0) return null;
 
-        var _previousCellValues = this.state.cellValues;
-        _previousCellValues[_index][_key] = event.target.value;
-        this.setState({cellValues: _previousCellValues});
-    }
-    renderCells() {
-        var _firstObj = this.state.cellValues[0];
-        var _keys = [];
-        for (var key in _firstObj) {
-            _keys.push(key);
-        }
+        const firstObj = cellValues[0];
+        const keys = Object.keys(firstObj);
+
         return (
             <div>
-
-
                 <div className="row">
-                {_keys.map((key) => {
-                    var _keyyy = key.replace(/ /g,"_");
-                    return <div className="col-md-2" key={_keyyy}>
-                        <span key={_keyyy}>{key}</span>
-                    </div>
-                })}
+                    {keys.map(key => {
+                        const keyId = key.replace(/ /g, "_");
+                        return (
+                            <div className="col-md-2" key={keyId}>
+                                <span>{key}</span>
+                            </div>
+                        );
+                    })}
                 </div>
 
+                {cellValues.map((cellValue, index) => (
+                    <div className="row" key={index}>
+                        {keys.map(key => {
+                            const val = cellValue[key];
+                            const cellKey = `${index}_${key}`;
 
-                {this.state.cellValues.map((cellValues, index) => {
-                    var keys = _keys;
-                    return (<div className="row" key={index}>{_keys.map((keyy) => {
-                        const val = cellValues[keyy];
-                        const _key = index.toString() + "_" + keyy;
-
-                        return <div className="col-md-2" key={_key}><input className="simpleInput" id={_key} key={_key} value={val} onChange={this.handleIndividualCellChange}/></div>;
-                    })}<br/></div>)
-                })}
-            </div>
-        );
-    }
-    clearCells() {
-        this.setState({
-            selectedSource: "",
-            textAreaValue: '',
-            splitIntoCells: false,
-            cellValues: []
-        });
-    }
-
-    selectSourceChoice (source) {
-        this.setState({
-            selectedSource: source
-        })
-    }
-
-    render() {
-        var textAreaValue = this.state.textAreaValue;
-        var _selectedSource = this.state.selectedSource;
-        return (
-            <div>
-                { this.props.currentUser ? (<div className="upDowngradesJSONDataImport">
-                    <h1>Up/downgrades entry page:</h1>
-                    {/*<h3>The total number of records in NewStockPrices collection for 2016-07-08 is: {this.data.newStockPricesCount}</h3>*/}
-                    Source: <div className="btn-group" role="group" aria-label="...">
-                        {this.state.sourceChoices.map((choice) => {
-                            let _btnClass = ("btn btn-light") + (choice === _selectedSource ? " active" : "");
-                            return <button className={_btnClass} key={choice} onClick={this.selectSourceChoice.bind(this, choice)}>{choice}</button>
+                            return (
+                                <div className="col-md-2" key={cellKey}>
+                                    <input
+                                        className="simpleInput"
+                                        value={val}
+                                        onChange={(e) => handleIndividualCellChange(index, key, e.target.value)}
+                                    />
+                                </div>
+                            );
                         })}
+                        <br/>
                     </div>
-                    {!this.state.splitIntoCells ?
-                        <div className="textAreaEntryDiv">
-                            <textarea rows="20" cols="100"
-                                      value={textAreaValue}
-                                      onChange={this.handleChange}></textarea>
-                        </div> :
-                        <div>
-                            {this.renderCells()}
-                            <br/>
-                            {this.state.sourceChoices.indexOf(this.state.selectedSource) === -1 ?
-                                "please select a source" :
-                                <button
-                                    onClick={this.verifyAndImportUpDownGradesJSONData}>import</button> }
-                            <br/>
-                            <button className="btn btn-light" onClick={this.clearCells}>clear</button>
-                        </div>
-                    }
-                </div>) : <p>plz log in</p> }
+                ))}
             </div>
         );
+    };
+
+    const clearCells = () => {
+        setSelectedSource("");
+        setTextAreaValue('');
+        setSplitIntoCells(false);
+        setCellValues([]);
+    };
+
+    const selectSourceChoice = (source) => {
+        setSelectedSource(source);
+    };
+
+    if (!currentUser) {
+        return <p>Please log in</p>;
     }
+
+    return (
+        <div>
+            <Toaster position="top-center" />
+            <div className="upDowngradesJSONDataImport">
+                <h1>Up/downgrades entry page:</h1>
+
+                Source:{' '}
+                <div className="btn-group" role="group" aria-label="...">
+                    {sourceChoices.map(choice => {
+                        const btnClass = `btn btn-light${choice === selectedSource ? ' active' : ''}`;
+                        return (
+                            <button
+                                className={btnClass}
+                                key={choice}
+                                onClick={() => selectSourceChoice(choice)}
+                            >
+                                {choice}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {!splitIntoCells ? (
+                    <div className="textAreaEntryDiv">
+                        <textarea
+                            rows="20"
+                            cols="100"
+                            value={textAreaValue}
+                            onChange={handleChange}
+                        />
+                    </div>
+                ) : (
+                    <div>
+                        {renderCells()}
+                        <br/>
+                        {sourceChoices.indexOf(selectedSource) === -1 ? (
+                            "Please select a source"
+                        ) : (
+                            <button onClick={verifyAndImportUpDownGradesJSONData}>
+                                Import
+                            </button>
+                        )}
+                        <br/>
+                        <button className="btn btn-light" onClick={clearCells}>
+                            Clear
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
-export default withTracker(() => {
-
-    return {
-        currentUser: Meteor.user()
-    }
-})(UpDownGradesJSONDataImport);
+export default UpDownGradesJSONDataImport;

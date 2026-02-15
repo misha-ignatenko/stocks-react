@@ -6,13 +6,7 @@
 
 
 
-meteortesting:mocha
-jhuenges:highstock
-rajit:bootstrap3-datepicker
-mrt:bootstrap-growl
-blaze-html-templates
 mongo
-accounts-ui
 accounts-password
 shell-server
 ecmascript
@@ -23,6 +17,5 @@ tracker
 reactive-var
 mobile-experience
 meteor-base
-underscore
-jquery
 react-meteor-data
+static-html

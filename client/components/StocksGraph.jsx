@@ -1,91 +1,100 @@
-import React, { Component } from 'react';
+import React, { useEffect, useRef } from 'react';
+import Highcharts from 'highcharts/highstock';
+import HighchartsReact from 'highcharts-react-official';
 import { Utils } from '../../lib/utils';
+import _ from 'underscore';
 
-export default class StocksGraph extends Component {
+function StocksGraph({ stocksToGraphObjects = [] }) {
+    const chartComponentRef = useRef(null);
 
-    componentWillReceiveProps(nextProps) {
-        this.initializeChart(nextProps.stocksToGraphObjects || []);
-    }
+    const convertQuandlFormatNumberDateToDateStringWithSlashes = (dateStringWithNoSlashesAsNumber) => {
+        const dateStr = dateStringWithNoSlashesAsNumber.toString();
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        return `${month}/${day}/${year}`;
+    };
 
-    initializeChart(stocksObjectsArray) {
+    const buildChartOptions = (stocksObjectsArray) => {
         console.log("inside initialize chart. stocks object to graph: ", stocksObjectsArray);
+
         if (stocksObjectsArray.length === 0) {
-            $(this.refs.myChartTwo).hide();
-        } else {
-            $(this.refs.myChartTwo).show();
+            return null;
         }
 
-        var seriesModel = [];
-        var _that = this;
-        stocksObjectsArray.forEach(function (obj) {
-            //console.log("OBJECT FROM STOCKSOBJECTSARRAY: ", obj);
-            var _histData = obj.historicalData;
-            var _minMaxPrice = Utils.getMinMaxFromArrOfObj(obj.historicalData, "adjClose");
-            var _maxPrice = _minMaxPrice[1];
-            var _minPrice = _minMaxPrice[0];
-            if (_histData) {
-                let _seriesDataArray = [];
-                _histData.forEach(function (histData) {
-                    _seriesDataArray.push([new Date(histData.date).valueOf(), histData.adjClose]);
-                });
+        const seriesModel = [];
+
+        stocksObjectsArray.forEach((obj) => {
+            const histData = obj.historicalData;
+            const minMaxPrice = Utils.getMinMaxFromArrOfObj(obj.historicalData, "adjClose");
+            const maxPrice = minMaxPrice[1];
+            const minPrice = minMaxPrice[0];
+
+            if (histData) {
+                const seriesDataArray = histData.map(data => [
+                    new Date(data.date).valueOf(),
+                    data.adjClose
+                ]);
 
                 seriesModel.push({
-                    name: obj.stockId ? obj.stockId : obj.symbol ? obj.symbol : "stock name unknown" ,
-                    data: _seriesDataArray,
-                    tooltip : {
-                        valueDecimals : 2
+                    name: obj.stockId || obj.symbol || "stock name unknown",
+                    data: seriesDataArray,
+                    tooltip: {
+                        valueDecimals: 2
                     },
-                    id : 'dataseries'
+                    id: 'dataseries'
                 });
 
-
-
-
+                // Predictions based on avg ratings
                 if (obj.predictionsBasedOnAvgRatings && obj.predictionsBasedOnAvgRatings.length > 2) {
                     seriesModel.push({
                         name: "predicted on avg",
-                        data: _.map(obj.predictionsBasedOnAvgRatings, function (obj) {
-                            return [new Date(obj.date).valueOf(), obj.price];
-                        }),
-                        tooltip : {
-                            valueDecimals : 2
+                        data: obj.predictionsBasedOnAvgRatings.map(item => [
+                            new Date(item.date).valueOf(),
+                            item.price
+                        ]),
+                        tooltip: {
+                            valueDecimals: 2
                         },
-                        id : 'dataseries'
+                        id: 'dataseries'
                     });
                 }
+
+                // Predictions based on weighted ratings
                 if (obj.predictionsBasedOnWeightedRatings && obj.predictionsBasedOnWeightedRatings.length > 2) {
                     seriesModel.push({
                         name: "predicted on weighted",
-                        data: _.map(obj.predictionsBasedOnWeightedRatings, function (obj) {
-                            return [new Date(obj.date).valueOf(), obj.price];
-                        }),
-                        tooltip : {
-                            valueDecimals : 2
+                        data: obj.predictionsBasedOnWeightedRatings.map(item => [
+                            new Date(item.date).valueOf(),
+                            item.price
+                        ]),
+                        tooltip: {
+                            valueDecimals: 2
                         },
-                        id : 'dataseries'
+                        id: 'dataseries'
                     });
                 }
-
             }
-            var _rangeOfPrices = _maxPrice - _minPrice;
 
-            var _avgAnalystRatings = obj.avgAnalystRatings;
-            if (_avgAnalystRatings && _avgAnalystRatings.length > 2) {
-                let _seriesDataArray2 = [];
-                //determing the range of all analyst ratings
-                var _minMaxAvgRating = Utils.getMinMaxFromArrOfObj(_avgAnalystRatings, "avg");
-                var _maxRating = _minMaxAvgRating[1];
-                var _minRating = _minMaxAvgRating[0];
+            const rangeOfPrices = maxPrice - minPrice;
 
-                var _rangeOfAvgRatings = _maxRating - _minRating;
-                var _multiplyAllRatingsByCoef = _rangeOfPrices / _rangeOfAvgRatings;
+            // Avg analyst ratings
+            const avgAnalystRatings = obj.avgAnalystRatings;
+            if (avgAnalystRatings && avgAnalystRatings.length > 2) {
+                const minMaxAvgRating = Utils.getMinMaxFromArrOfObj(avgAnalystRatings, "avg");
+                const maxRating = minMaxAvgRating[1];
+                const minRating = minMaxAvgRating[0];
+                const rangeOfAvgRatings = maxRating - minRating;
+                const multiplyAllRatingsByCoef = rangeOfPrices / rangeOfAvgRatings;
 
-                _avgAnalystRatings.forEach(function (avgRating) {
-                    _seriesDataArray2.push([new Date(avgRating.date).valueOf(), _minPrice + _multiplyAllRatingsByCoef * (avgRating.avg - _minRating)]);
-                });
+                const seriesDataArray2 = avgAnalystRatings.map(avgRating => [
+                    new Date(avgRating.date).valueOf(),
+                    minPrice + multiplyAllRatingsByCoef * (avgRating.avg - minRating)
+                ]);
+
                 seriesModel.push({
                     name: "avg rating",
-                    data: _seriesDataArray2,
+                    data: seriesDataArray2,
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
@@ -94,26 +103,22 @@ export default class StocksGraph extends Component {
                 });
             }
 
+            // Avg analyst ratings every day
             if (obj.avgAnalystRatingsEveryDay && obj.avgAnalystRatingsEveryDay.length > 2) {
-                var _seriesDataArrayAvgRatingEveryDay = [];
-                var _rangeOfAvgRatingsByDay = Utils.getMinMaxFromArrOfObj(obj.avgAnalystRatingsEveryDay, "avg");
-                var _coef = 1;
-                if (_rangeOfAvgRatingsByDay.length > 0) {
-                    _coef = _rangeOfPrices / (_rangeOfAvgRatingsByDay[1] - _rangeOfAvgRatingsByDay[0]);
+                const rangeOfAvgRatingsByDay = Utils.getMinMaxFromArrOfObj(obj.avgAnalystRatingsEveryDay, "avg");
+                let coef = 1;
+                if (rangeOfAvgRatingsByDay.length > 0) {
+                    coef = rangeOfPrices / (rangeOfAvgRatingsByDay[1] - rangeOfAvgRatingsByDay[0]);
                 }
 
-                obj.avgAnalystRatingsEveryDay.forEach(function (avgRatingEveryDay) {
-                    _seriesDataArrayAvgRatingEveryDay.push(
-                        [
-                            new Date(avgRatingEveryDay.date).valueOf(),
-                            //_minPrice + _coef * (avgRatingEveryDay.avg - _rangeOfAvgRatingsByDay[0])
-                            avgRatingEveryDay.avg
-                        ]
-                    );
-                });
+                const seriesDataArrayAvgRatingEveryDay = obj.avgAnalystRatingsEveryDay.map(avgRatingEveryDay => [
+                    new Date(avgRatingEveryDay.date).valueOf(),
+                    avgRatingEveryDay.avg
+                ]);
+
                 seriesModel.push({
                     name: "avg rating every day",
-                    data: _seriesDataArrayAvgRatingEveryDay,
+                    data: seriesDataArrayAvgRatingEveryDay,
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
@@ -122,20 +127,16 @@ export default class StocksGraph extends Component {
                 });
             }
 
+            // Weighted analyst ratings every day
             if (obj.weightedAnalystRatingsEveryDay && obj.weightedAnalystRatingsEveryDay.length > 2) {
-                var _weightedAnalystRatingsSeries = [];
-                obj.weightedAnalystRatingsEveryDay.forEach(function (weightedRating) {
-                    _weightedAnalystRatingsSeries.push(
-                        [
-                            new Date(weightedRating.date).valueOf(),
-                            weightedRating.weightedRating
-                        ]
-                    );
-                });
+                const weightedAnalystRatingsSeries = obj.weightedAnalystRatingsEveryDay.map(weightedRating => [
+                    new Date(weightedRating.date).valueOf(),
+                    weightedRating.weightedRating
+                ]);
 
                 seriesModel.push({
                     name: "weighted rating every day",
-                    data: _weightedAnalystRatingsSeries,
+                    data: weightedAnalystRatingsSeries,
                     type: 'spline',
                     tooltip: {
                         valueDecimals: 2
@@ -144,35 +145,32 @@ export default class StocksGraph extends Component {
                 });
             }
 
-            var _earningsReleases = obj.earningsReleases;
-            if (_earningsReleases && _earningsReleases.length > 0) {
-                let _seriesDataArray3 = [];
-                _earningsReleases.forEach(function(earningsRelease) {
-                    var _date = _that.convertQuandlFormatNumberDateToDateStringWithSlashes(earningsRelease.reportDateNextFiscalQuarter);
-                    _seriesDataArray3.push({
-                        x: new Date(_date).valueOf(),
+            // Earnings releases
+            const earningsReleases = obj.earningsReleases;
+            if (earningsReleases && earningsReleases.length > 0) {
+                const seriesDataArray3 = earningsReleases.map(earningsRelease => {
+                    const date = convertQuandlFormatNumberDateToDateStringWithSlashes(earningsRelease.reportDateNextFiscalQuarter);
+                    return {
+                        x: new Date(date).valueOf(),
                         title: "E",
-                        text: (earningsRelease.reportTimeOfDayCode === 1) ?
-                            "After market close" :
-                            (earningsRelease.reportTimeOfDayCode === 2) ?
-                                "Before the open" :
-                                (earningsRelease.reportTimeOfDayCode === 3) ?
-                                    "During market trading" :
-                                    "Unknown" //1 (After market close), 2 (Before the open), 3 (During market trading) or 4 (Unknown).
-                    });
+                        text: earningsRelease.reportTimeOfDayCode === 1 ? "After market close" :
+                              earningsRelease.reportTimeOfDayCode === 2 ? "Before the open" :
+                              earningsRelease.reportTimeOfDayCode === 3 ? "During market trading" :
+                              "Unknown"
+                    };
                 });
+
                 seriesModel.push({
                     type: "flags",
-                    data: _seriesDataArray3,
-                    onSeries : 'dataseries',
-                    shape : 'squarepin',
-                    width : 16
+                    data: seriesDataArray3,
+                    onSeries: 'dataseries',
+                    shape: 'squarepin',
+                    width: 16
                 });
             }
         });
 
-        $(this.refs.myChartTwo).highcharts('StockChart', {
-
+        return {
             xAxis: {
                 type: 'datetime',
                 dateTimeLabelFormats: {
@@ -185,14 +183,14 @@ export default class StocksGraph extends Component {
                     year: '%Y'
                 }
             },
-
             yAxis: [
                 {
                     labels: {
                         format: '${value}'
                     },
                     opposite: false
-                }, {
+                },
+                {
                     title: {
                         text: "avg rating"
                     },
@@ -209,59 +207,37 @@ export default class StocksGraph extends Component {
                         format: '{value} pt'
                     },
                     opposite: true
-                }
-                , {
-                    //title: {
-                    //    text: "avg weighted rating"
-                    //},
+                },
+                {
                     labels: {
                         format: '{value} pt'
                     },
                     opposite: true
                 }
             ],
-
             rangeSelector: {
                 inputEnabled: false
             },
-
             series: seriesModel
-        });
-        $('.highcharts-range-selector').on('change', function() {
-            console.log("change in highcharts-range-selector!!");
-            console.log("if user expanded the date range then trigger an update function and show a loading message while new stock prices data is being pulled");
-            console.log("also need to take care of updating the according date range values based on where the request to render the graph came from.");
-            var _minOrMaxString = this.getAttribute("name");
-            if (_minOrMaxString === "min") {
-                //readjust start date for each stock
-                var _newStartDate = this.value;
-                //get existing max date so can call the function with
-                var _endDate = $('[name="max"]').val();
-            } else if (_minOrMaxString === "max") {
-                //readjust end date for all stocks in stocksToGraphsObjects
-                var _newEndDate = this.value;
-                var _startDate = $('[name="min"]').val();
-            }
-        });
+        };
+    };
+
+    const chartOptions = buildChartOptions(stocksToGraphObjects);
+
+    if (!chartOptions) {
+        return null;
     }
 
-    convertQuandlFormatNumberDateToDateStringWithSlashes(_dateStringWithNoSlashesAsNumber) {
-        _dateStringWithNoSlashesAsNumber = _dateStringWithNoSlashesAsNumber.toString();
-        var _year = _dateStringWithNoSlashesAsNumber.substring(0,4);
-        var _month = _dateStringWithNoSlashesAsNumber.substring(4,6);
-        var _day = _dateStringWithNoSlashesAsNumber.substring(6,8);
-        return _month + "/" + _day + "/" + _year;
-    }
-
-    componentDidMount() {
-        this.initializeChart(this.props.stocksToGraphObjects || []);
-    }
-
-    render() {
-        return (
-            <div>
-                <div ref="myChartTwo"></div>
-            </div>
-        );
-    }
+    return (
+        <div>
+            <HighchartsReact
+                highcharts={Highcharts}
+                constructorType={'stockChart'}
+                options={chartOptions}
+                ref={chartComponentRef}
+            />
+        </div>
+    );
 }
+
+export default StocksGraph;
