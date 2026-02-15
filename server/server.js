@@ -1154,12 +1154,13 @@ Meteor.methods({
         return _.pluck(symbols, '_id');
     },
 
-    checkIfSymbolExists: function (symbol) {
+    async checkIfSymbolExists(symbol) {
         check(symbol, String);
 
-        function checkDatatable(url) {
+        async function checkDatatable(url) {
             try {
-                var _res = HTTP.get(url);
+                const response = await fetch(url);
+                const _res = {data: await response.json()};
                 ServerUtils.maybePopulateDataFromContent(_res);
                 if (_res.data.datatable.data.length > 0) {
                     return true;
@@ -1169,44 +1170,50 @@ Meteor.methods({
             } catch (e) {
                 return false;
             }
-        };
+        }
 
-        return [
+        const urls = [
             // subtract 5 business days because there's latency
-            ServerUtils.prices.getPricesUrl(
+            await ServerUtils.prices.getPricesUrl(
                 symbol,
                 null,
                 null,
                 Utils.businessAdd(Utils.todaysDate(), -5)
             ),
-            ServerUtils.earningsReleases.getMetadataUrl(symbol),
-            ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
-        ].some(checkDatatable);
+            await ServerUtils.earningsReleases.getMetadataUrl(symbol),
+            await ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
+        ];
+
+        for (const url of urls) {
+            if (await checkDatatable(url)) {
+                return true;
+            }
+        }
+        return false;
     },
 
-    insertNewStockSymbols: function(symbolsArray) {
+    async insertNewStockSymbols(symbolsArray) {
         check(symbolsArray, [String]);
 
-        var _res = {};
-        var _symbolsAllCapsArray = [];
+        const _res = {};
+        const _symbolsAllCapsArray = [];
         symbolsArray.forEach(function(symbol) {
             _symbolsAllCapsArray.push(symbol.toUpperCase());
         });
 
-        _.each(_symbolsAllCapsArray, function (s) {
-            if (Stocks.findOne({_id: s})) {
+        for (const s of _symbolsAllCapsArray) {
+            if (await Stocks.findOneAsync({_id: s})) {
                 _res[s] = true;
             } else {
-                Meteor.call("checkIfSymbolExists", s, function (error, result) {
-                    if (result) {
-                        Stocks.insert({_id: s});
-                        _res[s] = true;
-                    } else {
-                        _res[s] = false;
-                    }
-                })
+                const result = await Meteor.callAsync("checkIfSymbolExists", s);
+                if (result) {
+                    await Stocks.insertAsync({_id: s});
+                    _res[s] = true;
+                } else {
+                    _res[s] = false;
+                }
             }
-        });
+        }
 
         return _res;
     },

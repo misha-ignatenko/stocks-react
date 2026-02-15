@@ -44,46 +44,46 @@ Meteor.methods({
                         pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
                     };
                 }
-                importData.forEach(function(importItem) {
+                for (const importItem of importData) {
                     var _universalSymbol = _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
 
                     //first, check if that research company exists
-                    var _researchCompany = ResearchCompanies.findOne({name: importItem.researchFirmString});
+                    var _researchCompany = await ResearchCompanies.findOneAsync({name: importItem.researchFirmString});
                     var originalCompanyId;
                     var _researchCompanyId;
                     if (_researchCompany) {
                         _researchCompanyId = _researchCompany._id;
                         if (_researchCompany.type === "alternative") {
-                            var mainResearchCompany = _researchCompany.referenceId && ResearchCompanies.findOne(_researchCompany.referenceId);
+                            var mainResearchCompany = _researchCompany.referenceId && await ResearchCompanies.findOneAsync(_researchCompany.referenceId);
                             if (mainResearchCompany) {
                                 originalCompanyId = _researchCompany._id;
                                 _researchCompanyId = mainResearchCompany._id;
                             }
                         }
                     } else {
-                        _researchCompanyId = ResearchCompanies.insert({name: importItem.researchFirmString});
+                        _researchCompanyId = await ResearchCompanies.insertAsync({name: importItem.researchFirmString});
                     }
 
                     //second, get rating scales id so that can check if item already exists in RatingChanges
-                    var _ratingScaleObjectForNew = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
-                    var _ratingScaleObjectForOld = RatingScales.findOne({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
+                    var _ratingScaleObjectForNew = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
+                    var _ratingScaleObjectForOld = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
 
 
                     var _originalOldRatingString;
                     var _originalNewRatingString;
                     //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
                     if (!_ratingScaleObjectForNew) {
-                        var _secondaryNew = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
+                        var _secondaryNew = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
                         if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
-                            _ratingScaleObjectForNew = RatingScales.findOne({_id: _secondaryNew.referenceRatingScaleId});
+                            _ratingScaleObjectForNew = await RatingScales.findOneAsync({_id: _secondaryNew.referenceRatingScaleId});
                             _originalNewRatingString = importItem.newRatingString;
                         }
                     }
 
                     if (!_ratingScaleObjectForOld) {
-                        var _secondaryOld = RatingScales.findOne({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
+                        var _secondaryOld = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
                         if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
-                            _ratingScaleObjectForOld = RatingScales.findOne({_id: _secondaryOld.referenceRatingScaleId});
+                            _ratingScaleObjectForOld = await RatingScales.findOneAsync({_id: _secondaryOld.referenceRatingScaleId});
                             _originalOldRatingString = importItem.oldRatingString;
                         }
                     }
@@ -91,7 +91,7 @@ Meteor.methods({
 
                     if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
                         //can try to check if this RatingChanges item already exists. if not then insert it.
-                        var _existingRatingChange = RatingChanges.findOne({
+                        var _existingRatingChange = await RatingChanges.findOneAsync({
                             researchFirmId: _researchCompanyId,
                             symbol: _universalSymbol,
                             newRatingId: _ratingScaleObjectForNew._id,
@@ -143,8 +143,8 @@ Meteor.methods({
                             }
 
                             console.log("adding rating change for universal symbol: ", _universalSymbol);
-                            RatingChanges.insert(_ratingChange);
-                            Meteor.call("insertNewStockSymbols", [_universalSymbol]);
+                            await RatingChanges.insertAsync(_ratingChange);
+                            await Meteor.callAsync('insertNewStockSymbols', [_universalSymbol]);
                             _newlyImportedNum++;
                         }
                     } else {
@@ -166,7 +166,7 @@ Meteor.methods({
                             _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_old);
                         }
                     }
-                });
+                }
 
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
@@ -180,7 +180,7 @@ Meteor.methods({
                 const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
                 _result.importedDatesStr = importedDatesStr;
 
-                Email.send({
+                await Email.send({
                     subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
