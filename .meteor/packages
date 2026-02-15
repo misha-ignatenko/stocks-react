@@ -10,7 +10,6 @@ meteortesting:mocha
 jhuenges:highstock
 rajit:bootstrap3-datepicker
 mrt:bootstrap-growl
-react-meteor-data
 blaze-html-templates
 mongo
 accounts-ui
@@ -26,3 +25,4 @@ mobile-experience
 meteor-base
 underscore
 jquery
+react-meteor-data

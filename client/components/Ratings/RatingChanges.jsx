@@ -99,7 +99,7 @@ class RatingChanges extends Component {
 
     async componentWillMount() {
         // initial load
-        const stats = await Meteor.callNoCb('getRatingChangeMetadata');
+        const stats = await Meteor.callAsync('getRatingChangeMetadata');
         this.setState(stats);
         this.loadRatingChanges(ALL_MODE);
     }
