@@ -207,11 +207,11 @@ export const ServerUtils = {
 
     prices: {
 
-        getPricesUrl(symbol, cursorID, isUnadj = false, date = null) {
+        async getPricesUrl(symbol, cursorID, isUnadj = false, date = null) {
             const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
             const datePostfix = date ? `&date=${date}` : '';
 
-            return `${isUnadj ? ServerUtils.pricesUrlUnadj : ServerUtils.pricesUrl}?symbol=${symbol}&api_key=${ServerUtils.apiKey()}${cursorPostfix}${datePostfix}`;
+            return `${isUnadj ? ServerUtils.pricesUrlUnadj : ServerUtils.pricesUrl}?symbol=${symbol}&api_key=${await ServerUtils.apiKey()}${cursorPostfix}${datePostfix}`;
         },
 
         getFormattedPriceObj(item, columnDefinitions) {
@@ -482,18 +482,18 @@ export const ServerUtils = {
                 console.log('--------------------------------------');
             });
         },
-        getAllEarningsReleasesUrl: (cursorID) => {
+        getAllEarningsReleasesUrl: async (cursorID) => {
             const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
-            return `${ServerUtils.earningsReleasesUrl}?api_key=${ServerUtils.apiKey()}${cursorPostfix}`;
+            return `${ServerUtils.earningsReleasesUrl}?api_key=${await ServerUtils.apiKey()}${cursorPostfix}`;
         },
-        getEarningsReleasesUrl: (symbol) => {
-            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+        getEarningsReleasesUrl: async (symbol) => {
+            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
-        getMetadataUrl(symbol) {
-            return `${ServerUtils.mtUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
+        getMetadataUrl: async (symbol) => {
+            return `${ServerUtils.mtUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
-        hasSplits(symbol) {
-            const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
+        hasSplits: async (symbol) => {
+            const url = await ServerUtils.earningsReleases.getMetadataUrl(symbol);
             console.log('calling hasSplits', symbol);
             const response = HTTP.get(url);
             ServerUtils.maybePopulateDataFromContent(response);

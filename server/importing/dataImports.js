@@ -1,6 +1,16 @@
 import { check, Match } from 'meteor/check';
 import moment from 'moment-timezone';
 import _ from 'underscore';
+import { Meteor } from 'meteor/meteor';
+import { Email } from '../email';
+import { ServerUtils } from '../utils';
+import {
+    SymbolMappings,
+    EarningsReleases,
+    ResearchCompanies,
+    RatingScales,
+    RatingChanges,
+} from '../../lib/collections';
 
 var _totalMaxGradingValue = 120;
 
@@ -180,7 +190,7 @@ Meteor.methods({
             } else if (importType === 'earnings_releases_new') {
 
                 if (scheduledDataPullFlag) {
-                    Email.send({
+                    await Email.send({
                         subject: 'getting earnings releases (new)',
                         text: JSON.stringify({
                             timeNow: new Date(),
@@ -192,7 +202,6 @@ Meteor.methods({
                 let numMatching = 0;
                 let numInserted = 0;
 
-                const expectedStatusCode = 200;
                 const expectedNumberOfColumns = 24;
                 const today = moment().format('YYYY-MM-DD');
 
@@ -200,15 +209,16 @@ Meteor.methods({
                     let cursorID;
 
                     do {
-                        const url = ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
+                        const url = await ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
                         console.log('calling url: ', url);
-                    const response = HTTP.get(url);
-                    ServerUtils.maybePopulateDataFromContent(response);
-                    if (response.statusCode !== expectedStatusCode) {
-                        throw new Meteor.Error(`unexpected response code: ${response.statusCode}`);
-                    }
+                        const response = await fetch(url);
+                        if (!response.ok) { // Check if the response status is in the 200-299 range
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                    const json = {data: await response.json()};
+                    ServerUtils.maybePopulateDataFromContent(json);
 
-                    const columns = response.data.datatable.columns;
+                    const columns = json.data.datatable.columns;
                     if (columns.length !== expectedNumberOfColumns) {
                         throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
                     }
@@ -216,10 +226,10 @@ Meteor.methods({
                         column.name = column.name.toUpperCase();
                     });
 
-                    const data = response.data.datatable.data;
+                    const data = json.data.datatable.data;
 
                     dataCount += data.length;
-                    data.forEach((row, rowIndex) => {
+                    for (const [rowIndex, row] of data.entries()) {
                         if (row.length !== expectedNumberOfColumns) {
                             throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
                         }
@@ -250,40 +260,40 @@ Meteor.methods({
 
                         // special cases
                         if (!earningsRelease.asOf) earningsRelease.asOf = today;
-                        earningsRelease.symbol = _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
+                        earningsRelease.symbol = await _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
 
                         // sanity checks
                         if (!earningsRelease.asOf || !earningsRelease.symbol) {
                             throw new Meteor.Error(`something went wrong: ${rowIndex}`);
                         }
 
-                        const matchingIDs = getMatchingEarningsReleaseIDs(earningsRelease);
+                        const matchingIDs = await getMatchingEarningsReleaseIDs(earningsRelease);
                         const lastModified = new Date();
                         if (matchingIDs.length) {
                             // update asOf and lastModified fields
-                            matchingIDs.forEach(id => {
-                                EarningsReleases.update(id, {$set: {
+                            for (const id of matchingIDs) {
+                                await EarningsReleases.updateAsync(id, {$set: {
                                     asOf: earningsRelease.asOf,
                                     lastModified,
                                 }});
                                 numMatching += 1;
-                            });
+                            }
                         } else {
-                            EarningsReleases.insert(_.extend({
+                            await EarningsReleases.insertAsync(_.extend({
                                 lastModified,
                                 insertedDate: lastModified,
                                 insertedDateStr: earningsRelease.asOf,
                             }, earningsRelease));
-                            Meteor.call('insertNewStockSymbols', [earningsRelease.symbol]);
+                            await Meteor.callAsync('insertNewStockSymbols', [earningsRelease.symbol]);
                             numInserted += 1;
                         }
-                    });
+                    };
 
-                        cursorID = response.data.meta.next_cursor_id;
+                        cursorID = json.data.meta.next_cursor_id;
                     } while (cursorID);
 
                     if (scheduledDataPullFlag) {
-                        Email.send({
+                        await Email.send({
                             subject: 'DONE getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(),
@@ -295,7 +305,7 @@ Meteor.methods({
                 } catch (error) {
                     const errorString = error.toString();
                     if (scheduledDataPullFlag) {
-                        Email.send({
+                        await Email.send({
                             subject: 'ERROR from getting earnings releases (new)',
                             text: JSON.stringify({
                                 timeNow: new Date(), errorString,
@@ -477,7 +487,7 @@ Meteor.methods({
         return _fieldNameToReturn;
     }
 
-    function getMatchingEarningsReleaseIDs(earningsRelease) {
+    async function getMatchingEarningsReleaseIDs(earningsRelease) {
         const fieldsToOmit = [
             'asOf',
             'lastModified',
@@ -486,16 +496,16 @@ Meteor.methods({
             'insertedDateStr',
         ];
         const query = _.omit(earningsRelease, fieldsToOmit);
-        return EarningsReleases.find(query, {fields: {_id: 1}}).map(({_id})=>_id);
+        return (await EarningsReleases.find(query, {fields: {_id: 1}}).fetch()).map(({_id})=>_id);
     }
 
-    function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
+    async function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
         var _query = {
             from: 'earnings_release',
             symbolStr: earnRelSymbol
         };
-        if (SymbolMappings.find(_query).count() === 1) {
-            return SymbolMappings.findOne(_query).universalSymbolStr;
+        if (await SymbolMappings.find(_query).countAsync() === 1) {
+            return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
         } else {
             return earnRelSymbol;
         }
