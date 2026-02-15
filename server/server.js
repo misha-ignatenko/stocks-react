@@ -16,7 +16,6 @@ import {
 } from '../lib/collections';
 import { Permissions } from '../lib/permissions';
 import { Utils } from '../lib/utils';
-import { StocksReactUtils } from '../lib/utils';
 import { ServerUtils } from './utils';
 
 const dateStringSortDesc = {dateString: -1};
@@ -30,7 +29,7 @@ const ADJ_CLOSE = 'adjClose';
 const getRatingChangesQuery = () => {
     return {
         researchFirmId: {$nin: researchFirmIDsToExclude},
-        dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+        dateString: {$gte: Utils.monthsAgo(Utils.ratingChangesLookbackMonths)},
     };
 };
 
@@ -139,7 +138,7 @@ Meteor.methods({
                 {
                     // make sure to only ever look forward
                     reportDateNextFiscalQuarter: {
-                        $gte: +StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
+                        $gte: +Utils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
                     }
                 },
                 {
@@ -282,18 +281,18 @@ Meteor.methods({
 
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
         //moment().toISOString().substring(10,24)
-        var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
+        var _regrStart = Utils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
         var _allPrices = await ServerUtils.prices.getAllPrices(symbol);
-        var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
+        var _pricesForRegr = Utils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
         var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
             const ratingChanges = await RatingChanges.find({symbol}).fetchAsync();
-            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
-            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
+            var _averageAnalystRatingSeries = Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
+            var _avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
 
             var _priceReactionDelayInDays = 0;
             var pctDownPerDay = 0.5;
@@ -301,15 +300,15 @@ Meteor.methods({
             var stepSizePow = -7;
             var regrIterNum = 30;
             var _rollingNum = 50;
-            var _rollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
-            var _rollingPxEnd = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrEnd, _rollingNum);
-            var _rollingPriceCheck = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, priceCheckDate, _rollingNum);
+            var _rollingPx = Utils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
+            var _rollingPxEnd = Utils.stockPrices.getSimpleRollingPx(_allPrices, _regrEnd, _rollingNum);
+            var _rollingPriceCheck = Utils.stockPrices.getSimpleRollingPx(_allPrices, priceCheckDate, _rollingNum);
             console.log("START AND END: ", _regrStart, _regrEnd, priceCheckDate);
-            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
+            var _weightedRatingsSeriesEveryDay = Utils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
 
             // step 5. get all future prices
-            var _futurePrices = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrEnd, priceCheckDate);
+            var _futurePrices = Utils.stockPrices.getPricesBetween(_allPrices, _regrEnd, priceCheckDate);
             console.log("length 1: ", _futurePrices.length);
 
             // step 6. make sure all the needed future prices are in the db
@@ -325,7 +324,7 @@ Meteor.methods({
 
             // figure out the same but if predictions were based on the entire date range (regr + future)
             // step 5*. get all prices
-            var _regrAndFuturePrices = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, priceCheckDate);
+            var _regrAndFuturePrices = Utils.stockPrices.getPricesBetween(_allPrices, _regrStart, priceCheckDate);
             console.log("length 2: ", _regrAndFuturePrices.length);
 
             // step 6*. make sure have all the needed prices
@@ -351,7 +350,7 @@ Meteor.methods({
             });
 
             // step 8.2*. get predictions based on ALL daily wgt ratings from regression AND future.
-            var _predictOnWgtRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+            var _predictOnWgtRegrAndFut = Utils.ratingChanges.predictionsBasedOnRatings(
                 _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
 
@@ -375,7 +374,7 @@ Meteor.methods({
             });
 
             // step 9.2*. get predictions based on ALL daily avg ratings from regression AND future.
-            var _predictOnAvgRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+            var _predictOnAvgRegrAndFut = Utils.ratingChanges.predictionsBasedOnRatings(
                 _regrAndFutureAvgRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
 
@@ -441,7 +440,7 @@ Meteor.methods({
             startDate = await Meteor.callAsync('getEarliestRatingChange', symbol);
         }
 
-        const simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(
+        const simpleRollingPx = Utils.stockPrices.getSimpleRollingPx(
             allStockPrices,
             startDate,
             pxRollingDays
@@ -467,7 +466,7 @@ Meteor.methods({
             console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
         }
 
-        const relevantPrices = StocksReactUtils.stockPrices.getPricesBetween(allStockPrices, startDate, endDate);
+        const relevantPrices = Utils.stockPrices.getPricesBetween(allStockPrices, startDate, endDate);
         let result = {
             symbol,
             historicalData: relevantPrices,
@@ -477,16 +476,16 @@ Meteor.methods({
         _data.stocksToGraphObjs = [];
         var _startDate = startDate;
         var _endDate = endDate;
-        var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
+        var _averageAnalystRatingSeries = Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
         //TODO: start date and end date for regression are coming from a different date picker
         var _startDateForRegression = _startDate;
         var _endDateForRegression = _endDate;
         if (result && relevantPrices) {
-            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
+            var _avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
                 _averageAnalystRatingSeries,
                 relevantPrices
             );
-            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
+            var _weightedRatingsSeriesEveryDay = Utils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
                 _avgRatingsSeriesEveryDay,
                 _startDateForRegression,
                 _endDateForRegression,
@@ -500,10 +499,10 @@ Meteor.methods({
             );
             _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
-            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+            var _predictionsBasedOnAvgRatings = Utils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                 return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
             }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
-            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+            var _predictionsBasedOnWeightedRatings = Utils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
                 return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
             }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
@@ -538,7 +537,7 @@ Meteor.methods({
 
         _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
         _data.ratingChanges = rC;
-        _data.ratingScales = StocksReactUtils.ratingChanges.getRatingScalesForRatingChanges(rC);
+        _data.ratingScales = Utils.ratingChanges.getRatingScalesForRatingChanges(rC);
         _data.earningsReleases = _allEarningsReleasesForSymbol;
         _data.allGraphData = _.extend(result, {
             avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
@@ -970,7 +969,7 @@ Meteor.methods({
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
             const vooPrices = await ServerUtils.prices.getAllPrices('VOO');
-            const vooOpenPriceOnPurchaseDate = await StocksReactUtils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
+            const vooOpenPriceOnPurchaseDate = await Utils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
             const vooSMA50Date = momentBiz(purchaseDate).businessAdd(-50).format(YYYY_MM_DD);
             const vooSMA50DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA50Date, 10, !isForecast);
             const vooSMA200Date = momentBiz(purchaseDate).businessAdd(-200).format(YYYY_MM_DD);
@@ -983,12 +982,12 @@ Meteor.methods({
             const inc200SMA = vooSMA / vooSMA200DaysAgo;
 
             const prices = await ServerUtils.prices.getAllPrices(symbol);
-            const purchasePrice = await StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const purchasePrice = await Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
             const purchasePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 50, !isForecast);
             const purchasePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 200, !isForecast);
-            const salePrice1 = await StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
-            const salePrice2 = await StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
-            const salePrice3 = await StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
+            const salePrice1 = await Utils.stockPrices.getPriceOnDay(prices, saleDate1);
+            const salePrice2 = await Utils.stockPrices.getPriceOnDay(prices, saleDate2);
+            const salePrice3 = await Utils.stockPrices.getPriceOnDay(prices, saleDate3);
 
             const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
             const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
@@ -1019,7 +1018,7 @@ Meteor.methods({
             if (priorConfirmedRelease) {
                 const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
                 priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
-                priorSalePrice = await StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                priorSalePrice = await Utils.stockPrices.getPriceOnDay(prices, priorSaleDate);
                 priorSalePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 50);
                 priorSalePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 200);
                 const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);

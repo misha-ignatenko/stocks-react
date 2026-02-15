@@ -5,7 +5,7 @@ import {
     Table,
 } from 'reactstrap';
 import { Meteor } from 'meteor/meteor';
-import { StocksReactUtils } from '../../../lib/utils';
+import { Utils } from '../../../lib/utils';
 
 const ALL_MODE = 'all';
 const SYMBOL_MODE = 'symbol';
@@ -157,7 +157,7 @@ function RatingChanges() {
                                     )}
                                 </div>
                             )}
-                            Displaying {ratingChanges.length} rating changes within the last {StocksReactUtils.ratingChangesLookbackMonths} months
+                            Displaying {ratingChanges.length} rating changes within the last {Utils.ratingChangesLookbackMonths} months
                             {' '}
                             <button type='button' className={_b} onClick={exportCSV}>
                                 Export as a CSV
