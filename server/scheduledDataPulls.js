@@ -1,7 +1,8 @@
+import cron from 'node-cron';
 import moment from 'moment-timezone';
 import _ from 'underscore';
-import { Random } from 'meteor/random';
 import { Meteor } from 'meteor/meteor';
+import { Utils } from '../lib/utils';
 
 function importEarningsReleases() {
     Meteor.call('importData', [], 'earnings_releases_new', true);
@@ -13,17 +14,12 @@ Meteor.startup(function() {
     // skip data pull if dev env
     if (Meteor.isDevelopment) return;
 
-    SyncedCron.add({
-        name: 'earnings releases',
-        schedule: function(parser) {
-            // 7am & 2pm utc
-            return parser.cron('0 7,14 * * *');
-        },
-        job: function() {
-            Meteor.defer(() => {
-                importEarningsReleases();
-            });
-        },
+    // 7am & 2pm utc
+    cron.schedule('0 7,14 * * *', () => {
+        console.log('Running: earnings releases');
+        Meteor.defer(() => {
+            importEarningsReleases();
+        });
     });
 
     const baseOptions = {
@@ -37,39 +33,31 @@ Meteor.startup(function() {
         emailResults: true,
     };
 
-    SyncedCron.add({
-        name: '1st job',
-        schedule: function(parser) {
-            return parser.text('every weekday at 14:30');
-        },
-        job: function() {
-            Meteor.defer(() => {
-                Meteor.call('getEarningsAnalysis', {
-                    startDate: Utils.businessAdd(Utils.todaysDate(), 1),
-                    endDate: Utils.businessAdd(Utils.todaysDate(), 2),
-                    ...baseOptions,
-                });
+    // every weekday at 14:30
+    cron.schedule('30 14 * * 1-5', () => {
+        console.log('Running: 1st job');
+        Meteor.defer(() => {
+            Meteor.call('getEarningsAnalysis', {
+                startDate: Utils.businessAdd(Utils.todaysDate(), 1),
+                endDate: Utils.businessAdd(Utils.todaysDate(), 2),
+                ...baseOptions,
             });
-        },
+        });
     });
 
-    SyncedCron.add({
-        name: '2nd job',
-        schedule: function(parser) {
-            return parser.text('every weekday at 15:00');
-        },
-        job: function() {
-            Meteor.defer(() => {
-                Meteor.call('getEarningsAnalysis', {
-                    startDate: Utils.businessAdd(Utils.todaysDate(), -1),
-                    endDate: Utils.todaysDate(),
-                    ...baseOptions,
-                });
+    // every weekday at 15:00
+    cron.schedule('0 15 * * 1-5', () => {
+        console.log('Running: 2nd job');
+        Meteor.defer(() => {
+            Meteor.call('getEarningsAnalysis', {
+                startDate: Utils.businessAdd(Utils.todaysDate(), -1),
+                endDate: Utils.todaysDate(),
+                ...baseOptions,
             });
-        },
+        });
     });
 
-    SyncedCron.start();
+    console.log('Cron jobs initialized');
 
 });
 
