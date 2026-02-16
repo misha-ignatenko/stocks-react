@@ -43,6 +43,7 @@ Meteor.methods({
                         pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
                     };
                 }
+                const symbolsToInsert = new Set();
                 for (const importItem of importData) {
                     var _universalSymbol = await _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
 
@@ -143,7 +144,7 @@ Meteor.methods({
 
                             console.log("adding rating change for universal symbol: ", _universalSymbol);
                             await RatingChanges.insertAsync(_ratingChange);
-                            await Meteor.callAsync('insertNewStockSymbols', [_universalSymbol]);
+                            symbolsToInsert.add(_universalSymbol);
                             _newlyImportedNum++;
                         }
                     } else {
@@ -166,6 +167,8 @@ Meteor.methods({
                         }
                     }
                 }
+
+                await Meteor.callAsync('insertNewStockSymbols', Array.from(symbolsToInsert));
 
                 _result.upgradesDowngradesImportStats.total = _numToImport;
                 _result.upgradesDowngradesImportStats.new = _newlyImportedNum;

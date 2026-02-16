@@ -1196,6 +1196,7 @@ Meteor.methods({
 
         const result = {};
         const symbols = symbolsArray.map(s => s.toUpperCase());
+        console.log('insertNewStockSymbols', symbols);
 
         // Look up all symbols in one query
         const existingSymbols = new Set(await Stocks.rawCollection().distinct('_id', {_id: {$in: symbols}}));
