@@ -10,12 +10,8 @@ mongo
 accounts-password
 shell-server
 ecmascript
-es5-shim
 standard-minifier-js
 standard-minifier-css
-tracker
-reactive-var
-mobile-experience
 meteor-base
 react-meteor-data
 static-html
