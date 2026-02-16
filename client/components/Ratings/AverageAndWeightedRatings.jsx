@@ -44,8 +44,7 @@ function AverageAndWeightedRatings({
     useEffect(() => {
         const initEndDate = async () => {
             if (settings) {
-                const fourPmInEstTimeString = settings?.clientSettings?.ratingChanges?.fourPmInEstTimeString || "16:00:00";
-                const endDate = await Utils.getClosestPreviousWeekDayDateByCutoffTime(fourPmInEstTimeString);
+                const endDate = await Utils.getClosestPreviousWeekDayDateByCutoffTime();
                 setAvgRatingEndDate(endDate);
             }
         };

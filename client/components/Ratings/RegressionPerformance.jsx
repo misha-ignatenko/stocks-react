@@ -27,13 +27,9 @@ function RegressionPerformance({ symbol }) {
             console.log("mounting", symbol);
 
             const maxDateForRatingChanges = await Utils.getClosestPreviousWeekDayDateByCutoffTime(
-                false,
                 moment().tz("America/New_York").subtract(70, "days")
             );
-
-            const lastPriceDate = await Utils.getClosestPreviousWeekDayDateByCutoffTime(
-                settings.clientSettings.ratingChanges.fourPmInEstTimeString
-            );
+            const lastPriceDate = await Utils.getClosestPreviousWeekDayDateByCutoffTime();
 
             Meteor.call("getRegressionPerformance", symbol, maxDateForRatingChanges, lastPriceDate, (err, res) => {
                 if (err) {

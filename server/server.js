@@ -138,7 +138,7 @@ Meteor.methods({
                 {
                     // make sure to only ever look forward
                     reportDateNextFiscalQuarter: {
-                        $gte: +await Utils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
+                        $gte: +await Utils.getClosestPreviousWeekDayDateByCutoffTime(undefined, YYYYMMDD),
                     }
                 },
                 {
@@ -281,7 +281,7 @@ Meteor.methods({
 
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
         //moment().toISOString().substring(10,24)
-        var _regrStart = await Utils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
+        var _regrStart = await Utils.getClosestPreviousWeekDayDateByCutoffTime(moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
         var _allPrices = await ServerUtils.prices.getAllPrices(symbol);
         var _pricesForRegr = Utils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
