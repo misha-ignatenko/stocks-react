@@ -80,7 +80,7 @@ Meteor.methods({
             ],
         };
         if (!await Permissions.isPremium()) {
-            const lookback = await ServerUtils.getCachedSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
+            const lookback = await Utils.getCachedSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
             const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
 
             query.$and.push({

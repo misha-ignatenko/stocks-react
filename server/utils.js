@@ -9,22 +9,17 @@ import { Email } from './email';
 
 export const ServerUtils = {
 
-    getCachedSetting: Utils.cacheFor(
-        Utils.getSetting,
-        5 * 60 * 1000
-    ),
-
     async setSetting(field, value) {
         return await Settings.updateAsync(await Utils.getSetting('_id'), {$set: {
             [field]: value,
         }});
     },
 
-    getEmailTo() {
-        return this.getCachedSetting('serverSettings.ratingsChanges.emailTo');
+    async getEmailTo() {
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.emailTo');
     },
-    getEmailFrom() {
-        return this.getCachedSetting('serverSettings.ratingsChanges.emailFrom');
+    async getEmailFrom() {
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.emailFrom');
     },
     async emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
         const csv = convertArrayToCSV(rows);
@@ -56,10 +51,10 @@ export const ServerUtils = {
     },
 
     async ratingsChangesLimitGlobal() {
-        return await this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
     },
     async ratingsChangesLimitSymbol() {
-        return await this.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
     },
     async getExtraRatingChangeData(ratingChanges) {
         let firmMap = new Map();
@@ -192,7 +187,7 @@ export const ServerUtils = {
     },
 
     apiKey: async function () {
-        return await this.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
+        return await Utils.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
 
     earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
