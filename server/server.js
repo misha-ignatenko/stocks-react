@@ -46,6 +46,7 @@ Meteor.methods({
 
     async getLatestRatingChangesForSymbol(symbol) {
         check(symbol, String);
+        console.log('getLatestRatingChangesForSymbol', symbol);
 
         const ratingChanges = await RatingChanges.find(_.extend(getRatingChangesQuery(), {
             symbol: symbol,
