@@ -16,7 +16,7 @@ import {
 } from '../lib/collections';
 import { Permissions } from '../lib/permissions';
 import { Utils } from '../lib/utils';
-import { ServerUtils } from './utils';
+import { ServerUtils, yahooFinance } from './utils';
 
 const dateStringSortDesc = {dateString: -1};
 const researchFirmIDsToExclude = [

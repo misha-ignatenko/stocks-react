@@ -7,7 +7,7 @@ import { ResearchCompanies, RatingScales, EarningsReleases, RatingChanges, Setti
 import { Meteor } from 'meteor/meteor';
 import { Email } from './email';
 import YahooFinance from 'yahoo-finance2';
-const yahooFinance = new YahooFinance();
+export const yahooFinance = new YahooFinance();
 
 export const ServerUtils = {
 
