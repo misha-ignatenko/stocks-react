@@ -6,6 +6,8 @@ import { Permissions } from '../lib/permissions';
 import { ResearchCompanies, RatingScales, EarningsReleases, RatingChanges, Settings } from '../lib/collections';
 import { Meteor } from 'meteor/meteor';
 import { Email } from './email';
+import YahooFinance from 'yahoo-finance2';
+const yahooFinance = new YahooFinance();
 
 export const ServerUtils = {
 
@@ -292,7 +294,46 @@ export const ServerUtils = {
             }
             return this.pricesCache[symbol];
         },
-        async getAllPricesNonCached(symbol, isUnadj = false) {
+        async getAllPricesNonCached(symbol) {
+            try {
+                const result = await yahooFinance.chart(symbol, {
+                    period1: '2000-01-01',
+                    interval: '1d',
+                });
+
+                const prices = result.quotes
+                    .filter(item => item.close != null)
+                    .map(item => {
+                        const dateString = item.date.toISOString().slice(0, 10);
+                        const round = v => v != null ? Math.round(v * 100) / 100 : v;
+                        const adjClose = round(item.adjclose ?? item.close);
+                        const adjRatio = adjClose / item.close;
+                        return {
+                            symbol,
+                            date: item.date,
+                            dateString,
+                            open: round(item.open),
+                            high: round(item.high),
+                            low: round(item.low),
+                            close: round(item.close),
+                            volume: item.volume,
+                            adjOpen: round(item.open * adjRatio),
+                            adjHigh: round(item.high * adjRatio),
+                            adjLow: round(item.low * adjRatio),
+                            adjClose,
+                            adjVolume: item.volume,
+                            source: 'yahoo_finance',
+                        };
+                    })
+                    .filter(p => Utils.isBusinessDay(p.dateString));
+
+                return _.sortBy(prices, 'dateString');
+            } catch (error) {
+                console.log('getAllPricesNonCached error', symbol, error);
+                return [];
+            }
+        },
+        async getAllPricesNonCachedOld(symbol, isUnadj = false) {
             const prices = [];
             console.log("inside getPricesForSymbol: ", symbol);
 
