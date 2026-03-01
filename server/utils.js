@@ -202,6 +202,7 @@ export const ServerUtils = {
                 try {
                     const sevenYearsAgo = new Date();
                     sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+                    console.log('calling yahoo finance: ', symbol);
                     const result = await yahooFinance.chart(symbol, {
                         period1: sevenYearsAgo,
                         interval: '1d',
