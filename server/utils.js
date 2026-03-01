@@ -296,8 +296,10 @@ export const ServerUtils = {
         },
         async getAllPricesNonCached(symbol) {
             try {
+                const sevenYearsAgo = new Date();
+                sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
                 const result = await yahooFinance.chart(symbol, {
-                    period1: '2000-01-01',
+                    period1: sevenYearsAgo,
                     interval: '1d',
                 });
 
