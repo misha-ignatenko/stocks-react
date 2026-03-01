@@ -2,13 +2,10 @@ import cron from 'node-cron';
 import _ from 'underscore';
 import { Meteor } from 'meteor/meteor';
 import { Utils } from '../lib/utils';
-import { Email } from './email';
 import { ServerUtils } from './utils';
-import { EarningsReleases, Stocks } from '../lib/collections';
 
 async function importEarningsReleases() {
     await Meteor.callAsync('importData', [], 'earnings_releases_new', true);
-    await Meteor.callAsync('sendMissingEarningsReleaseSymbolsEmail');
 }
 
 Meteor.startup(function() {
@@ -67,23 +64,5 @@ Meteor.methods({
     async importEarningsReleases()  {
         await ServerUtils.runPremiumCheck(this);
         await importEarningsReleases();
-    },
-    async "sendMissingEarningsReleaseSymbolsEmail"() {
-        // get all available stocks (symbols are _id attributes in universal format)
-        var _allUniqueStockSymbols = await Stocks.rawCollection().distinct("_id", {"delisted": {$exists: false}});
-
-        // get all available unique earnings release records (symbols are symbol attributes in universal format)
-        var _uniqueEarningsReleaseSymbols = await EarningsReleases.rawCollection().distinct("symbol");
-
-        // figure out which stocks have no earnings releases
-        var _symbolsThatHaveBidsOrAsks = _.difference(_allUniqueStockSymbols, _uniqueEarningsReleaseSymbols);
-
-        await Email.send({
-            subject: 'MISSING earnings release symbols',
-            text: JSON.stringify({
-                timeNow: new Date(),
-                missingSymbols: _symbolsThatHaveBidsOrAsks
-            })
-        });
     },
 });
