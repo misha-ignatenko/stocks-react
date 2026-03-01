@@ -1157,29 +1157,25 @@ Meteor.methods({
     async checkIfSymbolExists(symbol) {
         check(symbol, String);
 
+        try {
+            const quote = await yahooFinance.quote(symbol);
+            if (quote) return true;
+        } catch (e) {
+            // symbol not found in Yahoo Finance, fall through to other checks
+        }
+
         async function checkDatatable(url) {
             try {
                 const response = await fetch(url);
                 const _res = {data: await response.json()};
                 ServerUtils.maybePopulateDataFromContent(_res);
-                if (_res.data.datatable.data.length > 0) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return _res.data.datatable.data.length > 0;
             } catch (e) {
                 return false;
             }
         }
 
         const urls = [
-            // subtract 5 business days because there's latency
-            await ServerUtils.prices.getPricesUrl(
-                symbol,
-                null,
-                null,
-                Utils.businessAdd(Utils.todaysDate(), -5)
-            ),
             await ServerUtils.earningsReleases.getMetadataUrl(symbol),
             await ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
         ];

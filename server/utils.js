@@ -194,55 +194,7 @@ export const ServerUtils = {
 
     earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
     mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
-    pricesUrl: 'https://data.nasdaq.com/api/v3/datatables/NDAQ/USEDHADJ',
-    pricesUrlUnadj: 'https://data.nasdaq.com/api/v3/datatables/NDAQ/USEDH',
-
     prices: {
-
-        async getPricesUrl(symbol, cursorID, isUnadj = false, date = null) {
-            const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
-            const datePostfix = date ? `&date=${date}` : '';
-
-            return `${isUnadj ? ServerUtils.pricesUrlUnadj : ServerUtils.pricesUrl}?symbol=${symbol}&api_key=${await ServerUtils.apiKey()}${cursorPostfix}${datePostfix}`;
-        },
-
-        getFormattedPriceObj(item, columnDefinitions) {
-            const priceObj = {};
-            columnDefinitions.forEach((columnDefObj, columnDefItemIndex) => {
-                priceObj[columnDefObj['name']] = item[columnDefItemIndex];
-            });
-
-            if (priceObj.close_adj < 0 || priceObj.close < 0) {
-                console.log('negative close', priceObj);
-            }
-
-            return _.extend(_.pick(priceObj, [
-                'symbol',
-                'symbol_new',
-                'open',
-                'high',
-                'low',
-                'close',
-                'volume',
-                'dividend',
-                'split',
-                'action',
-                'value',
-                'composite_figi',
-                'share_class_figi',
-            ]), {
-                date: new Date(priceObj.date + 'T00:00:00.000+0000'),
-                dateString: priceObj.date,
-
-                adjOpen: priceObj.open_adj,
-                adjHigh: priceObj.high_adj,
-                adjLow: priceObj.low_adj,
-                adjClose: Math.abs(priceObj.close_adj),
-                adjVolume: priceObj.volume_adj,
-
-                source: 'nasdaq_usedhadj',
-            });
-        },
 
         adjustmentsCache: {},
         clearAdjustmentsCache() {
@@ -334,42 +286,6 @@ export const ServerUtils = {
                 console.log('getAllPricesNonCached error', symbol, error);
                 return [];
             }
-        },
-        async getAllPricesNonCachedOld(symbol, isUnadj = false) {
-            const prices = [];
-            console.log("inside getPricesForSymbol: ", symbol);
-
-            try {
-                let cursorID;
-
-                do {
-                    const url = await ServerUtils.prices.getPricesUrl(symbol, cursorID, isUnadj);
-                    const response = await fetch(url);
-                    const result = {data: await response.json()};
-                    ServerUtils.maybePopulateDataFromContent(result);
-
-                    const datatable = result.data.datatable;
-                    const columns = datatable.columns;
-                    const data = datatable.data;
-
-                    data.forEach(px => {
-                        const formatted = ServerUtils.prices.getFormattedPriceObj(px, columns);
-
-                        if (!Utils.isBusinessDay(formatted.dateString)) {
-                            console.log('is not a business day', formatted);
-                            return;
-                        }
-
-                        prices.push(formatted);
-                    });
-                    cursorID = result.data.meta.next_cursor_id;
-                } while (cursorID);
-
-            } catch (error) {
-                console.log('getAllPricesNonCached error', symbol, error);
-            }
-
-            return _.sortBy(prices, 'dateString');
         },
         async getPriceOnDayNew({
             symbol,
