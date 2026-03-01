@@ -1176,7 +1176,6 @@ Meteor.methods({
         }
 
         const urls = [
-            await ServerUtils.earningsReleases.getMetadataUrl(symbol),
             await ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
         ];
 

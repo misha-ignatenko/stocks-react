@@ -193,99 +193,91 @@ export const ServerUtils = {
     },
 
     earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
-    mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
     prices: {
 
-        adjustmentsCache: {},
-        clearAdjustmentsCache() {
-            this.adjustmentsCache = {};
-        },
-        async getAllAdjustments(symbol) {
-            if (!_.has(this.adjustmentsCache, symbol)) {
-                this.adjustmentsCache[symbol] = await this.getAllAdjustmentsNonCached(symbol);
+        cache: {},  // { prices, pricesMap, adjustments }
+        async _fetch(symbol) {
+            symbol = symbol.toUpperCase();
+            if (!_.has(this.cache, symbol)) {
+                try {
+                    const sevenYearsAgo = new Date();
+                    sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+                    const result = await yahooFinance.chart(symbol, {
+                        period1: sevenYearsAgo,
+                        interval: '1d',
+                        events: 'div|split',
+                    });
+
+                    const prices = _.sortBy(
+                        result.quotes
+                            .filter(item => item.close != null)
+                            .map(item => {
+                                const dateString = item.date.toISOString().slice(0, 10);
+                                const round = v => v != null ? Math.round(v * 100) / 100 : v;
+                                const adjClose = round(item.adjclose ?? item.close);
+                                const adjRatio = adjClose / item.close;
+                                return {
+                                    symbol,
+                                    date: item.date,
+                                    dateString,
+                                    open: round(item.open),
+                                    high: round(item.high),
+                                    low: round(item.low),
+                                    close: round(item.close),
+                                    volume: item.volume,
+                                    adjOpen: round(item.open * adjRatio),
+                                    adjHigh: round(item.high * adjRatio),
+                                    adjLow: round(item.low * adjRatio),
+                                    adjClose,
+                                    adjVolume: item.volume,
+                                    source: 'yahoo_finance',
+                                };
+                            })
+                            .filter(p => Utils.isBusinessDay(p.dateString)),
+                        'dateString'
+                    );
+
+                    const pricesMap = new Map();
+                    prices.forEach(priceObj => {
+                        if (pricesMap.has(priceObj.dateString)) {
+                            console.log('already has price for date', symbol, priceObj.dateString);
+                        }
+                        pricesMap.set(priceObj.dateString, priceObj);
+                    });
+
+                    const adjustments = (result.events?.splits ?? []).map(split => ({
+                        dateString: split.date.toISOString().slice(0, 10),
+                        adjFactor: split.denominator / split.numerator,
+                    }));
+
+                    const dividends = (result.events?.dividends ?? []).map(div => ({
+                        dateString: div.date.toISOString().slice(0, 10),
+                        amount: div.amount,
+                    }));
+
+                    this.cache[symbol] = { prices, pricesMap, adjustments, dividends };
+                } catch (error) {
+                    console.log('_fetch error', symbol, error);
+                    this.cache[symbol] = { prices: [], pricesMap: new Map(), adjustments: [], dividends: [] };
+                }
+
                 Meteor.setTimeout(() => {
-                    delete this.adjustmentsCache[symbol];
-                }, 10 * 60 * 1000); // 10 min
-            }
-            return this.adjustmentsCache[symbol];
-        },
-        async getAllAdjustmentsNonCached(symbol) {
-            const hasSplits = await ServerUtils.earningsReleases.hasSplits(symbol);
-            if (hasSplits) {
-                const {splitDate} = hasSplits;
-                const adjustments = (await ServerUtils.prices.getAllPrices(symbol, undefined, splitDate)).filter(p => p.hasAdjustment);
-                return adjustments;
-            }
-
-            return [];
-        },
-
-        pricesCache: {},
-        pricesCacheMap: new Map(),
-        async getAllPrices(symbol, getMap = false) {
-            if (!_.has(this.pricesCache, symbol)) {
-                const pricesForSymbol = await this.getAllPricesNonCached(symbol);
-                this.pricesCache[symbol] = pricesForSymbol;
-
-                this.pricesCacheMap.set(symbol, new Map());
-                pricesForSymbol.forEach(priceObj => {
-                    const dateString = priceObj.dateString;
-                    if (this.pricesCacheMap.get(symbol).has(dateString)) {
-                        console.log('already has price for date', symbol, dateString);
-                    }
-                    this.pricesCacheMap.get(symbol).set(dateString, priceObj);
-                });
-
-                Meteor.setTimeout(() => {
-                    delete this.pricesCache[symbol];
-                    this.pricesCacheMap.delete(symbol);
+                    delete this.cache[symbol];
                 }, 3 * 60 * 1000); // 3 min
             }
-            if (getMap) {
-                return this.pricesCacheMap.get(symbol);
-            }
-            return this.pricesCache[symbol];
+            return this.cache[symbol];
         },
-        async getAllPricesNonCached(symbol) {
-            try {
-                const sevenYearsAgo = new Date();
-                sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
-                const result = await yahooFinance.chart(symbol, {
-                    period1: sevenYearsAgo,
-                    interval: '1d',
-                });
-
-                const prices = result.quotes
-                    .filter(item => item.close != null)
-                    .map(item => {
-                        const dateString = item.date.toISOString().slice(0, 10);
-                        const round = v => v != null ? Math.round(v * 100) / 100 : v;
-                        const adjClose = round(item.adjclose ?? item.close);
-                        const adjRatio = adjClose / item.close;
-                        return {
-                            symbol,
-                            date: item.date,
-                            dateString,
-                            open: round(item.open),
-                            high: round(item.high),
-                            low: round(item.low),
-                            close: round(item.close),
-                            volume: item.volume,
-                            adjOpen: round(item.open * adjRatio),
-                            adjHigh: round(item.high * adjRatio),
-                            adjLow: round(item.low * adjRatio),
-                            adjClose,
-                            adjVolume: item.volume,
-                            source: 'yahoo_finance',
-                        };
-                    })
-                    .filter(p => Utils.isBusinessDay(p.dateString));
-
-                return _.sortBy(prices, 'dateString');
-            } catch (error) {
-                console.log('getAllPricesNonCached error', symbol, error);
-                return [];
-            }
+        async getAllPrices(symbol, getMap = false) {
+            const { prices, pricesMap } = await this._fetch(symbol);
+            return getMap ? pricesMap : prices;
+        },
+        async getAllAdjustments(symbol) {
+            const { adjustments } = await this._fetch(symbol);
+            return adjustments;
+        },
+        async getAllDividends(symbol) {
+            const { dividends } = await this._fetch(symbol);
+            return dividends;
         },
         async getPriceOnDayNew({
             symbol,
@@ -439,64 +431,9 @@ export const ServerUtils = {
         getEarningsReleasesUrl: async (symbol) => {
             return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
-        getMetadataUrl: async (symbol) => {
-            return `${ServerUtils.mtUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
-        },
-        hasSplits: async (symbol) => {
-            const url = await ServerUtils.earningsReleases.getMetadataUrl(symbol);
-            console.log('calling hasSplits', symbol);
-            const response = await fetch(url);
-            const json = {data: await response.json()};
-            ServerUtils.maybePopulateDataFromContent(json);
-            const {
-                columns,
-                data,
-            } = json.data.datatable;
-
-            const firstRow = data[0];
-            if (!firstRow) {
-                console.log('cannot check if has splits ' + symbol);
-                return false;
-            }
-            if (columns.length !== firstRow.length) {
-                throw new Meteor.Error('mismatch between data and columns ' + symbol);
-            }
-            const splitDateIndex = _.findIndex(columns, column => column.name === 'mr_split_date');
-            const splitFactorIndex = _.findIndex(columns, column => column.name === 'mr_split_factor');
-            if (splitDateIndex === -1 || splitFactorIndex === -1) {
-                throw new Meteor.Error('cannot find index for splits ' + symbol);
-            }
-            const splitDate = firstRow[splitDateIndex];
-            const splitFactor = firstRow[splitFactorIndex];
-
-            const doesNotHaveSplits = _.isNull(splitDate) && _.isNull(splitFactor);
-            if (doesNotHaveSplits) {
-                return false;
-            }
-
-            return {
-                splitDate,
-                splitFactor,
-            };
-        },
         getAdjustedEps(rawData, adjustments, reportDate, fields) {
-            const relevantAdj = adjustments.filter(adj => {
-                const {
-                    adjType,
-                    dateString: adjDate,
-                } = adj;
-
-                if (![
-                    5,
-                    6,
-                    13,
-                ].includes(adjType)) {
-                    console.log('weird adj', adj);
-                }
-
-                // need to adjust old eps measurements, prior to adj date
-                return reportDate < adjDate;
-            });
+            // need to adjust old eps measurements, prior to adj date
+            const relevantAdj = adjustments.filter(adj => reportDate < adj.dateString);
             if (relevantAdj.length === 0) {
                 return rawData;
             }
