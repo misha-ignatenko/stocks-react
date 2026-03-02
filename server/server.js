@@ -1168,9 +1168,8 @@ Meteor.methods({
         async function checkDatatable(url) {
             try {
                 const response = await fetch(url);
-                const _res = {data: await response.json()};
-                ServerUtils.maybePopulateDataFromContent(_res);
-                return _res.data.datatable.data.length > 0;
+                const json = await response.json();
+                return json.datatable.data.length > 0;
             } catch (e) {
                 return false;
             }

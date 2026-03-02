@@ -40,10 +40,9 @@ Meteor.methods({
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    const json = {data: await response.json()};
-                    ServerUtils.maybePopulateDataFromContent(json);
+                    const json = await response.json();
 
-                    const columns = json.data.datatable.columns;
+                    const columns = json.datatable.columns;
                     if (columns.length !== expectedNumberOfColumns) {
                         throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
                     }
@@ -51,7 +50,7 @@ Meteor.methods({
                         column.name = column.name.toUpperCase();
                     });
 
-                    const data = json.data.datatable.data;
+                    const data = json.datatable.data;
 
                     dataCount += data.length;
                     for (const [rowIndex, row] of data.entries()) {
@@ -110,7 +109,7 @@ Meteor.methods({
                         }
                     };
 
-                    cursorID = json.data.meta.next_cursor_id;
+                    cursorID = json.meta.next_cursor_id;
                 } while (cursorID);
 
                 await Meteor.callAsync('insertNewStockSymbols', Array.from(symbolsToInsert));

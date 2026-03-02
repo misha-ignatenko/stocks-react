@@ -182,12 +182,6 @@ export const ServerUtils = {
         return validRatingScaleIDsMap;
     },
 
-    maybePopulateDataFromContent(response) {
-        if (!response.data && response.content) {
-            response.data = EJSON.parse(response.content);
-        }
-    },
-
     apiKey: async function () {
         return await Utils.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
