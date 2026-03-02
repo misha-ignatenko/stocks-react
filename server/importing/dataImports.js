@@ -16,11 +16,125 @@ var _totalMaxGradingValue = 120;
 
 Meteor.methods({
 
-        importData: async function(importData, importType, scheduledDataPullFlag) {
+        async importEarningsReleases() {
+            await Email.send({
+                subject: 'getting earnings releases (new)',
+                text: JSON.stringify({ timeNow: new Date() }),
+            });
+
+            let dataCount = 0;
+            let numMatching = 0;
+            let numInserted = 0;
+
+            const expectedNumberOfColumns = 24;
+            const today = moment().format('YYYY-MM-DD');
+
+            try {
+                let cursorID;
+                const symbolsToInsert = new Set();
+
+                do {
+                    const url = await ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
+                    console.log('calling url: ', url);
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const json = {data: await response.json()};
+                    ServerUtils.maybePopulateDataFromContent(json);
+
+                    const columns = json.data.datatable.columns;
+                    if (columns.length !== expectedNumberOfColumns) {
+                        throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
+                    }
+                    columns.forEach(column => {
+                        column.name = column.name.toUpperCase();
+                    });
+
+                    const data = json.data.datatable.data;
+
+                    dataCount += data.length;
+                    for (const [rowIndex, row] of data.entries()) {
+                        if (row.length !== expectedNumberOfColumns) {
+                            throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
+                        }
+
+                        let objectFromApi = {};
+                        columns.forEach((columnDefinition, columnDefinitionIndex) => {
+                            const columnName = columnDefinition.name;
+                            const columnType = columnDefinition.type;
+                            let rowData = row[columnDefinitionIndex];
+
+                            if (columnType === 'Date' && rowData) {
+                                rowData = parseInt(rowData.replace(/-/g, ''));
+                            }
+
+                            objectFromApi[columnName] = rowData;
+                        });
+
+                        let earningsRelease = {};
+                        _.keys(objectFromApi).forEach(rawKey => {
+                            const dbKey = _convertQuandlZEAfieldName(rawKey);
+                            if (!dbKey) {
+                                throw new Meteor.Error(`unknown key: ${rawKey}`);
+                            } else {
+                                earningsRelease[dbKey] = objectFromApi[rawKey];
+                            }
+                        });
+
+                        if (!earningsRelease.asOf) earningsRelease.asOf = today;
+                        earningsRelease.symbol = await _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
+
+                        if (!earningsRelease.asOf || !earningsRelease.symbol) {
+                            throw new Meteor.Error(`something went wrong: ${rowIndex}`);
+                        }
+
+                        const matchingIDs = await getMatchingEarningsReleaseIDs(earningsRelease);
+                        const lastModified = new Date();
+                        if (matchingIDs.length) {
+                            for (const id of matchingIDs) {
+                                await EarningsReleases.updateAsync(id, {$set: {
+                                    asOf: earningsRelease.asOf,
+                                    lastModified,
+                                }});
+                                numMatching += 1;
+                            }
+                        } else {
+                            await EarningsReleases.insertAsync(_.extend({
+                                lastModified,
+                                insertedDate: lastModified,
+                                insertedDateStr: earningsRelease.asOf,
+                            }, earningsRelease));
+                            symbolsToInsert.add(earningsRelease.symbol);
+                            numInserted += 1;
+                        }
+                    };
+
+                    cursorID = json.data.meta.next_cursor_id;
+                } while (cursorID);
+
+                await Meteor.callAsync('insertNewStockSymbols', Array.from(symbolsToInsert));
+
+                await Email.send({
+                    subject: 'DONE getting earnings releases (new)',
+                    text: JSON.stringify({
+                        timeNow: new Date(),
+                        totalNumRecordsFromTheAPI: dataCount,
+                        numInserted, numMatching,
+                    }),
+                });
+            } catch (error) {
+                await Email.send({
+                    subject: 'ERROR from getting earnings releases (new)',
+                    text: JSON.stringify({ timeNow: new Date(), errorString: error.toString() }),
+                });
+            }
+        },
+        importData: async function(importData, importType) {
             check(importType, String);
             //run all the checks here
 
-            if (!Meteor.userId() && !['earnings_releases_new'].includes(importType)) {
+            if (!Meteor.userId()) {
                 throw new Meteor.Error("not-authorized");
             }
 
@@ -189,135 +303,6 @@ Meteor.methods({
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
-            } else if (importType === 'earnings_releases_new') {
-
-                if (scheduledDataPullFlag) {
-                    await Email.send({
-                        subject: 'getting earnings releases (new)',
-                        text: JSON.stringify({
-                            timeNow: new Date(),
-                        }),
-                    });
-                };
-
-                let dataCount = 0;
-                let numMatching = 0;
-                let numInserted = 0;
-
-                const expectedNumberOfColumns = 24;
-                const today = moment().format('YYYY-MM-DD');
-
-                try {
-                    let cursorID;
-                    const symbolsToInsert = new Set();
-
-                    do {
-                        const url = await ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
-                        console.log('calling url: ', url);
-                        const response = await fetch(url);
-                        if (!response.ok) { // Check if the response status is in the 200-299 range
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        const json = {data: await response.json()};
-                        ServerUtils.maybePopulateDataFromContent(json);
-
-                        const columns = json.data.datatable.columns;
-                        if (columns.length !== expectedNumberOfColumns) {
-                            throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
-                        }
-                        columns.forEach(column => {
-                            column.name = column.name.toUpperCase();
-                        });
-
-                        const data = json.data.datatable.data;
-
-                        dataCount += data.length;
-                        for (const [rowIndex, row] of data.entries()) {
-                            if (row.length !== expectedNumberOfColumns) {
-                                throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
-                            }
-
-                            let objectFromApi = {};
-                            columns.forEach((columnDefinition, columnDefinitionIndex) => {
-                                const columnName = columnDefinition.name;
-                                const columnType = columnDefinition.type;
-                                let rowData = row[columnDefinitionIndex];
-
-                                // get rid of dashes and convert to a number to match existing format
-                                if (columnType === 'Date' && rowData) {
-                                    rowData = parseInt(rowData.replace(/-/g, ''));
-                                }
-
-                                objectFromApi[columnName] = rowData;
-                            });
-
-                            let earningsRelease = {};
-                            _.keys(objectFromApi).forEach(rawKey => {
-                                const dbKey = _convertQuandlZEAfieldName(rawKey);
-                                if (!dbKey) {
-                                    throw new Meteor.Error(`unknown key: ${rawKey}`);
-                                } else {
-                                    earningsRelease[dbKey] = objectFromApi[rawKey];
-                                }
-                            });
-
-                            // special cases
-                            if (!earningsRelease.asOf) earningsRelease.asOf = today;
-                            earningsRelease.symbol = await _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
-
-                            // sanity checks
-                            if (!earningsRelease.asOf || !earningsRelease.symbol) {
-                                throw new Meteor.Error(`something went wrong: ${rowIndex}`);
-                            }
-
-                            const matchingIDs = await getMatchingEarningsReleaseIDs(earningsRelease);
-                            const lastModified = new Date();
-                            if (matchingIDs.length) {
-                                // update asOf and lastModified fields
-                                for (const id of matchingIDs) {
-                                    await EarningsReleases.updateAsync(id, {$set: {
-                                        asOf: earningsRelease.asOf,
-                                        lastModified,
-                                    }});
-                                    numMatching += 1;
-                                }
-                            } else {
-                                await EarningsReleases.insertAsync(_.extend({
-                                    lastModified,
-                                    insertedDate: lastModified,
-                                    insertedDateStr: earningsRelease.asOf,
-                                }, earningsRelease));
-                                symbolsToInsert.add(earningsRelease.symbol);
-                                numInserted += 1;
-                            }
-                        };
-
-                        cursorID = json.data.meta.next_cursor_id;
-                    } while (cursorID);
-
-                    await Meteor.callAsync('insertNewStockSymbols', Array.from(symbolsToInsert));
-
-                    if (scheduledDataPullFlag) {
-                        await Email.send({
-                            subject: 'DONE getting earnings releases (new)',
-                            text: JSON.stringify({
-                                timeNow: new Date(),
-                                totalNumRecordsFromTheAPI: dataCount,
-                                numInserted, numMatching,
-                            }),
-                        });
-                    };
-                } catch (error) {
-                    const errorString = error.toString();
-                    if (scheduledDataPullFlag) {
-                        await Email.send({
-                            subject: 'ERROR from getting earnings releases (new)',
-                            text: JSON.stringify({
-                                timeNow: new Date(), errorString,
-                            }),
-                        });
-                    }
-                }
             } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
                 throw new Meteor.Error('not-authorized', 'You do not have permission to import rating scales.');
             } else if (importType === "grading_scales") {

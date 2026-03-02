@@ -2,11 +2,6 @@ import cron from 'node-cron';
 import _ from 'underscore';
 import { Meteor } from 'meteor/meteor';
 import { Utils } from '../lib/utils';
-import { ServerUtils } from './utils';
-
-async function importEarningsReleases() {
-    await Meteor.callAsync('importData', [], 'earnings_releases_new', true);
-}
 
 Meteor.startup(function() {
 
@@ -16,7 +11,7 @@ Meteor.startup(function() {
     // 7am & 2pm utc
     cron.schedule('0 7,14 * * *', () => {
         console.log('Running: earnings releases');
-        importEarningsReleases().catch(error => {
+        Meteor.callAsync('importEarningsReleases').catch(error => {
             console.error('Error in earnings releases cron:', error);
         });
     });
@@ -58,11 +53,4 @@ Meteor.startup(function() {
 
     console.log('Cron jobs initialized');
 
-});
-
-Meteor.methods({
-    async importEarningsReleases()  {
-        await ServerUtils.runPremiumCheck(this);
-        await importEarningsReleases();
-    },
 });
