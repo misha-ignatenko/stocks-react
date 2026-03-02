@@ -48,7 +48,7 @@ window.StocksReact = {
             event,
             optionalDate = false,
         ) {
-            const format = "YYYY-MM-DD";
+            const format = Utils.dateFormat;
             let newVal;
 
             if (optionalDate) {

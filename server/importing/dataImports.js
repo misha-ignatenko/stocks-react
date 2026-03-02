@@ -22,7 +22,16 @@ Meteor.methods({
         const symbols = await Stocks.rawCollection().distinct("_id", {
             delisted: { $exists: false },
         });
-        const asOf = moment().format("YYYY-MM-DD");
+        return Meteor.callAsync(
+            "importEarningsReleasesFromYahooForSymbols",
+            symbols,
+        );
+    },
+
+    async importEarningsReleasesFromYahooForSymbols(symbols) {
+        check(symbols, [String]);
+        symbols = symbols.map((s) => s.toUpperCase());
+        const asOf = moment().format(Utils.dateFormat);
         const lastModified = new Date();
 
         let numInserted = 0;
@@ -31,6 +40,7 @@ Meteor.methods({
 
         for (const symbol of symbols) {
             try {
+                console.log("fetching summary for symbol: ", symbol);
                 const summary = await yahooFinance.quoteSummary(symbol, {
                     modules: [
                         "calendarEvents",
@@ -39,6 +49,14 @@ Meteor.methods({
                         "price",
                     ],
                 });
+                console.log(
+                    "fetched summary for symbol: ",
+                    symbol,
+                    summary.calendarEvents,
+                    summary.earningsTrend,
+                    summary.earningsHistory,
+                );
+                continue;
 
                 const earningsDate =
                     summary.calendarEvents?.earnings?.earningsDate?.[0];
@@ -53,12 +71,12 @@ Meteor.methods({
                 const history = summary.earningsHistory?.history ?? [];
 
                 const reportDateNextFiscalQuarter = Utils.convertToNumberDate(
-                    moment(earningsDate).format("YYYY-MM-DD"),
+                    moment(earningsDate).format(Utils.dateFormat),
                 );
                 const endDateNextFiscalQuarter = currentQuarterTrend?.endDate
                     ? Utils.convertToNumberDate(
                           moment(currentQuarterTrend.endDate).format(
-                              "YYYY-MM-DD",
+                              Utils.dateFormat,
                           ),
                       )
                     : null;
@@ -136,7 +154,7 @@ Meteor.methods({
         let numInserted = 0;
 
         const expectedNumberOfColumns = 24;
-        const today = moment().format("YYYY-MM-DD");
+        const today = moment().format(Utils.dateFormat);
 
         try {
             let cursorID;

@@ -21,7 +21,7 @@ import { ServerUtils, yahooFinance } from "./utils";
 const dateStringSortDesc = { dateString: -1 };
 const researchFirmIDsToExclude = ["vt29AuAATaAu7r3rS", "TMbx3pyYK8gSqH3W6"];
 const YYYYMMDD = "YYYYMMDD";
-const YYYY_MM_DD = "YYYY-MM-DD";
+const YYYY_MM_DD = Utils.dateFormat;
 const ADJ_CLOSE = "adjClose";
 const getRatingChangesQuery = () => {
     return {

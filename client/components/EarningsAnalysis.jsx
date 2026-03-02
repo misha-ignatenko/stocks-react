@@ -20,7 +20,7 @@ export const EarningsAnalysis = (props) => {
     );
     const settings = useTracker(() => Settings.findOne(), []);
 
-    const format = "YYYY-MM-DD";
+    const format = Utils.dateFormat;
     const [startDate, setStartDate] = useState(moment().subtract(14, "days"));
     const [endDate, setEndDate] = useState(moment().subtract(14, "days"));
     const [focusedInput, setFocusedInput] = useState(null);

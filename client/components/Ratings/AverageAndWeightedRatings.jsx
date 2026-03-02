@@ -218,7 +218,7 @@ function AverageAndWeightedRatings({
                           .numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser,
                       "days",
                   )
-                  .format("YYYY-MM-DD");
+                  .format(Utils.dateFormat);
 
         const allAvailablePricesForSymbol = {
             symbol,
