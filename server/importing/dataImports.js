@@ -4,17 +4,91 @@ import _ from 'underscore';
 import { Meteor } from 'meteor/meteor';
 import { Email } from '../email';
 import { ServerUtils } from '../utils';
+import { Utils } from '../../lib/utils';
 import {
     SymbolMappings,
     EarningsReleases,
+    Stocks,
     ResearchCompanies,
     RatingScales,
     RatingChanges,
 } from '../../lib/collections';
+import { yahooFinance } from '../utils';
 
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
+
+        async importEarningsReleasesFromYahoo() {
+            const symbols = await Stocks.rawCollection().distinct('_id', { delisted: { $exists: false } });
+            const asOf = moment().format('YYYY-MM-DD');
+            const lastModified = new Date();
+
+            let numInserted = 0;
+            let numUpdated = 0;
+            let numSkipped = 0;
+
+            for (const symbol of symbols) {
+                try {
+                    const summary = await yahooFinance.quoteSummary(symbol, {
+                        modules: ['calendarEvents', 'earningsTrend', 'earningsHistory', 'price'],
+                    });
+
+                    const earningsDate = summary.calendarEvents?.earnings?.earningsDate?.[0];
+                    if (!earningsDate) {
+                        numSkipped++;
+                        continue;
+                    }
+
+                    const currentQuarterTrend = summary.earningsTrend?.trend?.find(t => t.period === '0q');
+                    const history = summary.earningsHistory?.history ?? [];
+
+                    const reportDateNextFiscalQuarter = Utils.convertToNumberDate(moment(earningsDate).format('YYYY-MM-DD'));
+                    const endDateNextFiscalQuarter = currentQuarterTrend?.endDate
+                        ? Utils.convertToNumberDate(moment(currentQuarterTrend.endDate).format('YYYY-MM-DD'))
+                        : null;
+                    const epsMeanEstimateNextFiscalQuarter = currentQuarterTrend?.earningsEstimate?.avg ?? null;
+                    const epsActualPreviousFiscalQuarter = history[0]?.epsActual ?? null;
+                    const epsActualOneYearAgoFiscalQuarter = history[3]?.epsActual ?? null;
+                    const companyName = summary.price?.longName ?? summary.price?.shortName ?? null;
+                    const isEarningsDateEstimate = summary.calendarEvents?.earnings?.isEarningsDateEstimate ?? true;
+
+                    const record = {
+                        symbol,
+                        asOf,
+                        lastModified,
+                        reportDateNextFiscalQuarter,
+                        endDateNextFiscalQuarter,
+                        epsMeanEstimateNextFiscalQuarter,
+                        epsActualPreviousFiscalQuarter,
+                        epsActualOneYearAgoFiscalQuarter,
+                        companyName,
+                        isEarningsDateEstimate,
+                        source: 'yahoo_finance',
+                    };
+
+                    const existing = await EarningsReleases.findOneAsync({
+                        symbol,
+                        reportDateNextFiscalQuarter,
+                        source: 'yahoo_finance',
+                    });
+
+                    if (existing) {
+                        await EarningsReleases.updateAsync(existing._id, { $set: record });
+                        numUpdated++;
+                    } else {
+                        await EarningsReleases.insertAsync({ ...record, insertedDate: lastModified, insertedDateStr: asOf });
+                        numInserted++;
+                    }
+                } catch (error) {
+                    console.log('importEarningsReleasesFromYahoo error', symbol, error.message);
+                    numSkipped++;
+                }
+            }
+
+            console.log('importEarningsReleasesFromYahoo done', { numInserted, numUpdated, numSkipped });
+            return { numInserted, numUpdated, numSkipped };
+        },
 
         async importEarningsReleases() {
             await Email.send({
@@ -153,11 +227,6 @@ Meteor.methods({
                 var _numToImport = importData.length;
                 var _newlyImportedNum = 0;
                 var _alreadyExistingNum = 0;
-                if (!Meteor.serverConstants.pullFromQuandEveryNDays) {
-                    _result.serverConstantsNotOk = {
-                        pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
-                    };
-                }
                 const symbolsToInsert = new Set();
                 for (const importItem of importData) {
                     var _universalSymbol = await _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
