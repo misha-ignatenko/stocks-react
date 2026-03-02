@@ -1,363 +1,638 @@
-import { check, Match } from 'meteor/check';
-import moment from 'moment-timezone';
-import _ from 'underscore';
-import { Meteor } from 'meteor/meteor';
-import { Email } from '../email';
-import { ServerUtils } from '../utils';
+import { check, Match } from "meteor/check";
+import moment from "moment-timezone";
+import _ from "underscore";
+import { Meteor } from "meteor/meteor";
+import { Email } from "../email";
+import { ServerUtils } from "../utils";
+import { Utils } from "../../lib/utils";
 import {
     SymbolMappings,
     EarningsReleases,
+    Stocks,
     ResearchCompanies,
     RatingScales,
     RatingChanges,
-} from '../../lib/collections';
+} from "../../lib/collections";
+import { yahooFinance } from "../utils";
 
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
+    async importEarningsReleasesFromYahoo() {
+        const symbols = await Stocks.rawCollection().distinct("_id", {
+            delisted: { $exists: false },
+        });
+        return Meteor.callAsync(
+            "importEarningsReleasesFromYahooForSymbols",
+            symbols,
+        );
+    },
 
-        async importEarningsReleases() {
-            await Email.send({
-                subject: 'getting earnings releases (new)',
-                text: JSON.stringify({ timeNow: new Date() }),
-            });
+    async importEarningsReleasesFromYahooForSymbols(symbols) {
+        check(symbols, [String]);
+        symbols = symbols.map((s) => s.toUpperCase());
+        const asOf = moment().format(Utils.dateFormat);
+        const lastModified = new Date();
 
-            let dataCount = 0;
-            let numMatching = 0;
-            let numInserted = 0;
+        let numInserted = 0;
+        let numUpdated = 0;
+        let numSkipped = 0;
 
-            const expectedNumberOfColumns = 24;
-            const today = moment().format('YYYY-MM-DD');
-
+        for (const symbol of symbols) {
             try {
-                let cursorID;
-                const symbolsToInsert = new Set();
+                console.log("fetching summary for symbol: ", symbol);
+                const summary = await yahooFinance.quoteSummary(symbol, {
+                    modules: [
+                        "calendarEvents",
+                        "earningsTrend",
+                        "earningsHistory",
+                        "price",
+                    ],
+                });
+                console.log(
+                    "fetched summary for symbol: ",
+                    symbol,
+                    summary.calendarEvents,
+                    summary.earningsTrend,
+                    summary.earningsHistory,
+                );
+                continue;
 
-                do {
-                    const url = await ServerUtils.earningsReleases.getAllEarningsReleasesUrl(cursorID);
-                    console.log('calling url: ', url);
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const json = await response.json();
+                const earningsDate =
+                    summary.calendarEvents?.earnings?.earningsDate?.[0];
+                if (!earningsDate) {
+                    numSkipped++;
+                    continue;
+                }
 
-                    const columns = json.datatable.columns;
-                    if (columns.length !== expectedNumberOfColumns) {
-                        throw new Meteor.Error(`the number of column definitions is incorrect: ${columns.length}`);
-                    }
-                    columns.forEach(column => {
-                        column.name = column.name.toUpperCase();
+                const currentQuarterTrend = summary.earningsTrend?.trend?.find(
+                    (t) => t.period === "0q",
+                );
+                const history = summary.earningsHistory?.history ?? [];
+
+                const reportDateNextFiscalQuarter = Utils.convertToNumberDate(
+                    moment(earningsDate).format(Utils.dateFormat),
+                );
+                const endDateNextFiscalQuarter = currentQuarterTrend?.endDate
+                    ? Utils.convertToNumberDate(
+                          moment(currentQuarterTrend.endDate).format(
+                              Utils.dateFormat,
+                          ),
+                      )
+                    : null;
+                const epsMeanEstimateNextFiscalQuarter =
+                    currentQuarterTrend?.earningsEstimate?.avg ?? null;
+                const epsActualPreviousFiscalQuarter =
+                    history[0]?.epsActual ?? null;
+                const epsActualOneYearAgoFiscalQuarter =
+                    history[3]?.epsActual ?? null;
+                const companyName =
+                    summary.price?.longName ?? summary.price?.shortName ?? null;
+                const isEarningsDateEstimate =
+                    summary.calendarEvents?.earnings?.isEarningsDateEstimate ??
+                    true;
+
+                const record = {
+                    symbol,
+                    asOf,
+                    lastModified,
+                    reportDateNextFiscalQuarter,
+                    endDateNextFiscalQuarter,
+                    epsMeanEstimateNextFiscalQuarter,
+                    epsActualPreviousFiscalQuarter,
+                    epsActualOneYearAgoFiscalQuarter,
+                    companyName,
+                    isEarningsDateEstimate,
+                    source: "yahoo_finance",
+                };
+
+                const existing = await EarningsReleases.findOneAsync({
+                    symbol,
+                    reportDateNextFiscalQuarter,
+                    source: "yahoo_finance",
+                });
+
+                if (existing) {
+                    await EarningsReleases.updateAsync(existing._id, {
+                        $set: record,
                     });
+                    numUpdated++;
+                } else {
+                    await EarningsReleases.insertAsync({
+                        ...record,
+                        insertedDate: lastModified,
+                        insertedDateStr: asOf,
+                    });
+                    numInserted++;
+                }
+            } catch (error) {
+                console.log(
+                    "importEarningsReleasesFromYahoo error",
+                    symbol,
+                    error.message,
+                );
+                numSkipped++;
+            }
+        }
 
-                    const data = json.datatable.data;
+        console.log("importEarningsReleasesFromYahoo done", {
+            numInserted,
+            numUpdated,
+            numSkipped,
+        });
+        return { numInserted, numUpdated, numSkipped };
+    },
 
-                    dataCount += data.length;
-                    for (const [rowIndex, row] of data.entries()) {
-                        if (row.length !== expectedNumberOfColumns) {
-                            throw new Meteor.Error(`the number of items in the row is incorrect. row idx: ${rowIndex}`);
-                        }
+    async importEarningsReleases() {
+        await Email.send({
+            subject: "getting earnings releases (new)",
+            text: JSON.stringify({ timeNow: new Date() }),
+        });
 
-                        let objectFromApi = {};
-                        columns.forEach((columnDefinition, columnDefinitionIndex) => {
+        let dataCount = 0;
+        let numMatching = 0;
+        let numInserted = 0;
+
+        const expectedNumberOfColumns = 24;
+        const today = moment().format(Utils.dateFormat);
+
+        try {
+            let cursorID;
+            const symbolsToInsert = new Set();
+
+            do {
+                const url =
+                    await ServerUtils.earningsReleases.getAllEarningsReleasesUrl(
+                        cursorID,
+                    );
+                console.log("calling url: ", url);
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+
+                const columns = json.datatable.columns;
+                if (columns.length !== expectedNumberOfColumns) {
+                    throw new Meteor.Error(
+                        `the number of column definitions is incorrect: ${columns.length}`,
+                    );
+                }
+                columns.forEach((column) => {
+                    column.name = column.name.toUpperCase();
+                });
+
+                const data = json.datatable.data;
+
+                dataCount += data.length;
+                for (const [rowIndex, row] of data.entries()) {
+                    if (row.length !== expectedNumberOfColumns) {
+                        throw new Meteor.Error(
+                            `the number of items in the row is incorrect. row idx: ${rowIndex}`,
+                        );
+                    }
+
+                    let objectFromApi = {};
+                    columns.forEach(
+                        (columnDefinition, columnDefinitionIndex) => {
                             const columnName = columnDefinition.name;
                             const columnType = columnDefinition.type;
                             let rowData = row[columnDefinitionIndex];
 
-                            if (columnType === 'Date' && rowData) {
-                                rowData = parseInt(rowData.replace(/-/g, ''));
+                            if (columnType === "Date" && rowData) {
+                                rowData = parseInt(rowData.replace(/-/g, ""));
                             }
 
                             objectFromApi[columnName] = rowData;
-                        });
+                        },
+                    );
 
-                        let earningsRelease = {};
-                        _.keys(objectFromApi).forEach(rawKey => {
-                            const dbKey = _convertQuandlZEAfieldName(rawKey);
-                            if (!dbKey) {
-                                throw new Meteor.Error(`unknown key: ${rawKey}`);
-                            } else {
-                                earningsRelease[dbKey] = objectFromApi[rawKey];
-                            }
-                        });
-
-                        if (!earningsRelease.asOf) earningsRelease.asOf = today;
-                        earningsRelease.symbol = await _getUniversalSymbolFromEarningsReleaseSymbol(earningsRelease.symbol);
-
-                        if (!earningsRelease.asOf || !earningsRelease.symbol) {
-                            throw new Meteor.Error(`something went wrong: ${rowIndex}`);
+                    let earningsRelease = {};
+                    _.keys(objectFromApi).forEach((rawKey) => {
+                        const dbKey = _convertQuandlZEAfieldName(rawKey);
+                        if (!dbKey) {
+                            throw new Meteor.Error(`unknown key: ${rawKey}`);
+                        } else {
+                            earningsRelease[dbKey] = objectFromApi[rawKey];
                         }
+                    });
 
-                        const matchingIDs = await getMatchingEarningsReleaseIDs(earningsRelease);
-                        const lastModified = new Date();
-                        if (matchingIDs.length) {
-                            for (const id of matchingIDs) {
-                                await EarningsReleases.updateAsync(id, {$set: {
+                    if (!earningsRelease.asOf) earningsRelease.asOf = today;
+                    earningsRelease.symbol =
+                        await _getUniversalSymbolFromEarningsReleaseSymbol(
+                            earningsRelease.symbol,
+                        );
+
+                    if (!earningsRelease.asOf || !earningsRelease.symbol) {
+                        throw new Meteor.Error(
+                            `something went wrong: ${rowIndex}`,
+                        );
+                    }
+
+                    const matchingIDs =
+                        await getMatchingEarningsReleaseIDs(earningsRelease);
+                    const lastModified = new Date();
+                    if (matchingIDs.length) {
+                        for (const id of matchingIDs) {
+                            await EarningsReleases.updateAsync(id, {
+                                $set: {
                                     asOf: earningsRelease.asOf,
                                     lastModified,
-                                }});
-                                numMatching += 1;
-                            }
-                        } else {
-                            await EarningsReleases.insertAsync(_.extend({
-                                lastModified,
-                                insertedDate: lastModified,
-                                insertedDateStr: earningsRelease.asOf,
-                            }, earningsRelease));
-                            symbolsToInsert.add(earningsRelease.symbol);
-                            numInserted += 1;
-                        }
-                    };
-
-                    cursorID = json.meta.next_cursor_id;
-                } while (cursorID);
-
-                await Meteor.callAsync('insertNewStockSymbols', Array.from(symbolsToInsert));
-
-                await Email.send({
-                    subject: 'DONE getting earnings releases (new)',
-                    text: JSON.stringify({
-                        timeNow: new Date(),
-                        totalNumRecordsFromTheAPI: dataCount,
-                        numInserted, numMatching,
-                    }),
-                });
-            } catch (error) {
-                await Email.send({
-                    subject: 'ERROR from getting earnings releases (new)',
-                    text: JSON.stringify({ timeNow: new Date(), errorString: error.toString() }),
-                });
-            }
-        },
-        importData: async function(importData, importType) {
-            check(importType, String);
-            //run all the checks here
-
-            if (!Meteor.userId()) {
-                throw new Meteor.Error("not-authorized");
-            }
-
-            var _result = {};
-
-            const user = await Meteor.userAsync();
-            const permissions = user?.permissions;
-            const dataImportingPermissions = permissions && permissions.dataImports;
-            const upgradesDowngradesImportPermission = dataImportingPermissions?.includes("canImportUpgradesDowngrades");
-            const ratingScalesImportPermission = dataImportingPermissions?.includes("canImportRatingScales");
-
-            if (importType === "upgrades_downgrades" && !upgradesDowngradesImportPermission) {
-                throw new Meteor.Error('not-authorized', 'You do not have permission to import upgrades/downgrades.');
-            } else if (importType === "upgrades_downgrades") {
-                _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
-                _result.upgradesDowngradesImportStats = {};
-                var _numToImport = importData.length;
-                var _newlyImportedNum = 0;
-                var _alreadyExistingNum = 0;
-                if (!Meteor.serverConstants.pullFromQuandEveryNDays) {
-                    _result.serverConstantsNotOk = {
-                        pullFromQuandEveryNDays: Meteor.serverConstants.pullFromQuandEveryNDays
-                    };
-                }
-                const symbolsToInsert = new Set();
-                for (const importItem of importData) {
-                    var _universalSymbol = await _getUniversalSymbolFromRatingChangeSymbol(importItem.symbol);
-
-                    //first, check if that research company exists
-                    var _researchCompany = await ResearchCompanies.findOneAsync({name: importItem.researchFirmString});
-                    var originalCompanyId;
-                    var _researchCompanyId;
-                    if (_researchCompany) {
-                        _researchCompanyId = _researchCompany._id;
-                        if (_researchCompany.type === "alternative") {
-                            var mainResearchCompany = _researchCompany.referenceId && await ResearchCompanies.findOneAsync(_researchCompany.referenceId);
-                            if (mainResearchCompany) {
-                                originalCompanyId = _researchCompany._id;
-                                _researchCompanyId = mainResearchCompany._id;
-                            }
+                                },
+                            });
+                            numMatching += 1;
                         }
                     } else {
-                        _researchCompanyId = await ResearchCompanies.insertAsync({name: importItem.researchFirmString});
+                        await EarningsReleases.insertAsync(
+                            _.extend(
+                                {
+                                    lastModified,
+                                    insertedDate: lastModified,
+                                    insertedDateStr: earningsRelease.asOf,
+                                },
+                                earningsRelease,
+                            ),
+                        );
+                        symbolsToInsert.add(earningsRelease.symbol);
+                        numInserted += 1;
                     }
+                }
 
-                    //second, get rating scales id so that can check if item already exists in RatingChanges
-                    var _ratingScaleObjectForNew = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.newRatingString});
-                    var _ratingScaleObjectForOld = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: importItem.oldRatingString});
+                cursorID = json.meta.next_cursor_id;
+            } while (cursorID);
 
+            await Meteor.callAsync(
+                "insertNewStockSymbols",
+                Array.from(symbolsToInsert),
+            );
 
-                    var _originalOldRatingString;
-                    var _originalNewRatingString;
-                    //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
-                    if (!_ratingScaleObjectForNew) {
-                        var _secondaryNew = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.newRatingString});
-                        if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
-                            _ratingScaleObjectForNew = await RatingScales.findOneAsync({_id: _secondaryNew.referenceRatingScaleId});
-                            _originalNewRatingString = importItem.newRatingString;
+            await Email.send({
+                subject: "DONE getting earnings releases (new)",
+                text: JSON.stringify({
+                    timeNow: new Date(),
+                    totalNumRecordsFromTheAPI: dataCount,
+                    numInserted,
+                    numMatching,
+                }),
+            });
+        } catch (error) {
+            await Email.send({
+                subject: "ERROR from getting earnings releases (new)",
+                text: JSON.stringify({
+                    timeNow: new Date(),
+                    errorString: error.toString(),
+                }),
+            });
+        }
+    },
+    importData: async function (importData, importType) {
+        check(importType, String);
+        //run all the checks here
+
+        if (!Meteor.userId()) {
+            throw new Meteor.Error("not-authorized");
+        }
+
+        var _result = {};
+
+        const user = await Meteor.userAsync();
+        const permissions = user?.permissions;
+        const dataImportingPermissions = permissions && permissions.dataImports;
+        const upgradesDowngradesImportPermission =
+            dataImportingPermissions?.includes("canImportUpgradesDowngrades");
+        const ratingScalesImportPermission = dataImportingPermissions?.includes(
+            "canImportRatingScales",
+        );
+
+        if (
+            importType === "upgrades_downgrades" &&
+            !upgradesDowngradesImportPermission
+        ) {
+            throw new Meteor.Error(
+                "not-authorized",
+                "You do not have permission to import upgrades/downgrades.",
+            );
+        } else if (importType === "upgrades_downgrades") {
+            _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
+            _result.upgradesDowngradesImportStats = {};
+            var _numToImport = importData.length;
+            var _newlyImportedNum = 0;
+            var _alreadyExistingNum = 0;
+            const symbolsToInsert = new Set();
+            for (const importItem of importData) {
+                var _universalSymbol =
+                    await _getUniversalSymbolFromRatingChangeSymbol(
+                        importItem.symbol,
+                    );
+
+                //first, check if that research company exists
+                var _researchCompany = await ResearchCompanies.findOneAsync({
+                    name: importItem.researchFirmString,
+                });
+                var originalCompanyId;
+                var _researchCompanyId;
+                if (_researchCompany) {
+                    _researchCompanyId = _researchCompany._id;
+                    if (_researchCompany.type === "alternative") {
+                        var mainResearchCompany =
+                            _researchCompany.referenceId &&
+                            (await ResearchCompanies.findOneAsync(
+                                _researchCompany.referenceId,
+                            ));
+                        if (mainResearchCompany) {
+                            originalCompanyId = _researchCompany._id;
+                            _researchCompanyId = mainResearchCompany._id;
                         }
                     }
+                } else {
+                    _researchCompanyId = await ResearchCompanies.insertAsync({
+                        name: importItem.researchFirmString,
+                    });
+                }
 
-                    if (!_ratingScaleObjectForOld) {
-                        var _secondaryOld = await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, type: "alternative", ratingString: importItem.oldRatingString});
-                        if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
-                            _ratingScaleObjectForOld = await RatingScales.findOneAsync({_id: _secondaryOld.referenceRatingScaleId});
-                            _originalOldRatingString = importItem.oldRatingString;
-                        }
+                //second, get rating scales id so that can check if item already exists in RatingChanges
+                var _ratingScaleObjectForNew = await RatingScales.findOneAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: importItem.newRatingString,
+                });
+                var _ratingScaleObjectForOld = await RatingScales.findOneAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: importItem.oldRatingString,
+                });
+
+                var _originalOldRatingString;
+                var _originalNewRatingString;
+                //if any of the two objects not found, try to match it if with a known alternative rating string for that firm
+                if (!_ratingScaleObjectForNew) {
+                    var _secondaryNew = await RatingScales.findOneAsync({
+                        researchFirmId: _researchCompanyId,
+                        type: "alternative",
+                        ratingString: importItem.newRatingString,
+                    });
+                    if (_secondaryNew && _secondaryNew.referenceRatingScaleId) {
+                        _ratingScaleObjectForNew =
+                            await RatingScales.findOneAsync({
+                                _id: _secondaryNew.referenceRatingScaleId,
+                            });
+                        _originalNewRatingString = importItem.newRatingString;
                     }
+                }
 
+                if (!_ratingScaleObjectForOld) {
+                    var _secondaryOld = await RatingScales.findOneAsync({
+                        researchFirmId: _researchCompanyId,
+                        type: "alternative",
+                        ratingString: importItem.oldRatingString,
+                    });
+                    if (_secondaryOld && _secondaryOld.referenceRatingScaleId) {
+                        _ratingScaleObjectForOld =
+                            await RatingScales.findOneAsync({
+                                _id: _secondaryOld.referenceRatingScaleId,
+                            });
+                        _originalOldRatingString = importItem.oldRatingString;
+                    }
+                }
 
-                    if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
-                        //can try to check if this RatingChanges item already exists. if not then insert it.
-                        var _existingRatingChange = await RatingChanges.findOneAsync({
+                if (_ratingScaleObjectForNew && _ratingScaleObjectForOld) {
+                    //can try to check if this RatingChanges item already exists. if not then insert it.
+                    var _existingRatingChange =
+                        await RatingChanges.findOneAsync({
                             researchFirmId: _researchCompanyId,
                             symbol: _universalSymbol,
                             newRatingId: _ratingScaleObjectForNew._id,
                             oldRatingId: _ratingScaleObjectForOld._id,
-                            dateString: importItem.dateString
+                            dateString: importItem.dateString,
                         });
-                        if (_existingRatingChange) {
-                            _alreadyExistingNum++;
-                        } else if (_universalSymbol && importItem.researchFirmString && importItem.dateString && importItem.newRatingString && importItem.oldRatingString) {
-                            // can insert
-                            var _ratingChange = {
-                                date: new Date(importItem.dateString),
-                                dateString: importItem.dateString,
-                                //dateValue: moment(importItem.dateString).valueOf(),
-                                researchFirmId: _researchCompanyId,
-                                symbol: _universalSymbol,
-                                newRatingId: _ratingScaleObjectForNew._id,
-                                oldRatingId: _ratingScaleObjectForOld._id,
-                                private: true,
-                                addedBy: Meteor.userId(),
-                                addedOn: new Date(),
-                                source: importItem.source
-                            };
-                            // if used alternative research company, store the original research company name
-                            if (originalCompanyId) {
-                                _ratingChange.originalResearchCompanyId = originalCompanyId;
-                            }
-
-                            // -----------------------------------------------------------------------------
-                            // Determine if there are any irregularities.
-                            // console.log("existing r ch: ", _existingRatingChange);
-                            // console.log("_prevRatingChange: ", _prevRatingChange);
-
-                            // three cases:
-                            // 1) _ratingChange.oldRatingId is the same as _ratingChange.newRatingId
-                            // 2) _ratingChange.oldRatingId is different from _prevRatingChange.newRatingId
-                            //      special case: after setting the new ratingChange's oldRatingId the 1st or 3rd case becomes true
-                            // 3) _ratingChange.oldRatingId matches _prevRatingChange.oldRatingId and
-                            // _ratingChange.newRatingId matches _prevRatingChange.newRatingId (exact duplicate of previous rating change)
-
-                            // -----------------------------------------------------------------------------
-
-
-                            if (_originalOldRatingString || _originalNewRatingString) {
-                                _ratingChange.originalRatingStrings = {
-                                    old: _originalOldRatingString,
-                                    new: _originalNewRatingString
-                                };
-                            }
-
-                            console.log("adding rating change for universal symbol: ", _universalSymbol);
-                            await RatingChanges.insertAsync(_ratingChange);
-                            symbolsToInsert.add(_universalSymbol);
-                            _newlyImportedNum++;
-                        }
-                    } else {
-                        //add to error object to let user know these rating scales need to be added
-                        //Note: both old and new have to exist.
-                        var _new = JSON.stringify({
-                            researchFirmString: importItem.researchFirmString,
-                            ratingString: importItem.newRatingString
-                        });
-                        if (_result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(_new) === -1) {
-                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_new);
-                        }
-
-                        var _old = JSON.stringify({
-                            researchFirmString: importItem.researchFirmString,
-                            ratingString: importItem.oldRatingString
-                        });
-                        if (_result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(_old) === -1) {
-                            _result.couldNotFindGradingScalesForTheseUpDowngrades.push(_old);
-                        }
-                    }
-                }
-
-                await Meteor.callAsync('insertNewStockSymbols', Array.from(symbolsToInsert));
-
-                _result.upgradesDowngradesImportStats.total = _numToImport;
-                _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
-                _result.upgradesDowngradesImportStats.duplicates = _alreadyExistingNum;
-                var _destringified = [];
-                _result.couldNotFindGradingScalesForTheseUpDowngrades.forEach(function(obj) {
-                    _destringified.push(JSON.parse(obj))
-                })
-                _result.couldNotFindGradingScalesForTheseUpDowngrades = _destringified;
-
-                const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
-                _result.importedDatesStr = importedDatesStr;
-
-                await Email.send({
-                    subject: 'missing rating scales for rating changes import. dates: ' + JSON.stringify(importedDatesStr),
-                    text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
-                });
-
-            } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
-                throw new Meteor.Error('not-authorized', 'You do not have permission to import rating scales.');
-            } else if (importType === "grading_scales") {
-                var _allRatings = importData.thresholdStringsArray;
-                var _researchFirmString = importData.researchFirmString;
-                //get an id of that research company
-                var _researchCompany = await ResearchCompanies.findOneAsync({name: _researchFirmString});
-                var _researchCompanyId;
-                if (_researchCompany) {
-                    _researchCompanyId = _researchCompany._id;
-                } else {
-                    _researchCompanyId = await ResearchCompanies.insertAsync({name: _researchFirmString});
-                }
-
-                var _noneOfGradingScalesForThisFirmAlreadyExist = true;
-                for (const ratingString of _allRatings) {
-                    if (await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: ratingString})) {
-                        _noneOfGradingScalesForThisFirmAlreadyExist = false;
-                    }
-                }
-
-                if (_noneOfGradingScalesForThisFirmAlreadyExist) {
-                    //now eval approx how many points each and insert into collection.
-                    var _valuePerThreshold = Math.round(_totalMaxGradingValue / _allRatings.length)
-                    for (const [index, value] of _allRatings.entries()) {
-                        await RatingScales.insertAsync({
+                    if (_existingRatingChange) {
+                        _alreadyExistingNum++;
+                    } else if (
+                        _universalSymbol &&
+                        importItem.researchFirmString &&
+                        importItem.dateString &&
+                        importItem.newRatingString &&
+                        importItem.oldRatingString
+                    ) {
+                        // can insert
+                        var _ratingChange = {
+                            date: new Date(importItem.dateString),
+                            dateString: importItem.dateString,
+                            //dateValue: moment(importItem.dateString).valueOf(),
                             researchFirmId: _researchCompanyId,
-                            firmRatingFullString: value,
-                            universalScaleValue: index * _valuePerThreshold + Math.round(_valuePerThreshold / 2)
-                        });
+                            symbol: _universalSymbol,
+                            newRatingId: _ratingScaleObjectForNew._id,
+                            oldRatingId: _ratingScaleObjectForOld._id,
+                            private: true,
+                            addedBy: Meteor.userId(),
+                            addedOn: new Date(),
+                            source: importItem.source,
+                        };
+                        // if used alternative research company, store the original research company name
+                        if (originalCompanyId) {
+                            _ratingChange.originalResearchCompanyId =
+                                originalCompanyId;
+                        }
+
+                        // -----------------------------------------------------------------------------
+                        // Determine if there are any irregularities.
+                        // console.log("existing r ch: ", _existingRatingChange);
+                        // console.log("_prevRatingChange: ", _prevRatingChange);
+
+                        // three cases:
+                        // 1) _ratingChange.oldRatingId is the same as _ratingChange.newRatingId
+                        // 2) _ratingChange.oldRatingId is different from _prevRatingChange.newRatingId
+                        //      special case: after setting the new ratingChange's oldRatingId the 1st or 3rd case becomes true
+                        // 3) _ratingChange.oldRatingId matches _prevRatingChange.oldRatingId and
+                        // _ratingChange.newRatingId matches _prevRatingChange.newRatingId (exact duplicate of previous rating change)
+
+                        // -----------------------------------------------------------------------------
+
+                        if (
+                            _originalOldRatingString ||
+                            _originalNewRatingString
+                        ) {
+                            _ratingChange.originalRatingStrings = {
+                                old: _originalOldRatingString,
+                                new: _originalNewRatingString,
+                            };
+                        }
+
+                        console.log(
+                            "adding rating change for universal symbol: ",
+                            _universalSymbol,
+                        );
+                        await RatingChanges.insertAsync(_ratingChange);
+                        symbolsToInsert.add(_universalSymbol);
+                        _newlyImportedNum++;
+                    }
+                } else {
+                    //add to error object to let user know these rating scales need to be added
+                    //Note: both old and new have to exist.
+                    var _new = JSON.stringify({
+                        researchFirmString: importItem.researchFirmString,
+                        ratingString: importItem.newRatingString,
+                    });
+                    if (
+                        _result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(
+                            _new,
+                        ) === -1
+                    ) {
+                        _result.couldNotFindGradingScalesForTheseUpDowngrades.push(
+                            _new,
+                        );
+                    }
+
+                    var _old = JSON.stringify({
+                        researchFirmString: importItem.researchFirmString,
+                        ratingString: importItem.oldRatingString,
+                    });
+                    if (
+                        _result.couldNotFindGradingScalesForTheseUpDowngrades.indexOf(
+                            _old,
+                        ) === -1
+                    ) {
+                        _result.couldNotFindGradingScalesForTheseUpDowngrades.push(
+                            _old,
+                        );
                     }
                 }
-
-                var _beforeCoverageInitiatedString = importData.beforeCoverageInitiatedString;
-                var _coverageDroppedString = importData.coverageDroppedString;
-                var _coverageTemporarilySuspendedString = importData.coverageTemporarilySuspendedString;
-                if (!await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"})) {
-                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _beforeCoverageInitiatedString, universalScaleValue: "beforeCoverageInitiatedString"});
-                }
-
-                if (!await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"})) {
-                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageDroppedString, universalScaleValue: "coverageDroppedString"});
-                }
-
-                if (_coverageTemporarilySuspendedString && !await RatingScales.findOneAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"})) {
-                    await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
-                }
-
             }
 
-            return _result;
-        }
-    });
+            await Meteor.callAsync(
+                "insertNewStockSymbols",
+                Array.from(symbolsToInsert),
+            );
 
-    function _convertQuandlZEAfieldName(zeaFieldName) {
-        /*PER_END_DATE_FR0 : The end date of the most recently reported fiscal year. (YYYYMMDD)
+            _result.upgradesDowngradesImportStats.total = _numToImport;
+            _result.upgradesDowngradesImportStats.new = _newlyImportedNum;
+            _result.upgradesDowngradesImportStats.duplicates =
+                _alreadyExistingNum;
+            var _destringified = [];
+            _result.couldNotFindGradingScalesForTheseUpDowngrades.forEach(
+                function (obj) {
+                    _destringified.push(JSON.parse(obj));
+                },
+            );
+            _result.couldNotFindGradingScalesForTheseUpDowngrades =
+                _destringified;
+
+            const importedDatesStr = _.uniq(_.pluck(importData, "dateString"));
+            _result.importedDatesStr = importedDatesStr;
+
+            await Email.send({
+                subject:
+                    "missing rating scales for rating changes import. dates: " +
+                    JSON.stringify(importedDatesStr),
+                text: JSON.stringify(
+                    _.extend({ timeNow: new Date() }, _result),
+                ),
+            });
+        } else if (
+            importType === "grading_scales" &&
+            !ratingScalesImportPermission
+        ) {
+            throw new Meteor.Error(
+                "not-authorized",
+                "You do not have permission to import rating scales.",
+            );
+        } else if (importType === "grading_scales") {
+            var _allRatings = importData.thresholdStringsArray;
+            var _researchFirmString = importData.researchFirmString;
+            //get an id of that research company
+            var _researchCompany = await ResearchCompanies.findOneAsync({
+                name: _researchFirmString,
+            });
+            var _researchCompanyId;
+            if (_researchCompany) {
+                _researchCompanyId = _researchCompany._id;
+            } else {
+                _researchCompanyId = await ResearchCompanies.insertAsync({
+                    name: _researchFirmString,
+                });
+            }
+
+            var _noneOfGradingScalesForThisFirmAlreadyExist = true;
+            for (const ratingString of _allRatings) {
+                if (
+                    await RatingScales.findOneAsync({
+                        researchFirmId: _researchCompanyId,
+                        firmRatingFullString: ratingString,
+                    })
+                ) {
+                    _noneOfGradingScalesForThisFirmAlreadyExist = false;
+                }
+            }
+
+            if (_noneOfGradingScalesForThisFirmAlreadyExist) {
+                //now eval approx how many points each and insert into collection.
+                var _valuePerThreshold = Math.round(
+                    _totalMaxGradingValue / _allRatings.length,
+                );
+                for (const [index, value] of _allRatings.entries()) {
+                    await RatingScales.insertAsync({
+                        researchFirmId: _researchCompanyId,
+                        firmRatingFullString: value,
+                        universalScaleValue:
+                            index * _valuePerThreshold +
+                            Math.round(_valuePerThreshold / 2),
+                    });
+                }
+            }
+
+            var _beforeCoverageInitiatedString =
+                importData.beforeCoverageInitiatedString;
+            var _coverageDroppedString = importData.coverageDroppedString;
+            var _coverageTemporarilySuspendedString =
+                importData.coverageTemporarilySuspendedString;
+            if (
+                !(await RatingScales.findOneAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: _beforeCoverageInitiatedString,
+                    universalScaleValue: "beforeCoverageInitiatedString",
+                }))
+            ) {
+                await RatingScales.insertAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: _beforeCoverageInitiatedString,
+                    universalScaleValue: "beforeCoverageInitiatedString",
+                });
+            }
+
+            if (
+                !(await RatingScales.findOneAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: _coverageDroppedString,
+                    universalScaleValue: "coverageDroppedString",
+                }))
+            ) {
+                await RatingScales.insertAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: _coverageDroppedString,
+                    universalScaleValue: "coverageDroppedString",
+                });
+            }
+
+            if (
+                _coverageTemporarilySuspendedString &&
+                !(await RatingScales.findOneAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: _coverageTemporarilySuspendedString,
+                    universalScaleValue: "coverageTemporarilySuspendedString",
+                }))
+            ) {
+                await RatingScales.insertAsync({
+                    researchFirmId: _researchCompanyId,
+                    firmRatingFullString: _coverageTemporarilySuspendedString,
+                    universalScaleValue: "coverageTemporarilySuspendedString",
+                });
+            }
+        }
+
+        return _result;
+    },
+});
+
+function _convertQuandlZEAfieldName(zeaFieldName) {
+    /*PER_END_DATE_FR0 : The end date of the most recently reported fiscal year. (YYYYMMDD)
          endDateMostRecentFiscalYear
 
          PER_END_DATE_QR1 : The end date of the next fiscal quarter to be reported. (YYYYMMDD)
@@ -419,95 +694,97 @@ Meteor.methods({
          time_of_day_desc: Time of day description - Indicates the time of day when the earnings announcement is expected. Values in this field will be one of the following for each record: "After market close", "Before the open", "During market trading" or "Unknown"
 
          */
-        var _fieldNameToReturn;
+    var _fieldNameToReturn;
 
-        if (zeaFieldName === "PER_END_DATE_FR0") {
-            _fieldNameToReturn = "endDateMostRecentFiscalYear";
-        } else if (zeaFieldName === "PER_END_DATE_QR1") {
-            _fieldNameToReturn = "endDateNextFiscalQuarter";
-        } else if (zeaFieldName === "EPS_MEAN_EST_QR1") {
-            _fieldNameToReturn = "epsMeanEstimateNextFiscalQuarter";
-        } else if (zeaFieldName === "EXP_RPT_DATE_QR1") {
-            _fieldNameToReturn = "reportDateNextFiscalQuarter";
-        } else if (zeaFieldName === "EXP_RPT_DATE_QR2") {
-            _fieldNameToReturn = "reportDateNextNextFiscalQuarter";
-        } else if (zeaFieldName === "EXP_RPT_DATE_FR1") {
-            _fieldNameToReturn = "reportDateNextFiscalYear";
-        } else if (zeaFieldName === "LATE_LAST_FLAG") {
-            _fieldNameToReturn = "lateMostRecentReportFlag";
-        } else if (zeaFieldName === "SOURCE_FLAG") {
-            _fieldNameToReturn = "reportSourceFlag";
-        } else if (zeaFieldName === "TIME_OF_DAY_CODE") {
-            _fieldNameToReturn = "reportTimeOfDayCode";
-        } else if (zeaFieldName === "EPS_ACT_QR0") {
-            _fieldNameToReturn = "epsActualPreviousFiscalQuarter";
-        } else if (zeaFieldName === "PER_END_DATE_QR0") {
-            _fieldNameToReturn = "endDatePreviousFiscalQuarter";
-        } else if (zeaFieldName === "EPS_ACT_QRM3") {
-            _fieldNameToReturn = "epsActualOneYearAgoFiscalQuarter";
-        } else if (zeaFieldName === "PER_END_DATE_QRM3") {
-            _fieldNameToReturn = "endDateOneYearAgoFiscalQuarter";
-        } else if (zeaFieldName === "AS_OF") {
-            _fieldNameToReturn = "asOf";
-        } else if (zeaFieldName === 'M_TICKER') {
-            return 'altSymbol';
-        } else if (zeaFieldName === 'TICKER') {
-            return 'symbol';
-        } else if (zeaFieldName === 'COMP_NAME') {
-            return 'companyName';
-        } else if (zeaFieldName === 'COMP_NAME_2') {
-            return 'altCompanyName';
-        } else if (zeaFieldName === 'EXCHANGE') {
-            return 'exchange';
-        } else if (zeaFieldName === 'CURRENCY_CODE') {
-            return 'currencyCode';
-        } else if (zeaFieldName === 'STREET_MEAN_EST_QR1') {
-            return 'streetMeanEstimateNextFiscalQuarter';
-        } else if (zeaFieldName === 'EXP_RPT_DATE_FR2') {
-            return 'reportDateNextNextFiscalYear';
-        } else if (zeaFieldName === 'LATE_LAST_DESC') {
-            return 'lateLastDescription';
-        } else if (zeaFieldName === 'SOURCE_DESC') {
-            return 'sourceDescription';
-        } else if (zeaFieldName === 'TIME_OF_DAY_DESC') {
-            return 'timeOfDayDescription';
-        }
-
-        return _fieldNameToReturn;
+    if (zeaFieldName === "PER_END_DATE_FR0") {
+        _fieldNameToReturn = "endDateMostRecentFiscalYear";
+    } else if (zeaFieldName === "PER_END_DATE_QR1") {
+        _fieldNameToReturn = "endDateNextFiscalQuarter";
+    } else if (zeaFieldName === "EPS_MEAN_EST_QR1") {
+        _fieldNameToReturn = "epsMeanEstimateNextFiscalQuarter";
+    } else if (zeaFieldName === "EXP_RPT_DATE_QR1") {
+        _fieldNameToReturn = "reportDateNextFiscalQuarter";
+    } else if (zeaFieldName === "EXP_RPT_DATE_QR2") {
+        _fieldNameToReturn = "reportDateNextNextFiscalQuarter";
+    } else if (zeaFieldName === "EXP_RPT_DATE_FR1") {
+        _fieldNameToReturn = "reportDateNextFiscalYear";
+    } else if (zeaFieldName === "LATE_LAST_FLAG") {
+        _fieldNameToReturn = "lateMostRecentReportFlag";
+    } else if (zeaFieldName === "SOURCE_FLAG") {
+        _fieldNameToReturn = "reportSourceFlag";
+    } else if (zeaFieldName === "TIME_OF_DAY_CODE") {
+        _fieldNameToReturn = "reportTimeOfDayCode";
+    } else if (zeaFieldName === "EPS_ACT_QR0") {
+        _fieldNameToReturn = "epsActualPreviousFiscalQuarter";
+    } else if (zeaFieldName === "PER_END_DATE_QR0") {
+        _fieldNameToReturn = "endDatePreviousFiscalQuarter";
+    } else if (zeaFieldName === "EPS_ACT_QRM3") {
+        _fieldNameToReturn = "epsActualOneYearAgoFiscalQuarter";
+    } else if (zeaFieldName === "PER_END_DATE_QRM3") {
+        _fieldNameToReturn = "endDateOneYearAgoFiscalQuarter";
+    } else if (zeaFieldName === "AS_OF") {
+        _fieldNameToReturn = "asOf";
+    } else if (zeaFieldName === "M_TICKER") {
+        return "altSymbol";
+    } else if (zeaFieldName === "TICKER") {
+        return "symbol";
+    } else if (zeaFieldName === "COMP_NAME") {
+        return "companyName";
+    } else if (zeaFieldName === "COMP_NAME_2") {
+        return "altCompanyName";
+    } else if (zeaFieldName === "EXCHANGE") {
+        return "exchange";
+    } else if (zeaFieldName === "CURRENCY_CODE") {
+        return "currencyCode";
+    } else if (zeaFieldName === "STREET_MEAN_EST_QR1") {
+        return "streetMeanEstimateNextFiscalQuarter";
+    } else if (zeaFieldName === "EXP_RPT_DATE_FR2") {
+        return "reportDateNextNextFiscalYear";
+    } else if (zeaFieldName === "LATE_LAST_DESC") {
+        return "lateLastDescription";
+    } else if (zeaFieldName === "SOURCE_DESC") {
+        return "sourceDescription";
+    } else if (zeaFieldName === "TIME_OF_DAY_DESC") {
+        return "timeOfDayDescription";
     }
 
-    async function getMatchingEarningsReleaseIDs(earningsRelease) {
-        const fieldsToOmit = [
-            'asOf',
-            'lastModified',
-            'lastModifiedBy',
-            'insertedDate',
-            'insertedDateStr',
-        ];
-        const query = _.omit(earningsRelease, fieldsToOmit);
-        return (await EarningsReleases.find(query, {fields: {_id: 1}}).fetchAsync()).map(({_id})=>_id);
+    return _fieldNameToReturn;
+}
+
+async function getMatchingEarningsReleaseIDs(earningsRelease) {
+    const fieldsToOmit = [
+        "asOf",
+        "lastModified",
+        "lastModifiedBy",
+        "insertedDate",
+        "insertedDateStr",
+    ];
+    const query = _.omit(earningsRelease, fieldsToOmit);
+    return (
+        await EarningsReleases.find(query, { fields: { _id: 1 } }).fetchAsync()
+    ).map(({ _id }) => _id);
+}
+
+async function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
+    var _query = {
+        from: "earnings_release",
+        symbolStr: earnRelSymbol,
+    };
+    if ((await SymbolMappings.find(_query).countAsync()) === 1) {
+        return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
+    } else {
+        return earnRelSymbol;
     }
+}
 
-    async function _getUniversalSymbolFromEarningsReleaseSymbol(earnRelSymbol) {
-        var _query = {
-            from: 'earnings_release',
-            symbolStr: earnRelSymbol
-        };
-        if (await SymbolMappings.find(_query).countAsync() === 1) {
-            return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
-        } else {
-            return earnRelSymbol;
-        }
+async function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
+    var _query = {
+        from: "rating_change",
+        symbolStr: ratingChangeSymbol,
     };
-
-    async function _getUniversalSymbolFromRatingChangeSymbol(ratingChangeSymbol) {
-        var _query = {
-            from: 'rating_change',
-            symbolStr: ratingChangeSymbol
-        };
-        if (await SymbolMappings.find(_query).countAsync() === 1) {
-            return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
-        } else {
-            return ratingChangeSymbol;
-        }
-    };
+    if ((await SymbolMappings.find(_query).countAsync()) === 1) {
+        return (await SymbolMappings.findOneAsync(_query)).universalSymbolStr;
+    } else {
+        return ratingChangeSymbol;
+    }
+}

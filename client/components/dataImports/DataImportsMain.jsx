@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
-import UpDownGradesJSONDataImport from './UpDownGradesJSONDataImport.jsx';
-import ImportRatingScales from './ImportRatingScales.jsx';
+import UpDownGradesJSONDataImport from "./UpDownGradesJSONDataImport.jsx";
+import ImportRatingScales from "./ImportRatingScales.jsx";
 
 const RATING_SCALES_TAB = "Rating Scales";
 const RATING_CHANGES_TAB = "Rating Changes";
@@ -36,7 +36,9 @@ function DataImportsMain() {
             </div>
 
             {selectedTab === RATING_SCALES_TAB && <ImportRatingScales />}
-            {selectedTab === RATING_CHANGES_TAB && <UpDownGradesJSONDataImport />}
+            {selectedTab === RATING_CHANGES_TAB && (
+                <UpDownGradesJSONDataImport />
+            )}
         </div>
     );
 }

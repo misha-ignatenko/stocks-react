@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import _ from 'underscore';
-import { NavLink } from 'react-router-dom';
-import {
-    Table,
-} from 'reactstrap';
-import { Meteor } from 'meteor/meteor';
-import { Utils } from '../../../lib/utils';
+import React, { useState, useEffect, useCallback } from "react";
+import _ from "underscore";
+import { NavLink } from "react-router-dom";
+import { Table } from "reactstrap";
+import { Meteor } from "meteor/meteor";
+import { Utils } from "../../../lib/utils";
 
-const ALL_MODE = 'all';
-const SYMBOL_MODE = 'symbol';
+const ALL_MODE = "all";
+const SYMBOL_MODE = "symbol";
 
 function RatingChanges() {
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState(ALL_MODE);
     const [symbol, setSymbol] = useState(undefined);
     const [ratingChanges, setRatingChanges] = useState([]);
-    const [symbolSearch, setSymbolSearch] = useState('');
+    const [symbolSearch, setSymbolSearch] = useState("");
     const [symbolSearchResults, setSymbolSearchResults] = useState([]);
     const [numChanges, setNumChanges] = useState(0);
     const [numFirms, setNumFirms] = useState(0);
@@ -24,7 +22,7 @@ function RatingChanges() {
         const isAllMode = currentMode === ALL_MODE;
         if (isAllMode) {
             setLoading(true);
-            Meteor.call('getLatestRatingChanges', (err, res) => {
+            Meteor.call("getLatestRatingChanges", (err, res) => {
                 if (!err) {
                     setLoading(false);
                     setRatingChanges(res);
@@ -33,12 +31,16 @@ function RatingChanges() {
         } else {
             if (currentSymbol) {
                 setLoading(true);
-                Meteor.call('getLatestRatingChangesForSymbol', currentSymbol, (err, res) => {
-                    if (!err) {
-                        setLoading(false);
-                        setRatingChanges(res);
-                    }
-                });
+                Meteor.call(
+                    "getLatestRatingChangesForSymbol",
+                    currentSymbol,
+                    (err, res) => {
+                        if (!err) {
+                            setLoading(false);
+                            setRatingChanges(res);
+                        }
+                    },
+                );
             }
         }
     }, []);
@@ -48,11 +50,11 @@ function RatingChanges() {
         _.debounce(() => {
             if (!symbolSearch) return;
 
-            Meteor.call('getSimilarSymbols', symbolSearch, (err, results) => {
+            Meteor.call("getSimilarSymbols", symbolSearch, (err, results) => {
                 if (!err) setSymbolSearchResults(results);
             });
         }, 1000),
-        [symbolSearch]
+        [symbolSearch],
     );
 
     const onSymbolInputChange = (event) => {
@@ -81,14 +83,14 @@ function RatingChanges() {
     };
 
     const exportCSV = () => {
-        Utils.download_table_as_csv('ratingChanges');
+        Utils.download_table_as_csv("ratingChanges");
     };
 
     const renderSearchResults = () => {
         return symbolSearchResults.map((sym) => (
             <button
                 type="button"
-                className='btn btn-light'
+                className="btn btn-light"
                 key={sym}
                 onClick={() => setSelectedSymbol(sym)}
             >
@@ -100,7 +102,7 @@ function RatingChanges() {
     // Initial load
     useEffect(() => {
         const loadInitialData = async () => {
-            const stats = await Meteor.callAsync('getRatingChangeMetadata');
+            const stats = await Meteor.callAsync("getRatingChangeMetadata");
             setNumChanges(stats.numChanges);
             setNumFirms(stats.numFirms);
             loadRatingChanges(ALL_MODE);
@@ -115,7 +117,7 @@ function RatingChanges() {
 
     return (
         <div>
-            <br/>
+            <br />
             <div>
                 <div className="container">
                     <div className="btn-group" role="group" aria-label="...">
@@ -136,7 +138,7 @@ function RatingChanges() {
                             Specific Symbol
                         </button>
                     </div>
-                    <br/>
+                    <br />
                     {loading ? (
                         <div>Loading...</div>
                     ) : (
@@ -157,15 +159,23 @@ function RatingChanges() {
                                     )}
                                 </div>
                             )}
-                            Displaying {ratingChanges.length} rating changes within the last {Utils.ratingChangesLookbackMonths} months
-                            {' '}
-                            <button type='button' className={_b} onClick={exportCSV}>
+                            Displaying {ratingChanges.length} rating changes
+                            within the last {Utils.ratingChangesLookbackMonths}{" "}
+                            months{" "}
+                            <button
+                                type="button"
+                                className={_b}
+                                onClick={exportCSV}
+                            >
                                 Export as a CSV
                             </button>
-                            <br/>
-                            To view more (<b>{numChanges}</b> rating changes across <b>{numFirms}</b> analyst firms), <NavLink to="/contact">Contact Us</NavLink>
-                            <br/><br/>
-                            <Table id='ratingChanges' bordered>
+                            <br />
+                            To view more (<b>{numChanges}</b> rating changes
+                            across <b>{numFirms}</b> analyst firms),{" "}
+                            <NavLink to="/contact">Contact Us</NavLink>
+                            <br />
+                            <br />
+                            <Table id="ratingChanges" bordered>
                                 <thead>
                                     <tr>
                                         <th>Date</th>
@@ -185,7 +195,10 @@ function RatingChanges() {
                                             oldRating,
                                             newRating,
                                         } = row;
-                                        const rowKey = dateString + rowSymbol + researchFirmName;
+                                        const rowKey =
+                                            dateString +
+                                            rowSymbol +
+                                            researchFirmName;
 
                                         return (
                                             <tr key={rowKey}>
