@@ -4,11 +4,11 @@ const { convertArrayToCSV } = require("convert-array-to-csv");
 import { Utils } from "../lib/utils";
 import { Permissions } from "../lib/permissions";
 import {
-	ResearchCompanies,
-	RatingScales,
-	EarningsReleases,
-	RatingChanges,
-	Settings,
+    ResearchCompanies,
+    RatingScales,
+    EarningsReleases,
+    RatingChanges,
+    Settings,
 } from "../lib/collections";
 import { Meteor } from "meteor/meteor";
 import { Email } from "./email";
@@ -16,640 +16,669 @@ import YahooFinance from "yahoo-finance2";
 export const yahooFinance = new YahooFinance();
 
 export const ServerUtils = {
-	async setSetting(field, value) {
-		return await Settings.updateAsync(await Utils.getSetting("_id"), {
-			$set: {
-				[field]: value,
-			},
-		});
-	},
+    async setSetting(field, value) {
+        return await Settings.updateAsync(await Utils.getSetting("_id"), {
+            $set: {
+                [field]: value,
+            },
+        });
+    },
 
-	async getEmailTo() {
-		return await Utils.getCachedSetting(
-			"serverSettings.ratingsChanges.emailTo",
-		);
-	},
-	async getEmailFrom() {
-		return await Utils.getCachedSetting(
-			"serverSettings.ratingsChanges.emailFrom",
-		);
-	},
-	async emailCSV(
-		rows,
-		fileName = "sample.csv",
-		subject = "csv file",
-		text = "see attached",
-	) {
-		const csv = convertArrayToCSV(rows);
+    async getEmailTo() {
+        return await Utils.getCachedSetting(
+            "serverSettings.ratingsChanges.emailTo",
+        );
+    },
+    async getEmailFrom() {
+        return await Utils.getCachedSetting(
+            "serverSettings.ratingsChanges.emailFrom",
+        );
+    },
+    async emailCSV(
+        rows,
+        fileName = "sample.csv",
+        subject = "csv file",
+        text = "see attached",
+    ) {
+        const csv = convertArrayToCSV(rows);
 
-		await Email.send({
-			subject,
-			text,
-			attachments: [
-				{
-					filename: fileName,
-					content: csv,
-				},
-			],
-		});
-	},
-	async emailJSON(
-		data,
-		fileName = "sample.json",
-		subject = "json file",
-		text = "see attached",
-	) {
-		const json = JSON.stringify(data);
+        await Email.send({
+            subject,
+            text,
+            attachments: [
+                {
+                    filename: fileName,
+                    content: csv,
+                },
+            ],
+        });
+    },
+    async emailJSON(
+        data,
+        fileName = "sample.json",
+        subject = "json file",
+        text = "see attached",
+    ) {
+        const json = JSON.stringify(data);
 
-		await Email.send({
-			subject,
-			text,
-			attachments: [
-				{
-					filename: fileName,
-					content: json,
-				},
-			],
-		});
-	},
+        await Email.send({
+            subject,
+            text,
+            attachments: [
+                {
+                    filename: fileName,
+                    content: json,
+                },
+            ],
+        });
+    },
 
-	async ratingsChangesLimitGlobal() {
-		return await Utils.getCachedSetting(
-			"serverSettings.ratingsChanges.dashboardLimitGlobal",
-		);
-	},
-	async ratingsChangesLimitSymbol() {
-		return await Utils.getCachedSetting(
-			"serverSettings.ratingsChanges.dashboardLimitSymbol",
-		);
-	},
-	async getExtraRatingChangeData(ratingChanges) {
-		let firmMap = new Map();
-		const firmIDs = _.pluck(ratingChanges, "researchFirmId");
-		(
-			await ResearchCompanies.find(
-				{
-					_id: { $in: firmIDs },
-				},
-				{
-					fields: {
-						name: 1,
-					},
-				},
-			).fetchAsync()
-		).forEach((company) => {
-			firmMap.set(company._id, company);
-		});
+    async ratingsChangesLimitGlobal() {
+        return await Utils.getCachedSetting(
+            "serverSettings.ratingsChanges.dashboardLimitGlobal",
+        );
+    },
+    async ratingsChangesLimitSymbol() {
+        return await Utils.getCachedSetting(
+            "serverSettings.ratingsChanges.dashboardLimitSymbol",
+        );
+    },
+    async getExtraRatingChangeData(ratingChanges) {
+        let firmMap = new Map();
+        const firmIDs = _.pluck(ratingChanges, "researchFirmId");
+        (
+            await ResearchCompanies.find(
+                {
+                    _id: { $in: firmIDs },
+                },
+                {
+                    fields: {
+                        name: 1,
+                    },
+                },
+            ).fetchAsync()
+        ).forEach((company) => {
+            firmMap.set(company._id, company);
+        });
 
-		let ratingMap = new Map();
-		const oldRatingIDs = _.pluck(ratingChanges, "oldRatingId");
-		const newRatingIDs = _.pluck(ratingChanges, "newRatingId");
-		const ratingIDs = _.union(oldRatingIDs, newRatingIDs);
-		(
-			await RatingScales.find(
-				{
-					_id: { $in: ratingIDs },
-				},
-				{
-					fields: {
-						firmRatingFullString: 1,
-					},
-				},
-			).fetchAsync()
-		).forEach((rating) => {
-			ratingMap.set(rating._id, rating);
-		});
+        let ratingMap = new Map();
+        const oldRatingIDs = _.pluck(ratingChanges, "oldRatingId");
+        const newRatingIDs = _.pluck(ratingChanges, "newRatingId");
+        const ratingIDs = _.union(oldRatingIDs, newRatingIDs);
+        (
+            await RatingScales.find(
+                {
+                    _id: { $in: ratingIDs },
+                },
+                {
+                    fields: {
+                        firmRatingFullString: 1,
+                    },
+                },
+            ).fetchAsync()
+        ).forEach((rating) => {
+            ratingMap.set(rating._id, rating);
+        });
 
-		ratingChanges.forEach((ratingChange) => {
-			ratingChange.researchFirmName = firmMap.get(
-				ratingChange.researchFirmId,
-			).name;
+        ratingChanges.forEach((ratingChange) => {
+            ratingChange.researchFirmName = firmMap.get(
+                ratingChange.researchFirmId,
+            ).name;
 
-			ratingChange.oldRating = ratingMap.get(
-				ratingChange.oldRatingId,
-			).firmRatingFullString;
-			ratingChange.newRating = ratingMap.get(
-				ratingChange.newRatingId,
-			).firmRatingFullString;
-		});
+            ratingChange.oldRating = ratingMap.get(
+                ratingChange.oldRatingId,
+            ).firmRatingFullString;
+            ratingChange.newRating = ratingMap.get(
+                ratingChange.newRatingId,
+            ).firmRatingFullString;
+        });
 
-		return ratingChanges.map((ratingChange) => {
-			return _.pick(ratingChange, [
-				"symbol",
-				"researchFirmName",
-				"oldRating",
-				"newRating",
-				"dateString",
-			]);
-		});
-	},
-	async getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
-		if (!validRatingScaleIDsMap) {
-			validRatingScaleIDsMap = await ServerUtils.getNumericRatingScalesMap();
-		}
-		const dateString = {
-			$gte: startDate,
-		};
-		if (endDate) {
-			dateString.$lte = endDate;
-		}
-		const $match = {
-			symbol,
-			dateString,
-		};
-		const ratingChanges = (
-			await RatingChanges.rawCollection()
-				.aggregate([
-					{ $match },
-					{ $sort: { dateString: -1 } },
-					{
-						$group: {
-							_id: "$researchFirmId",
-							oldRatingId: { $first: "$oldRatingId" },
-							newRatingId: { $first: "$newRatingId" },
-							dateString: { $first: "$dateString" },
-							researchFirmId: { $first: "$researchFirmId" },
-							ratingChangeId: { $first: "$_id" },
-						},
-					},
-				])
-				.toArray()
-		).filter((rc) => validRatingScaleIDsMap.has(rc.newRatingId));
+        return ratingChanges.map((ratingChange) => {
+            return _.pick(ratingChange, [
+                "symbol",
+                "researchFirmName",
+                "oldRating",
+                "newRating",
+                "dateString",
+            ]);
+        });
+    },
+    async getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
+        if (!validRatingScaleIDsMap) {
+            validRatingScaleIDsMap =
+                await ServerUtils.getNumericRatingScalesMap();
+        }
+        const dateString = {
+            $gte: startDate,
+        };
+        if (endDate) {
+            dateString.$lte = endDate;
+        }
+        const $match = {
+            symbol,
+            dateString,
+        };
+        const ratingChanges = (
+            await RatingChanges.rawCollection()
+                .aggregate([
+                    { $match },
+                    { $sort: { dateString: -1 } },
+                    {
+                        $group: {
+                            _id: "$researchFirmId",
+                            oldRatingId: { $first: "$oldRatingId" },
+                            newRatingId: { $first: "$newRatingId" },
+                            dateString: { $first: "$dateString" },
+                            researchFirmId: { $first: "$researchFirmId" },
+                            ratingChangeId: { $first: "$_id" },
+                        },
+                    },
+                ])
+                .toArray()
+        ).filter((rc) => validRatingScaleIDsMap.has(rc.newRatingId));
 
-		return ratingChanges;
-	},
-	async getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
-		/**
-		 * this factor means if a stock has the max possible rating, it's expected
-		 * to increase its price by this factor
-		 */
-		const factor = 2;
-		const priceOnPurchaseDay = await Utils.stockPrices.getPriceOnDay(
-			prices,
-			purchaseDate,
-		);
-		const ratingScales = await ServerUtils.getNumericRatingScalesMap();
-		const midpoint = Utils.constantFeatureValue;
+        return ratingChanges;
+    },
+    async getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
+        /**
+         * this factor means if a stock has the max possible rating, it's expected
+         * to increase its price by this factor
+         */
+        const factor = 2;
+        const priceOnPurchaseDay = await Utils.stockPrices.getPriceOnDay(
+            prices,
+            purchaseDate,
+        );
+        const ratingScales = await ServerUtils.getNumericRatingScalesMap();
+        const midpoint = Utils.constantFeatureValue;
 
-		const results = [];
-		for (const r of ratingChanges) {
-			const { dateString: ratingChangeDate, newRatingId } = r;
-			const priceOnRatingChangeDay = await Utils.stockPrices.getPriceOnDay(
-				prices,
-				ratingChangeDate,
-			);
-			const priceIncreaseRatio = priceOnPurchaseDay / priceOnRatingChangeDay;
-			const progressRatio = (priceIncreaseRatio - 1) / (factor - 1);
-			const currentRating = ratingScales.get(newRatingId);
-			const adjRating =
-				midpoint + (1 - progressRatio) * (currentRating - midpoint);
+        const results = [];
+        for (const r of ratingChanges) {
+            const { dateString: ratingChangeDate, newRatingId } = r;
+            const priceOnRatingChangeDay =
+                await Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
+            const priceIncreaseRatio =
+                priceOnPurchaseDay / priceOnRatingChangeDay;
+            const progressRatio = (priceIncreaseRatio - 1) / (factor - 1);
+            const currentRating = ratingScales.get(newRatingId);
+            const adjRating =
+                midpoint + (1 - progressRatio) * (currentRating - midpoint);
 
-			results.push(adjRating);
-		}
-		return results;
-	},
+            results.push(adjRating);
+        }
+        return results;
+    },
 
-	cachedRatingScales: undefined,
-	async getNumericRatingScalesMap() {
-		if (!this.cachedRatingScales) {
-			this.cachedRatingScales = await this.getNumericRatingScalesMapNonCached();
-			Meteor.setTimeout(
-				() => {
-					this.cachedRatingScales = undefined;
-				},
-				10 * 60 * 1000,
-			); // 10 min
-		}
-		return this.cachedRatingScales;
-	},
-	async getNumericRatingScalesMapNonCached() {
-		const validRatingScaleIDsMap = new Map();
-		(
-			await RatingScales.find(
-				{
-					universalScaleValue: {
-						$not: { $type: 2 },
-						$exists: true,
-					},
-				},
-				{ fields: { universalScaleValue: 1 } },
-			).fetchAsync()
-		).forEach(({ _id, universalScaleValue }) => {
-			validRatingScaleIDsMap.set(_id, universalScaleValue);
-		});
-		return validRatingScaleIDsMap;
-	},
+    cachedRatingScales: undefined,
+    async getNumericRatingScalesMap() {
+        if (!this.cachedRatingScales) {
+            this.cachedRatingScales =
+                await this.getNumericRatingScalesMapNonCached();
+            Meteor.setTimeout(
+                () => {
+                    this.cachedRatingScales = undefined;
+                },
+                10 * 60 * 1000,
+            ); // 10 min
+        }
+        return this.cachedRatingScales;
+    },
+    async getNumericRatingScalesMapNonCached() {
+        const validRatingScaleIDsMap = new Map();
+        (
+            await RatingScales.find(
+                {
+                    universalScaleValue: {
+                        $not: { $type: 2 },
+                        $exists: true,
+                    },
+                },
+                { fields: { universalScaleValue: 1 } },
+            ).fetchAsync()
+        ).forEach(({ _id, universalScaleValue }) => {
+            validRatingScaleIDsMap.set(_id, universalScaleValue);
+        });
+        return validRatingScaleIDsMap;
+    },
 
-	apiKey: async function () {
-		return await Utils.getCachedSetting(
-			"dataImports.earningsReleases.quandlZeaAuthToken",
-		);
-	},
+    apiKey: async function () {
+        return await Utils.getCachedSetting(
+            "dataImports.earningsReleases.quandlZeaAuthToken",
+        );
+    },
 
-	earningsReleasesUrl: "https://data.nasdaq.com/api/v3/datatables/ZACKS/EA",
-	prices: {
-		cache: {}, // { prices, pricesMap, adjustments }
-		async _fetch(symbol) {
-			symbol = symbol.toUpperCase();
-			if (!_.has(this.cache, symbol)) {
-				try {
-					const sevenYearsAgo = new Date();
-					sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
-					console.log("calling yahoo finance: ", symbol);
-					const result = await yahooFinance.chart(symbol, {
-						period1: sevenYearsAgo,
-						interval: "1d",
-						events: "div|split",
-					});
+    earningsReleasesUrl: "https://data.nasdaq.com/api/v3/datatables/ZACKS/EA",
+    prices: {
+        cache: {}, // { prices, pricesMap, adjustments }
+        async _fetch(symbol) {
+            symbol = symbol.toUpperCase();
+            if (!_.has(this.cache, symbol)) {
+                try {
+                    const sevenYearsAgo = new Date();
+                    sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+                    console.log("calling yahoo finance: ", symbol);
+                    const result = await yahooFinance.chart(symbol, {
+                        period1: sevenYearsAgo,
+                        interval: "1d",
+                        events: "div|split",
+                    });
 
-					const prices = _.sortBy(
-						result.quotes
-							.filter((item) => item.close != null)
-							.map((item) => {
-								const dateString = item.date.toISOString().slice(0, 10);
-								const round = (v) =>
-									v != null ? Math.round(v * 100) / 100 : v;
-								const adjClose = round(item.adjclose ?? item.close);
-								const adjRatio = adjClose / item.close;
-								return {
-									symbol,
-									date: item.date,
-									dateString,
-									open: round(item.open),
-									high: round(item.high),
-									low: round(item.low),
-									close: round(item.close),
-									volume: item.volume,
-									adjOpen: round(item.open * adjRatio),
-									adjHigh: round(item.high * adjRatio),
-									adjLow: round(item.low * adjRatio),
-									adjClose,
-									adjVolume: item.volume,
-									source: "yahoo_finance",
-								};
-							})
-							.filter((p) => Utils.isBusinessDay(p.dateString)),
-						"dateString",
-					);
+                    const prices = _.sortBy(
+                        result.quotes
+                            .filter((item) => item.close != null)
+                            .map((item) => {
+                                const dateString = item.date
+                                    .toISOString()
+                                    .slice(0, 10);
+                                const round = (v) =>
+                                    v != null ? Math.round(v * 100) / 100 : v;
+                                const adjClose = round(
+                                    item.adjclose ?? item.close,
+                                );
+                                const adjRatio = adjClose / item.close;
+                                return {
+                                    symbol,
+                                    date: item.date,
+                                    dateString,
+                                    open: round(item.open),
+                                    high: round(item.high),
+                                    low: round(item.low),
+                                    close: round(item.close),
+                                    volume: item.volume,
+                                    adjOpen: round(item.open * adjRatio),
+                                    adjHigh: round(item.high * adjRatio),
+                                    adjLow: round(item.low * adjRatio),
+                                    adjClose,
+                                    adjVolume: item.volume,
+                                    source: "yahoo_finance",
+                                };
+                            })
+                            .filter((p) => Utils.isBusinessDay(p.dateString)),
+                        "dateString",
+                    );
 
-					const pricesMap = new Map();
-					prices.forEach((priceObj) => {
-						if (pricesMap.has(priceObj.dateString)) {
-							console.log(
-								"already has price for date",
-								symbol,
-								priceObj.dateString,
-							);
-						}
-						pricesMap.set(priceObj.dateString, priceObj);
-					});
+                    const pricesMap = new Map();
+                    prices.forEach((priceObj) => {
+                        if (pricesMap.has(priceObj.dateString)) {
+                            console.log(
+                                "already has price for date",
+                                symbol,
+                                priceObj.dateString,
+                            );
+                        }
+                        pricesMap.set(priceObj.dateString, priceObj);
+                    });
 
-					const adjustments = (result.events?.splits ?? []).map((split) => ({
-						dateString: split.date.toISOString().slice(0, 10),
-						adjFactor: split.denominator / split.numerator,
-					}));
+                    const adjustments = (result.events?.splits ?? []).map(
+                        (split) => ({
+                            dateString: split.date.toISOString().slice(0, 10),
+                            adjFactor: split.denominator / split.numerator,
+                        }),
+                    );
 
-					const dividends = (result.events?.dividends ?? []).map((div) => ({
-						dateString: div.date.toISOString().slice(0, 10),
-						amount: div.amount,
-					}));
+                    const dividends = (result.events?.dividends ?? []).map(
+                        (div) => ({
+                            dateString: div.date.toISOString().slice(0, 10),
+                            amount: div.amount,
+                        }),
+                    );
 
-					this.cache[symbol] = { prices, pricesMap, adjustments, dividends };
-				} catch (error) {
-					console.log("_fetch error", symbol, error);
-					this.cache[symbol] = {
-						prices: [],
-						pricesMap: new Map(),
-						adjustments: [],
-						dividends: [],
-					};
-				}
+                    this.cache[symbol] = {
+                        prices,
+                        pricesMap,
+                        adjustments,
+                        dividends,
+                    };
+                } catch (error) {
+                    console.log("_fetch error", symbol, error);
+                    this.cache[symbol] = {
+                        prices: [],
+                        pricesMap: new Map(),
+                        adjustments: [],
+                        dividends: [],
+                    };
+                }
 
-				Meteor.setTimeout(
-					() => {
-						delete this.cache[symbol];
-					},
-					3 * 60 * 1000,
-				); // 3 min
-			}
-			return this.cache[symbol];
-		},
-		async getAllPrices(symbol, getMap = false) {
-			const { prices, pricesMap } = await this._fetch(symbol);
-			return getMap ? pricesMap : prices;
-		},
-		async getAllAdjustments(symbol) {
-			const { adjustments } = await this._fetch(symbol);
-			return adjustments;
-		},
-		async getAllDividends(symbol) {
-			const { dividends } = await this._fetch(symbol);
-			return dividends;
-		},
-		async getPriceOnDayNew({
-			symbol,
-			dateString,
-			returnObj = false,
-			priceField = "adjClose",
-			isStrict = true,
-		}) {
-			const symbolPricesMap = await this.getAllPrices(symbol, true);
-			const priceObj = symbolPricesMap.get(dateString);
-			if (returnObj) {
-				return priceObj;
-			} else if (isStrict) {
-				return priceObj[priceField];
-			} else {
-				return priceObj?.[priceField];
-			}
-		},
-	},
-	ratingChanges: {
-		async isUpgrade(rc) {
-			const { oldRatingId, newRatingId } = rc;
+                Meteor.setTimeout(
+                    () => {
+                        delete this.cache[symbol];
+                    },
+                    3 * 60 * 1000,
+                ); // 3 min
+            }
+            return this.cache[symbol];
+        },
+        async getAllPrices(symbol, getMap = false) {
+            const { prices, pricesMap } = await this._fetch(symbol);
+            return getMap ? pricesMap : prices;
+        },
+        async getAllAdjustments(symbol) {
+            const { adjustments } = await this._fetch(symbol);
+            return adjustments;
+        },
+        async getAllDividends(symbol) {
+            const { dividends } = await this._fetch(symbol);
+            return dividends;
+        },
+        async getPriceOnDayNew({
+            symbol,
+            dateString,
+            returnObj = false,
+            priceField = "adjClose",
+            isStrict = true,
+        }) {
+            const symbolPricesMap = await this.getAllPrices(symbol, true);
+            const priceObj = symbolPricesMap.get(dateString);
+            if (returnObj) {
+                return priceObj;
+            } else if (isStrict) {
+                return priceObj[priceField];
+            } else {
+                return priceObj?.[priceField];
+            }
+        },
+    },
+    ratingChanges: {
+        async isUpgrade(rc) {
+            const { oldRatingId, newRatingId } = rc;
 
-			const map = await ServerUtils.getNumericRatingScalesMap();
-			if (map.has(oldRatingId) && map.has(newRatingId)) {
-				return map.get(newRatingId) > map.get(oldRatingId);
-			} else if (map.has(newRatingId)) {
-				return map.get(newRatingId) > 60;
-			}
-		},
-		async isDowngrade(rc) {
-			const { oldRatingId, newRatingId } = rc;
+            const map = await ServerUtils.getNumericRatingScalesMap();
+            if (map.has(oldRatingId) && map.has(newRatingId)) {
+                return map.get(newRatingId) > map.get(oldRatingId);
+            } else if (map.has(newRatingId)) {
+                return map.get(newRatingId) > 60;
+            }
+        },
+        async isDowngrade(rc) {
+            const { oldRatingId, newRatingId } = rc;
 
-			const map = await ServerUtils.getNumericRatingScalesMap();
-			if (map.has(oldRatingId) && map.has(newRatingId)) {
-				return map.get(newRatingId) < map.get(oldRatingId);
-			} else if (map.has(newRatingId)) {
-				return map.get(newRatingId) < 60;
-			}
-		},
-		async getOldAndNewRatings(rc) {
-			const { oldRatingId, newRatingId } = rc;
+            const map = await ServerUtils.getNumericRatingScalesMap();
+            if (map.has(oldRatingId) && map.has(newRatingId)) {
+                return map.get(newRatingId) < map.get(oldRatingId);
+            } else if (map.has(newRatingId)) {
+                return map.get(newRatingId) < 60;
+            }
+        },
+        async getOldAndNewRatings(rc) {
+            const { oldRatingId, newRatingId } = rc;
 
-			const map = await ServerUtils.getNumericRatingScalesMap();
-			return {
-				oldRating: map.get(oldRatingId),
-				newRating: map.get(newRatingId),
-			};
-		},
-	},
-	earningsReleases: {
-		async getHistory(
-			symbol,
-			startDateStr,
-			endDateStr,
-			returnOnlyReportDates = false,
-			returnObjects = false,
-		) {
-			const validRecordsQuery = {
-				symbol,
-				currencyCode: { $nin: ["CND"] },
-				exchange: { $nin: ["NASDAQ Other OTC"] },
-			};
-			const companyConfirmedQuery = {
-				reportSourceFlag: 1,
-			};
+            const map = await ServerUtils.getNumericRatingScalesMap();
+            return {
+                oldRating: map.get(oldRatingId),
+                newRating: map.get(newRatingId),
+            };
+        },
+    },
+    earningsReleases: {
+        async getHistory(
+            symbol,
+            startDateStr,
+            endDateStr,
+            returnOnlyReportDates = false,
+            returnObjects = false,
+        ) {
+            const validRecordsQuery = {
+                symbol,
+                currencyCode: { $nin: ["CND"] },
+                exchange: { $nin: ["NASDAQ Other OTC"] },
+            };
+            const companyConfirmedQuery = {
+                reportSourceFlag: 1,
+            };
 
-			const query = _.extend(
-				{
-					reportDateNextFiscalQuarter: {
-						$gte: Utils.convertToNumberDate(startDateStr),
-						$lte: Utils.convertToNumberDate(endDateStr),
-					},
-				},
-				validRecordsQuery,
-				companyConfirmedQuery,
-			);
+            const query = _.extend(
+                {
+                    reportDateNextFiscalQuarter: {
+                        $gte: Utils.convertToNumberDate(startDateStr),
+                        $lte: Utils.convertToNumberDate(endDateStr),
+                    },
+                },
+                validRecordsQuery,
+                companyConfirmedQuery,
+            );
 
-			if (returnObjects) {
-				const deduplicationSet = new Set();
+            if (returnObjects) {
+                const deduplicationSet = new Set();
 
-				return (
-					await EarningsReleases.find(query, {
-						fields: {
-							reportDateNextFiscalQuarter: 1,
-							endDateNextFiscalQuarter: 1,
-						},
-						sort: {
-							reportDateNextFiscalQuarter: 1,
-						},
-					}).fetchAsync()
-				).filter((e) => {
-					const stringified = EJSON.stringify(
-						_.pick(e, [
-							"reportDateNextFiscalQuarter",
-							"endDateNextFiscalQuarter",
-						]),
-					);
+                return (
+                    await EarningsReleases.find(query, {
+                        fields: {
+                            reportDateNextFiscalQuarter: 1,
+                            endDateNextFiscalQuarter: 1,
+                        },
+                        sort: {
+                            reportDateNextFiscalQuarter: 1,
+                        },
+                    }).fetchAsync()
+                ).filter((e) => {
+                    const stringified = EJSON.stringify(
+                        _.pick(e, [
+                            "reportDateNextFiscalQuarter",
+                            "endDateNextFiscalQuarter",
+                        ]),
+                    );
 
-					if (deduplicationSet.has(stringified)) {
-						return false;
-					}
+                    if (deduplicationSet.has(stringified)) {
+                        return false;
+                    }
 
-					deduplicationSet.add(stringified);
-					return true;
-				});
-			}
+                    deduplicationSet.add(stringified);
+                    return true;
+                });
+            }
 
-			const relevantReportDates = _.sortBy(
-				await EarningsReleases.rawCollection().distinct(
-					"reportDateNextFiscalQuarter",
-					query,
-				),
-				_.identity,
-			);
+            const relevantReportDates = _.sortBy(
+                await EarningsReleases.rawCollection().distinct(
+                    "reportDateNextFiscalQuarter",
+                    query,
+                ),
+                _.identity,
+            );
 
-			// may return incorrect dates
-			if (returnOnlyReportDates) {
-				return relevantReportDates;
-			}
+            // may return incorrect dates
+            if (returnOnlyReportDates) {
+                return relevantReportDates;
+            }
 
-			const earningsReleases = relevantReportDates.map((reportDate) => {
-				const expectedQuery = _.extend(
-					{
-						reportDateNextFiscalQuarter: reportDate,
-						asOf: { $lt: Utils.convertToStringDate(reportDate) },
-					},
-					validRecordsQuery,
-					companyConfirmedQuery,
-				);
-				const expected = EarningsReleases.findOne(expectedQuery, {
-					sort: { asOf: -1 },
-				});
+            const earningsReleases = relevantReportDates.map((reportDate) => {
+                const expectedQuery = _.extend(
+                    {
+                        reportDateNextFiscalQuarter: reportDate,
+                        asOf: { $lt: Utils.convertToStringDate(reportDate) },
+                    },
+                    validRecordsQuery,
+                    companyConfirmedQuery,
+                );
+                const expected = EarningsReleases.findOne(expectedQuery, {
+                    sort: { asOf: -1 },
+                });
 
-				const expectationCoversEarningsThru = expected.endDateNextFiscalQuarter;
+                const expectationCoversEarningsThru =
+                    expected.endDateNextFiscalQuarter;
 
-				const actualQuery = _.extend(
-					{
-						endDatePreviousFiscalQuarter: expectationCoversEarningsThru,
-						asOf: { $gt: Utils.convertToStringDate(reportDate) },
-					},
-					validRecordsQuery,
-				);
-				const actual = EarningsReleases.findOne(actualQuery, {
-					sort: { asOf: 1 },
-				});
+                const actualQuery = _.extend(
+                    {
+                        endDatePreviousFiscalQuarter:
+                            expectationCoversEarningsThru,
+                        asOf: { $gt: Utils.convertToStringDate(reportDate) },
+                    },
+                    validRecordsQuery,
+                );
+                const actual = EarningsReleases.findOne(actualQuery, {
+                    sort: { asOf: 1 },
+                });
 
-				const expectedEps = expected.epsMeanEstimateNextFiscalQuarter;
-				const actualEps = actual.epsActualPreviousFiscalQuarter;
-				const expectationAfterRelease = actual.epsMeanEstimateNextFiscalQuarter;
+                const expectedEps = expected.epsMeanEstimateNextFiscalQuarter;
+                const actualEps = actual.epsActualPreviousFiscalQuarter;
+                const expectationAfterRelease =
+                    actual.epsMeanEstimateNextFiscalQuarter;
 
-				console.log("--------------------------------------");
-				console.log("earnings released on", reportDate);
-				console.log("quarter end date", expectationCoversEarningsThru);
-				console.log("expectation known on", expected.asOf);
-				console.log("actual known on", actual.asOf);
-				console.log("expected vs. actual eps", expectedEps, actualEps);
-				console.log(
-					"expectation for the next quarter (after release)",
-					expectationAfterRelease,
-				);
-				console.log("expected & actual _ids", expected._id, actual._id);
-				console.log("--------------------------------------");
-			});
-		},
-		getAllEarningsReleasesUrl: async (cursorID) => {
-			const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : "";
-			return `${ServerUtils.earningsReleasesUrl}?api_key=${await ServerUtils.apiKey()}${cursorPostfix}`;
-		},
-		getEarningsReleasesUrl: async (symbol) => {
-			return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
-		},
-		getAdjustedEps(rawData, adjustments, reportDate, fields) {
-			// need to adjust old eps measurements, prior to adj date
-			const relevantAdj = adjustments.filter(
-				(adj) => reportDate < adj.dateString,
-			);
-			if (relevantAdj.length === 0) {
-				return rawData;
-			}
+                console.log("--------------------------------------");
+                console.log("earnings released on", reportDate);
+                console.log("quarter end date", expectationCoversEarningsThru);
+                console.log("expectation known on", expected.asOf);
+                console.log("actual known on", actual.asOf);
+                console.log("expected vs. actual eps", expectedEps, actualEps);
+                console.log(
+                    "expectation for the next quarter (after release)",
+                    expectationAfterRelease,
+                );
+                console.log("expected & actual _ids", expected._id, actual._id);
+                console.log("--------------------------------------");
+            });
+        },
+        getAllEarningsReleasesUrl: async (cursorID) => {
+            const cursorPostfix = cursorID
+                ? `&qopts.cursor_id=${cursorID}`
+                : "";
+            return `${ServerUtils.earningsReleasesUrl}?api_key=${await ServerUtils.apiKey()}${cursorPostfix}`;
+        },
+        getEarningsReleasesUrl: async (symbol) => {
+            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
+        },
+        getAdjustedEps(rawData, adjustments, reportDate, fields) {
+            // need to adjust old eps measurements, prior to adj date
+            const relevantAdj = adjustments.filter(
+                (adj) => reportDate < adj.dateString,
+            );
+            if (relevantAdj.length === 0) {
+                return rawData;
+            }
 
-			const totalAdjFactor = _.reduce(
-				_.pluck(relevantAdj, "adjFactor"),
-				(memo, num) => memo * num,
-				1,
-			);
+            const totalAdjFactor = _.reduce(
+                _.pluck(relevantAdj, "adjFactor"),
+                (memo, num) => memo * num,
+                1,
+            );
 
-			const adjustedData = EJSON.clone(rawData);
-			adjustedData.forEach((row) => {
-				fields.forEach((field) => {
-					row[field] *= totalAdjFactor;
-				});
-			});
+            const adjustedData = EJSON.clone(rawData);
+            adjustedData.forEach((row) => {
+                fields.forEach((field) => {
+                    row[field] *= totalAdjFactor;
+                });
+            });
 
-			return adjustedData;
-		},
-		processRowsForCSV(rows) {
-			return rows.map((row) => {
-				const {
-					reportDate,
-					isAfterMarketClose,
-					endDateNextFiscalQuarter,
-					symbol,
-					companyName,
-					originalEpsExpectation,
-					pctExpEpsOverOriginalEpsExpectation,
-					originalAsOfExpectation,
-					expectedEps,
-					actualEps,
-					expectedEpsNextQt,
-					purchaseDate: dateBeforeRelease,
-					purchasePrice: priceBeforeRelease,
-					purchasePriceSMA50,
-					purchasePriceSMA200,
-					saleDate1: dateAfterRelease,
-					salePrice1: priceAfterRelease,
-					saleDate2: dateLater,
-					salePrice2: priceLater,
-					saleDate3: dateLatest,
-					salePrice3: priceLatest,
-					priorSaleDate,
-					priorSalePrice,
-					priorSalePriceSMA50,
-					priorSalePriceSMA200,
-					avgRating,
-					numRatings,
-					numRecentDowngrades,
-					numRecentUpgrades,
-					averageRatingChangeDate,
-					altAvgRatingWithAdjRatings,
+            return adjustedData;
+        },
+        processRowsForCSV(rows) {
+            return rows.map((row) => {
+                const {
+                    reportDate,
+                    isAfterMarketClose,
+                    endDateNextFiscalQuarter,
+                    symbol,
+                    companyName,
+                    originalEpsExpectation,
+                    pctExpEpsOverOriginalEpsExpectation,
+                    originalAsOfExpectation,
+                    expectedEps,
+                    actualEps,
+                    expectedEpsNextQt,
+                    purchaseDate: dateBeforeRelease,
+                    purchasePrice: priceBeforeRelease,
+                    purchasePriceSMA50,
+                    purchasePriceSMA200,
+                    saleDate1: dateAfterRelease,
+                    salePrice1: priceAfterRelease,
+                    saleDate2: dateLater,
+                    salePrice2: priceLater,
+                    saleDate3: dateLatest,
+                    salePrice3: priceLatest,
+                    priorSaleDate,
+                    priorSalePrice,
+                    priorSalePriceSMA50,
+                    priorSalePriceSMA200,
+                    avgRating,
+                    numRatings,
+                    numRecentDowngrades,
+                    numRecentUpgrades,
+                    averageRatingChangeDate,
+                    altAvgRatingWithAdjRatings,
 
-					epsActualPreviousFiscalQuarter,
-					pctExpEpsOverPrevQt,
-					epsActualOneYearAgoFiscalQuarter,
-					pctExpEpsOverOneYearAgo,
+                    epsActualPreviousFiscalQuarter,
+                    pctExpEpsOverPrevQt,
+                    epsActualOneYearAgoFiscalQuarter,
+                    pctExpEpsOverOneYearAgo,
 
-					vooOpenPriceOnPurchaseDate,
-					vooSMA,
-					vooSMA50DaysAgo,
-					vooSMA200DaysAgo,
-				} = row;
+                    vooOpenPriceOnPurchaseDate,
+                    vooSMA,
+                    vooSMA50DaysAgo,
+                    vooSMA200DaysAgo,
+                } = row;
 
-				return {
-					"Release Date": Utils.convertToStringDate(reportDate),
-					"Is After Mkt Close": isAfterMarketClose ? "Yes" : "No",
-					Qt: Utils.convertToStringDate(endDateNextFiscalQuarter),
-					Symbol: symbol,
-					"Co Name": companyName,
-					"Average Rating (0-120)": _.isNaN(avgRating)
-						? null
-						: avgRating.toFixed(2),
-					"# of Ratings": numRatings,
-					"Avg R. Ch. Date": averageRatingChangeDate,
-					"Alt R (adj r)": _.isNaN(altAvgRatingWithAdjRatings)
-						? null
-						: altAvgRatingWithAdjRatings.toFixed(2),
-					"# Recent Downgr": numRecentDowngrades,
-					"# Recent Upgr": numRecentUpgrades,
-					"1st Eps Exp": originalEpsExpectation?.toFixed(4),
-					"% Exp / 1st Exp": pctExpEpsOverOriginalEpsExpectation?.toFixed(4),
-					"1st Eps Exp Date": originalAsOfExpectation,
-					"Prior Sale Date": priorSaleDate,
-					"Prior Sale Price": priorSalePrice,
-					"Prior SMA 50": priorSalePriceSMA50?.toFixed(2),
-					"Prior SMA 200": priorSalePriceSMA200?.toFixed(2),
-					"Exp EPS": expectedEps?.toFixed(4),
-					"Act EPS": actualEps?.toFixed(4),
-					"Exp EPS Next Qt": expectedEpsNextQt?.toFixed(4),
-					"Act EPS (prev qt)": epsActualPreviousFiscalQuarter?.toFixed(4),
-					"Exp / prev qt": undefined,
-					"% Exp / prev qt": _.isNumber(pctExpEpsOverPrevQt)
-						? pctExpEpsOverPrevQt.toFixed(4)
-						: null,
-					"Act EPS (1 yr ago)": epsActualOneYearAgoFiscalQuarter?.toFixed(4),
-					"Exp / 1 yr": undefined,
-					"% Exp / 1 yr": _.isNumber(pctExpEpsOverOneYearAgo)
-						? pctExpEpsOverOneYearAgo.toFixed(4)
-						: null,
-					"Price Before": priceBeforeRelease?.toFixed(2),
-					"Before SMA 50": purchasePriceSMA50?.toFixed(2),
-					"Before SMA 200": purchasePriceSMA200?.toFixed(2),
-					"Date Before": dateBeforeRelease,
-					"Price After": priceAfterRelease?.toFixed(2),
-					"After / Before": (priceAfterRelease / priceBeforeRelease).toFixed(4),
-					"Date After": dateAfterRelease,
-					"Price Later": priceLater?.toFixed(2),
-					"Later / Before": (priceLater / priceBeforeRelease).toFixed(4),
-					"Date Later": dateLater,
-					"Price Latest": priceLatest?.toFixed(2),
-					"Latest / Before": (priceLatest / priceBeforeRelease).toFixed(4),
-					"Date Latest": dateLatest,
-					vooOpenPriceOnPurchaseDate: vooOpenPriceOnPurchaseDate?.toFixed(4),
-					vooSMA: vooSMA?.toFixed(4),
-					vooSMA50DaysAgo: vooSMA50DaysAgo?.toFixed(4),
-					vooSMA200DaysAgo: vooSMA200DaysAgo?.toFixed(4),
-				};
-			});
-		},
-	},
-	async runPremiumCheck(context) {
-		if (!context) {
-			throw new Meteor.Error("something is not right");
-		}
-		if (context.connection && !(await Permissions.isPremium())) {
-			throw new Meteor.Error("you do not have access");
-		}
-	},
+                return {
+                    "Release Date": Utils.convertToStringDate(reportDate),
+                    "Is After Mkt Close": isAfterMarketClose ? "Yes" : "No",
+                    Qt: Utils.convertToStringDate(endDateNextFiscalQuarter),
+                    Symbol: symbol,
+                    "Co Name": companyName,
+                    "Average Rating (0-120)": _.isNaN(avgRating)
+                        ? null
+                        : avgRating.toFixed(2),
+                    "# of Ratings": numRatings,
+                    "Avg R. Ch. Date": averageRatingChangeDate,
+                    "Alt R (adj r)": _.isNaN(altAvgRatingWithAdjRatings)
+                        ? null
+                        : altAvgRatingWithAdjRatings.toFixed(2),
+                    "# Recent Downgr": numRecentDowngrades,
+                    "# Recent Upgr": numRecentUpgrades,
+                    "1st Eps Exp": originalEpsExpectation?.toFixed(4),
+                    "% Exp / 1st Exp":
+                        pctExpEpsOverOriginalEpsExpectation?.toFixed(4),
+                    "1st Eps Exp Date": originalAsOfExpectation,
+                    "Prior Sale Date": priorSaleDate,
+                    "Prior Sale Price": priorSalePrice,
+                    "Prior SMA 50": priorSalePriceSMA50?.toFixed(2),
+                    "Prior SMA 200": priorSalePriceSMA200?.toFixed(2),
+                    "Exp EPS": expectedEps?.toFixed(4),
+                    "Act EPS": actualEps?.toFixed(4),
+                    "Exp EPS Next Qt": expectedEpsNextQt?.toFixed(4),
+                    "Act EPS (prev qt)":
+                        epsActualPreviousFiscalQuarter?.toFixed(4),
+                    "Exp / prev qt": undefined,
+                    "% Exp / prev qt": _.isNumber(pctExpEpsOverPrevQt)
+                        ? pctExpEpsOverPrevQt.toFixed(4)
+                        : null,
+                    "Act EPS (1 yr ago)":
+                        epsActualOneYearAgoFiscalQuarter?.toFixed(4),
+                    "Exp / 1 yr": undefined,
+                    "% Exp / 1 yr": _.isNumber(pctExpEpsOverOneYearAgo)
+                        ? pctExpEpsOverOneYearAgo.toFixed(4)
+                        : null,
+                    "Price Before": priceBeforeRelease?.toFixed(2),
+                    "Before SMA 50": purchasePriceSMA50?.toFixed(2),
+                    "Before SMA 200": purchasePriceSMA200?.toFixed(2),
+                    "Date Before": dateBeforeRelease,
+                    "Price After": priceAfterRelease?.toFixed(2),
+                    "After / Before": (
+                        priceAfterRelease / priceBeforeRelease
+                    ).toFixed(4),
+                    "Date After": dateAfterRelease,
+                    "Price Later": priceLater?.toFixed(2),
+                    "Later / Before": (priceLater / priceBeforeRelease).toFixed(
+                        4,
+                    ),
+                    "Date Later": dateLater,
+                    "Price Latest": priceLatest?.toFixed(2),
+                    "Latest / Before": (
+                        priceLatest / priceBeforeRelease
+                    ).toFixed(4),
+                    "Date Latest": dateLatest,
+                    vooOpenPriceOnPurchaseDate:
+                        vooOpenPriceOnPurchaseDate?.toFixed(4),
+                    vooSMA: vooSMA?.toFixed(4),
+                    vooSMA50DaysAgo: vooSMA50DaysAgo?.toFixed(4),
+                    vooSMA200DaysAgo: vooSMA200DaysAgo?.toFixed(4),
+                };
+            });
+        },
+    },
+    async runPremiumCheck(context) {
+        if (!context) {
+            throw new Meteor.Error("something is not right");
+        }
+        if (context.connection && !(await Permissions.isPremium())) {
+            throw new Meteor.Error("you do not have access");
+        }
+    },
 };
