@@ -49,21 +49,19 @@ function ImportRatingScales() {
             objToInsert.coverageTemporarilySuspendedString = coverageTemporarilySuspendedString.trim();
         }
 
-        Meteor.call('importData', objToInsert, 'grading_scales', (error, result) => {
-            if (!error && result) {
-                if (result.cannotImportGradingScalesDueToMissingPermissions) {
-                    toast.error("You do not have permission to import rating scales.", {
-                        duration: 10000
-                    });
-                } else {
-                    toast.success("Successfully imported grading scales.", {
-                        duration: 10000
-                    });
-                    // Clear form on success
-                    clearForm();
-                }
-            } else if (error) {
-                toast.error(`Import failed: ${error.message}`);
+        const closableToast = (fn, message) => fn(t => (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {message}
+                <button onClick={() => toast.dismiss(t.id)}>✕</button>
+            </span>
+        ), { duration: 10000 });
+
+        Meteor.call('importData', objToInsert, 'grading_scales', (error) => {
+            if (error) {
+                closableToast(toast.error, `Import failed: ${error.message}`);
+            } else {
+                closableToast(toast.success, 'Successfully imported grading scales.');
+                clearForm();
             }
         });
     };

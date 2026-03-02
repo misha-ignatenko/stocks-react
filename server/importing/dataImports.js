@@ -32,7 +32,9 @@ Meteor.methods({
             const upgradesDowngradesImportPermission = dataImportingPermissions?.includes("canImportUpgradesDowngrades");
             const ratingScalesImportPermission = dataImportingPermissions?.includes("canImportRatingScales");
 
-            if (importType === "upgrades_downgrades" && upgradesDowngradesImportPermission) {
+            if (importType === "upgrades_downgrades" && !upgradesDowngradesImportPermission) {
+                throw new Meteor.Error('not-authorized', 'You do not have permission to import upgrades/downgrades.');
+            } else if (importType === "upgrades_downgrades") {
                 _result.couldNotFindGradingScalesForTheseUpDowngrades = [];
                 _result.upgradesDowngradesImportStats = {};
                 var _numToImport = importData.length;
@@ -187,8 +189,6 @@ Meteor.methods({
                     text: JSON.stringify(_.extend({timeNow: new Date()}, _result))
                 });
 
-            } else if (importType === "upgrades_downgrades" && !upgradesDowngradesImportPermission) {
-                _result.noPermissionToImportUpgradesDowngrades = true;
             } else if (importType === 'earnings_releases_new') {
 
                 if (scheduledDataPullFlag) {
@@ -318,7 +318,9 @@ Meteor.methods({
                         });
                     }
                 }
-            } else if (importType === "grading_scales" && ratingScalesImportPermission) {
+            } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
+                throw new Meteor.Error('not-authorized', 'You do not have permission to import rating scales.');
+            } else if (importType === "grading_scales") {
                 var _allRatings = importData.thresholdStringsArray;
                 var _researchFirmString = importData.researchFirmString;
                 //get an id of that research company
@@ -364,8 +366,6 @@ Meteor.methods({
                     await RatingScales.insertAsync({researchFirmId: _researchCompanyId, firmRatingFullString: _coverageTemporarilySuspendedString, universalScaleValue: "coverageTemporarilySuspendedString"});
                 }
 
-            } else if (importType === "grading_scales" && !ratingScalesImportPermission) {
-                _result.cannotImportGradingScalesDueToMissingPermissions = true;
             }
 
             return _result;

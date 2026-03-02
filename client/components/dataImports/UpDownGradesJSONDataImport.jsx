@@ -73,25 +73,21 @@ function UpDownGradesJSONDataImport() {
 
         clearCells();
 
+        const closableToast = (fn, message) => fn(t => (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {message}
+                <button onClick={() => toast.dismiss(t.id)}>✕</button>
+            </span>
+        ), { duration: 60 * 60 * 1000 });
+
         Meteor.call('importData', parsed, 'upgrades_downgrades', (error, result) => {
-            if (!error && result) {
-                if (result.noPermissionToImportUpgradesDowngrades) {
-                    toast.error("You do not have permission to import upgrades/downgrades.", {
-                        duration: 60 * 60 * 1000 // 1 hour
-                    });
-                } else if (result.couldNotFindGradingScalesForTheseUpDowngrades?.length > 0) {
-                    toast.error(`Missing Rating Scales for the following: ${JSON.stringify(result)}`, {
-                        duration: 60 * 60 * 1000 // 1 hour
-                    });
-                } else if (result.upgradesDowngradesImportStats) {
-                    const importStats = result.upgradesDowngradesImportStats;
-                    toast.success(
-                        `Imported stats\nNew: ${importStats.new}\nDuplicates: ${importStats.duplicates}\nOut of: ${importStats.total}\nDates: ${JSON.stringify(result.importedDatesStr)}`,
-                        { duration: 60 * 60 * 1000 } // 1 hour
-                    );
-                }
-            } else if (error) {
-                toast.error(`Import failed: ${error.message}`);
+            if (error) {
+                closableToast(toast.error, `Import failed: ${error.message}`);
+            } else if (result.couldNotFindGradingScalesForTheseUpDowngrades?.length > 0) {
+                closableToast(toast.error, `Missing Rating Scales for the following: ${JSON.stringify(result)}`);
+            } else if (result.upgradesDowngradesImportStats) {
+                const importStats = result.upgradesDowngradesImportStats;
+                closableToast(toast.success, `Imported stats\nNew: ${importStats.new}\nDuplicates: ${importStats.duplicates}\nOut of: ${importStats.total}\nDates: ${JSON.stringify(result.importedDatesStr)}`);
             }
         });
     };
@@ -192,19 +188,20 @@ function UpDownGradesJSONDataImport() {
                     </div>
                 ) : (
                     <div>
-                        {renderCells()}
-                        <br/>
-                        {sourceChoices.indexOf(selectedSource) === -1 ? (
-                            "Please select a source"
-                        ) : (
-                            <button onClick={verifyAndImportUpDownGradesJSONData}>
-                                Import
+                        <div className="btn-group" role="group">
+                            {sourceChoices.indexOf(selectedSource) === -1 ? (
+                                "Please select a source"
+                            ) : (
+                                <button className="btn btn-light" onClick={verifyAndImportUpDownGradesJSONData}>
+                                    Import
+                                </button>
+                            )}
+                            <button className="btn btn-light" onClick={clearCells}>
+                                Clear
                             </button>
-                        )}
+                        </div>
                         <br/>
-                        <button className="btn btn-light" onClick={clearCells}>
-                            Clear
-                        </button>
+                        {renderCells()}
                     </div>
                 )}
             </div>
