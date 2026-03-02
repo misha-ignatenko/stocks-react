@@ -1158,6 +1158,7 @@ Meteor.methods({
         check(symbol, String);
 
         try {
+            console.log('getting yahoo finance quote for symbol', symbol);
             const quote = await yahooFinance.quote(symbol);
             if (quote) return true;
         } catch (e) {
