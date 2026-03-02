@@ -1,182 +1,169 @@
-import React, { Component } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
+import React, { useState, useEffect, useCallback } from 'react';
 import _ from 'underscore';
 import { NavLink } from 'react-router-dom';
 import {
     Table,
 } from 'reactstrap';
+import { Meteor } from 'meteor/meteor';
+import { Utils } from '../../../lib/utils';
 
 const ALL_MODE = 'all';
 const SYMBOL_MODE = 'symbol';
 
-class RatingChanges extends Component {
+function RatingChanges() {
+    const [loading, setLoading] = useState(false);
+    const [mode, setMode] = useState(ALL_MODE);
+    const [symbol, setSymbol] = useState(undefined);
+    const [ratingChanges, setRatingChanges] = useState([]);
+    const [symbolSearch, setSymbolSearch] = useState('');
+    const [symbolSearchResults, setSymbolSearchResults] = useState([]);
+    const [numChanges, setNumChanges] = useState(0);
+    const [numFirms, setNumFirms] = useState(0);
 
-    constructor(props) {
-        super(props);
-
-        this.state = {
-            loading: false,
-            mode: ALL_MODE,
-            symbol: undefined,
-            ratingChanges: [],
-            symbolSearch: '',
-            symbolSearchResults: [],
-
-        };
-
-        this.setMode = this.setMode.bind(this);
-        this.onSymbolInput = this.onSymbolInput.bind(this);
-        this.onSymbolInputChange = this.onSymbolInputChange.bind(this);
-    }
-
-    onSymbolInput = _.debounce(() => {
-        const _that = this;
-        const symbolSearch = _that.state.symbolSearch;
-        if (!symbolSearch) return;
-
-        Meteor.call('getSimilarSymbols', _that.state.symbolSearch, (err, symbolSearchResults) => {
-            if (!err) _that.setState({symbolSearchResults});
-        });
-    }, 1000)
-
-    onSymbolInputChange(event) {
-        this.setState({
-            symbolSearch: event.target.value,
-        });
-    }
-
-    setMode(event) {
-        const newMode = event.target.value;
-        if (newMode !== this.state.mode) {
-            if (newMode === SYMBOL_MODE) {
-                this.setState({
-                    mode: SYMBOL_MODE,
-                    ratingChanges: [],
-                });
-            } else {
-                this.setState({
-                    mode: ALL_MODE,
-                    symbol: undefined,
-                    ratingChanges: [],
-                });
-            }
-            this.loadRatingChanges(newMode);
-        }
-    }
-
-    startLoading() {
-        this.setState({
-            loading: true,
-        });
-    }
-
-    finishLoading(ratingChanges) {
-        this.setState({
-            loading: false,
-            ratingChanges,
-        });
-    }
-
-    loadRatingChanges(mode, symbol) {
-        const _that = this;
-        const isAllMode = mode === ALL_MODE;
+    const loadRatingChanges = useCallback((currentMode, currentSymbol) => {
+        const isAllMode = currentMode === ALL_MODE;
         if (isAllMode) {
-            _that.startLoading();
+            setLoading(true);
             Meteor.call('getLatestRatingChanges', (err, res) => {
-                if (!err) _that.finishLoading(res);
+                if (!err) {
+                    setLoading(false);
+                    setRatingChanges(res);
+                }
             });
         } else {
-            if (symbol) {
-                _that.startLoading();
-                Meteor.call('getLatestRatingChangesForSymbol', symbol, (err, res) => {
-                    if (!err) _that.finishLoading(res);
+            if (currentSymbol) {
+                setLoading(true);
+                Meteor.call('getLatestRatingChangesForSymbol', currentSymbol, (err, res) => {
+                    if (!err) {
+                        setLoading(false);
+                        setRatingChanges(res);
+                    }
                 });
             }
         }
-    }
+    }, []);
 
-    async componentWillMount() {
-        // initial load
-        const stats = await Meteor.callNoCb('getRatingChangeMetadata');
-        this.setState(stats);
-        this.loadRatingChanges(ALL_MODE);
-    }
+    // Debounced symbol search
+    const onSymbolInput = useCallback(
+        _.debounce(() => {
+            if (!symbolSearch) return;
 
-    setSelectedSymbol(symbol) {
-        this.setState({
-            symbol,
-            symbolSearchResults: [],
-        });
-        this.loadRatingChanges(SYMBOL_MODE, symbol);
-    }
+            Meteor.call('getSimilarSymbols', symbolSearch, (err, results) => {
+                if (!err) setSymbolSearchResults(results);
+            });
+        }, 1000),
+        [symbolSearch]
+    );
 
-    exportCSV() {
+    const onSymbolInputChange = (event) => {
+        setSymbolSearch(event.target.value);
+    };
+
+    const handleSetMode = (event) => {
+        const newMode = event.target.value;
+        if (newMode !== mode) {
+            if (newMode === SYMBOL_MODE) {
+                setMode(SYMBOL_MODE);
+                setRatingChanges([]);
+            } else {
+                setMode(ALL_MODE);
+                setSymbol(undefined);
+                setRatingChanges([]);
+            }
+            loadRatingChanges(newMode);
+        }
+    };
+
+    const setSelectedSymbol = (selectedSymbol) => {
+        setSymbol(selectedSymbol);
+        setSymbolSearchResults([]);
+        loadRatingChanges(SYMBOL_MODE, selectedSymbol);
+    };
+
+    const exportCSV = () => {
         Utils.download_table_as_csv('ratingChanges');
-    }
+    };
 
-    renderSearchResults() {
-        return this.state.symbolSearchResults.map((symbol) => (<button
-            type="button"
-            className='btn btn-light'
-            key={symbol}
-            onClick={this.setSelectedSymbol.bind(this, symbol)}
-        >{symbol}</button>));
-    }
+    const renderSearchResults = () => {
+        return symbolSearchResults.map((sym) => (
+            <button
+                type="button"
+                className='btn btn-light'
+                key={sym}
+                onClick={() => setSelectedSymbol(sym)}
+            >
+                {sym}
+            </button>
+        ));
+    };
 
-    render() {
-        const _b = "btn btn-light";
-        const _ab = "btn btn-light active";
-        const isLoading = this.state.loading;
-        const isSymbolMode = this.state.mode === SYMBOL_MODE;
-        const ratingChanges = this.state.ratingChanges;
+    // Initial load
+    useEffect(() => {
+        const loadInitialData = async () => {
+            const stats = await Meteor.callAsync('getRatingChangeMetadata');
+            setNumChanges(stats.numChanges);
+            setNumFirms(stats.numFirms);
+            loadRatingChanges(ALL_MODE);
+        };
 
-        return (
+        loadInitialData();
+    }, [loadRatingChanges]);
+
+    const _b = "btn btn-light";
+    const _ab = "btn btn-light active";
+    const isSymbolMode = mode === SYMBOL_MODE;
+
+    return (
+        <div>
+            <br/>
             <div>
-                <br/>
-                <div>
-                    <div className="container">
-                        <div className="btn-group" role="group" aria-label="...">
-                            <button
-                                type="button"
-                                className={this.state.mode === ALL_MODE ? _ab : _b}
-                                value={ALL_MODE}
-                                onClick={this.setMode}
-                            >
-                                All symbols
-                            </button>
-                            <button
-                                type="button"
-                                className={this.state.mode === SYMBOL_MODE ? _ab : _b}
-                                value={SYMBOL_MODE}
-                                onClick={this.setMode}
-                            >
-                                Specific Symbol
-                            </button>
-                        </div>
-                        <br/>
-                        {isLoading ? <div>
-                            Loading...
-                        </div> : <div>
-                            {isSymbolMode && <div>
-                                <input
-                                    className="individualStockSearch"
-                                    id="individualStockSearch"
-                                    onKeyDown={this.onSymbolInput}
-                                    onChange={this.onSymbolInputChange}
-                                />
-                                <div id="individualStockSearchResults">{this.renderSearchResults()}</div>
-                                {this.state.symbol && <div>
-                                    Selected symbol: {this.state.symbol}
-                                </div>}
-                            </div>}
-                            Displaying {this.state.ratingChanges.length} rating changes within the last {StocksReactUtils.ratingChangesLookbackMonths} months
-
+                <div className="container">
+                    <div className="btn-group" role="group" aria-label="...">
+                        <button
+                            type="button"
+                            className={mode === ALL_MODE ? _ab : _b}
+                            value={ALL_MODE}
+                            onClick={handleSetMode}
+                        >
+                            All symbols
+                        </button>
+                        <button
+                            type="button"
+                            className={mode === SYMBOL_MODE ? _ab : _b}
+                            value={SYMBOL_MODE}
+                            onClick={handleSetMode}
+                        >
+                            Specific Symbol
+                        </button>
+                    </div>
+                    <br/>
+                    {loading ? (
+                        <div>Loading...</div>
+                    ) : (
+                        <div>
+                            {isSymbolMode && (
+                                <div>
+                                    <input
+                                        className="individualStockSearch"
+                                        id="individualStockSearch"
+                                        onKeyDown={onSymbolInput}
+                                        onChange={onSymbolInputChange}
+                                    />
+                                    <div id="individualStockSearchResults">
+                                        {renderSearchResults()}
+                                    </div>
+                                    {symbol && (
+                                        <div>Selected symbol: {symbol}</div>
+                                    )}
+                                </div>
+                            )}
+                            Displaying {ratingChanges.length} rating changes within the last {Utils.ratingChangesLookbackMonths} months
                             {' '}
-                            <button type='button' className={_b} onClick={this.exportCSV}>
+                            <button type='button' className={_b} onClick={exportCSV}>
                                 Export as a CSV
                             </button>
                             <br/>
-                            To view more (<b>{this.state.numChanges}</b> rating changes across <b>{this.state.numFirms}</b> analyst firms), <NavLink to="/contact" >Contact Us</NavLink>
+                            To view more (<b>{numChanges}</b> rating changes across <b>{numFirms}</b> analyst firms), <NavLink to="/contact">Contact Us</NavLink>
                             <br/><br/>
                             <Table id='ratingChanges' bordered>
                                 <thead>
@@ -193,33 +180,31 @@ class RatingChanges extends Component {
                                     {ratingChanges.map((row) => {
                                         const {
                                             dateString,
-                                            symbol,
+                                            symbol: rowSymbol,
                                             researchFirmName,
                                             oldRating,
                                             newRating,
                                         } = row;
-                                        const rowKey = dateString + symbol + researchFirmName;
+                                        const rowKey = dateString + rowSymbol + researchFirmName;
 
-                                        return <tr key={rowKey}>
-                                            <td>{dateString}</td>
-                                            <td>{symbol}</td>
-                                            <td>{researchFirmName}</td>
-                                            <td>{oldRating}</td>
-                                            <td>{newRating}</td>
-                                        </tr>;
+                                        return (
+                                            <tr key={rowKey}>
+                                                <td>{dateString}</td>
+                                                <td>{rowSymbol}</td>
+                                                <td>{researchFirmName}</td>
+                                                <td>{oldRating}</td>
+                                                <td>{newRating}</td>
+                                            </tr>
+                                        );
                                     })}
                                 </tbody>
                             </Table>
-                        </div>}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
 }
 
-export default withTracker((props) => {
-    let _data = {};
-
-    return _data;
-})(RatingChanges);
+export default RatingChanges;

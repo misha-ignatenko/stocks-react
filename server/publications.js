@@ -1,4 +1,6 @@
 import { check } from 'meteor/check';
+import { Meteor } from 'meteor/meteor';
+import { Settings, RatingScales } from '../lib/collections';
 
 Meteor.publish("settings", function () {
     return Settings.find({type: 'main'}, {fields: {type: 1, clientSettings: 1}});

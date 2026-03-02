@@ -1,35 +1,73 @@
-/**
- * Created by mykhayloignatenko on 4/2/18.
- */
-import moment from 'moment-timezone';
 import _ from 'underscore';
 import { EJSON } from 'meteor/ejson';
+const { convertArrayToCSV } = require('convert-array-to-csv');
+import { Utils } from '../lib/utils';
+import { Permissions } from '../lib/permissions';
+import { ResearchCompanies, RatingScales, EarningsReleases, RatingChanges, Settings } from '../lib/collections';
+import { Meteor } from 'meteor/meteor';
+import { Email } from './email';
+import YahooFinance from 'yahoo-finance2';
+export const yahooFinance = new YahooFinance();
 
-StocksReactServerUtils = {
+export const ServerUtils = {
 
-    getEmailTo() {
-        return Utils.getSetting('serverSettings.ratingsChanges.emailTo');
-    },
-    getEmailFrom() {
-        return Utils.getSetting('serverSettings.ratingsChanges.emailFrom');
+    async setSetting(field, value) {
+        return await Settings.updateAsync(await Utils.getSetting('_id'), {$set: {
+            [field]: value,
+        }});
     },
 
-    ratingsChangesLimitGlobal() {
-        return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+    async getEmailTo() {
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.emailTo');
     },
-    ratingsChangesLimitSymbol() {
-        return Utils.getSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+    async getEmailFrom() {
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.emailFrom');
     },
-    getExtraRatingChangeData(ratingChanges) {
+    async emailCSV(rows, fileName = 'sample.csv', subject = 'csv file', text = 'see attached') {
+        const csv = convertArrayToCSV(rows);
+
+        await Email.send({
+            subject,
+            text,
+            attachments: [
+                {
+                    filename: fileName,
+                    content: csv,
+                },
+            ],
+        });
+    },
+    async emailJSON(data, fileName = 'sample.json', subject = 'json file', text = 'see attached') {
+        const json = JSON.stringify(data);
+
+        await Email.send({
+            subject,
+            text,
+            attachments: [
+                {
+                    filename: fileName,
+                    content: json,
+                },
+            ],
+        });
+    },
+
+    async ratingsChangesLimitGlobal() {
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitGlobal');
+    },
+    async ratingsChangesLimitSymbol() {
+        return await Utils.getCachedSetting('serverSettings.ratingsChanges.dashboardLimitSymbol');
+    },
+    async getExtraRatingChangeData(ratingChanges) {
         let firmMap = new Map();
         const firmIDs = _.pluck(ratingChanges, 'researchFirmId');
-        ResearchCompanies.find({
+        (await ResearchCompanies.find({
             _id: {$in: firmIDs},
         }, {
             fields: {
                 name: 1,
             },
-        }).forEach(company => {
+        }).fetchAsync()).forEach(company => {
             firmMap.set(company._id, company);
         });
 
@@ -37,13 +75,13 @@ StocksReactServerUtils = {
         const oldRatingIDs = _.pluck(ratingChanges, 'oldRatingId');
         const newRatingIDs = _.pluck(ratingChanges, 'newRatingId');
         const ratingIDs = _.union(oldRatingIDs, newRatingIDs);
-        RatingScales.find({
+        (await RatingScales.find({
             _id: {$in: ratingIDs},
         }, {
             fields: {
                 firmRatingFullString: 1,
             },
-        }).forEach(rating => {
+        }).fetchAsync()).forEach(rating => {
             ratingMap.set(rating._id, rating);
         });
 
@@ -64,7 +102,10 @@ StocksReactServerUtils = {
             ]);
         });
     },
-    getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap=ServerUtils.getNumericRatingScalesMap()) {
+    async getLatestRatings(symbol, startDate, endDate, validRatingScaleIDsMap) {
+        if (!validRatingScaleIDsMap) {
+            validRatingScaleIDsMap = await ServerUtils.getNumericRatingScalesMap();
+        }
         const dateString = {
             $gte: startDate,
         };
@@ -75,7 +116,7 @@ StocksReactServerUtils = {
             symbol,
             dateString,
         };
-        const ratingChanges = Promise.await(RatingChanges.rawCollection().aggregate([
+        const ratingChanges = (await RatingChanges.rawCollection().aggregate([
             {$match},
             {$sort: {dateString: -1}},
             {$group: {
@@ -90,276 +131,209 @@ StocksReactServerUtils = {
 
         return ratingChanges;
     },
-    getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
+    async getAltAdjustedRatings(ratingChanges, prices, purchaseDate) {
         /**
          * this factor means if a stock has the max possible rating, it's expected
          * to increase its price by this factor
          */
         const factor = 2;
-        const priceOnPurchaseDay = Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
-        const ratingScales = ServerUtils.getNumericRatingScalesMap();
+        const priceOnPurchaseDay = await Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
+        const ratingScales = await ServerUtils.getNumericRatingScalesMap();
         const midpoint = Utils.constantFeatureValue;
 
-        return ratingChanges.map(r => {
+        const results = [];
+        for (const r of ratingChanges) {
             const {
                 dateString: ratingChangeDate,
                 newRatingId,
             } = r;
-            const priceOnRatingChangeDay = Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
+            const priceOnRatingChangeDay = await Utils.stockPrices.getPriceOnDay(prices, ratingChangeDate);
             const priceIncreaseRatio = priceOnPurchaseDay / priceOnRatingChangeDay;
             const progressRatio = (priceIncreaseRatio - 1) / (factor - 1);
             const currentRating = ratingScales.get(newRatingId);
             const adjRating = midpoint + (1 - progressRatio) * (currentRating - midpoint);
 
-            return adjRating;
-        });
+            results.push(adjRating);
+        }
+        return results;
     },
 
     cachedRatingScales: undefined,
-    getNumericRatingScalesMap() {
+    async getNumericRatingScalesMap() {
         if (!this.cachedRatingScales) {
-            this.cachedRatingScales = this.getNumericRatingScalesMapNonCached();
+            this.cachedRatingScales = await this.getNumericRatingScalesMapNonCached();
             Meteor.setTimeout(() => {
                 this.cachedRatingScales = undefined;
             }, 10 * 60 * 1000); // 10 min
         }
         return this.cachedRatingScales;
     },
-    getNumericRatingScalesMapNonCached() {
+    async getNumericRatingScalesMapNonCached() {
         const validRatingScaleIDsMap = new Map();
-        RatingScales.find(
+        (await RatingScales.find(
             {universalScaleValue: {
                 $not: {$type: 2},
                 $exists: true,
             }},
             {fields: {universalScaleValue: 1}}
-        ).forEach(({_id, universalScaleValue}) => {
+        ).fetchAsync()).forEach(({_id, universalScaleValue}) => {
             validRatingScaleIDsMap.set(_id, universalScaleValue);
         });
         return validRatingScaleIDsMap;
     },
 
-    apiKey: function () {
-        return Utils.getSetting('dataImports.earningsReleases.quandlZeaAuthToken');
+    apiKey: async function () {
+        return await Utils.getCachedSetting('dataImports.earningsReleases.quandlZeaAuthToken');
     },
-    newEarningsReleaseBaseUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
-    mtUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/MT',
 
+    earningsReleasesUrl: 'https://data.nasdaq.com/api/v3/datatables/ZACKS/EA',
     prices: {
 
-        // FREE
-        getWikiPricesQuandlUrl: function (dateStrYYYY_MM_DD, optionalSymbolsArr) {
-            var _quandlFreeBaseUrl = "https://www.quandl.com/api/v3/datatables/WIKI/PRICES.json";
-            var _apiKey = StocksReactServerUtils.apiKey();
-            if (dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?date=" +
-                    (typeof dateStrYYYY_MM_DD === "string" ? dateStrYYYY_MM_DD : dateStrYYYY_MM_DD.join()).replace(/-/g, '') + "&ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    _apiKey;
-            } else if (dateStrYYYY_MM_DD && !optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?date=" +
-                    dateStrYYYY_MM_DD.replace(/-/g, '') + "&api_key=" +
-                    _apiKey;
-            } else if (!dateStrYYYY_MM_DD && optionalSymbolsArr) {
-                var _url = _quandlFreeBaseUrl + "?" +
-                    "date.gte=2014-01-01&" +
-                    "ticker=" + optionalSymbolsArr.join() + "&api_key=" +
-                    _apiKey;
-            }
-
-            return _url;
-        },
-
-        // PAID
-        getNasdaqPricesQuandlUrl: function (symbol, startDate, endDate) {
-            var _url = "https://www.quandl.com/api/v3/datasets/XNAS/" + symbol + ".json?" +
-                (startDate ? ("start_date=" + startDate + "&") : "") +
-                (endDate ? ("end_date=" + endDate + "&") : "") +
-                "api_key=" + StocksReactServerUtils.apiKey();
-
-            return _url;
-        },
-
-        getFormattedPriceObjWiki: function (item, _columnDefs) {
-            var _priceObj = {};
-            _.each(_columnDefs, function (columnDefObj, columnDefItemIndex) {
-                var _val = item[columnDefItemIndex];
-                _priceObj[columnDefObj["name"]] = _val;
-            })
-
-            var _formattedPriceObj = {
-                "date": new Date(_priceObj.date + "T00:00:00.000+0000"),
-                "open": _priceObj.open,
-                "high": _priceObj.high,
-                "low": _priceObj.low,
-                "close": _priceObj.close,
-                "volume": _priceObj.volume,
-                "exDividend": _priceObj["ex-dividend"],
-                splitRatio: _priceObj.split_ratio,
-                adjOpen: _priceObj.adj_open,
-                adjHigh: _priceObj.adj_high,
-                adjLow: _priceObj.adj_low,
-                "adjClose": _priceObj.adj_close,
-                adjVolume: _priceObj.adj_volume,
-                "symbol": _priceObj.ticker,
-                "dateString": _priceObj.date,
-                source: "quandl_free",
-            };
-
-            return _formattedPriceObj;
-        },
-
-        getFormattedPriceObjNasdaq: function (_columnNames, obj, symbol) {
-            var _processedItem = {};
-            _.each(_columnNames, function (colName, colNameIdx) {
-                _processedItem[colName] = obj[colNameIdx];
-            });
-
-            var _convertedObj = {
-                "date": new Date(_processedItem.Date + "T00:00:00.000+0000"),
-                "open": _processedItem.Open,
-                "high": _processedItem.High,
-                "low": _processedItem.Low,
-                "close": _processedItem.Close,
-                "volume": _processedItem.Volume,
-                "symbol": symbol,
-                "dateString": _processedItem.Date,
-                source: "quandl_paid",
-
-
-                adjFactor: _processedItem.Adjustment_Factor,
-                adjType: _processedItem.Adjustment_Type
-            };
-
-            // 17 = dividend
-            if (!_convertedObj.adjFactor || _convertedObj.adjType === 17) {
-                _convertedObj.adjClose = _convertedObj.close;
-            } else {
-                console.log('ADJUSTMENT: ', symbol, _processedItem);
-                _convertedObj.hasAdjustment = true;
-            }
-
-            return _convertedObj;
-        },
-
-        adjustmentsCache: {},
-        clearAdjustmentsCache() {
-            this.adjustmentsCache = {};
-        },
-        getAllAdjustments(symbol) {
-            if (!_.has(this.adjustmentsCache, symbol)) {
-                this.adjustmentsCache[symbol] = this.getAllAdjustmentsNonCached(symbol);
-                Meteor.setTimeout(() => {
-                    delete this.adjustmentsCache[symbol];
-                }, 10 * 60 * 1000); // 10 min
-            }
-            return this.adjustmentsCache[symbol];
-        },
-        getAllAdjustmentsNonCached(symbol) {
-            const hasSplits = ServerUtils.earningsReleases.hasSplits(symbol);
-            if (hasSplits) {
-                const {splitDate} = hasSplits;
-                const adjustments = ServerUtils.prices.getAllPrices(symbol, undefined, splitDate).filter(p => p.hasAdjustment);
-                return adjustments;
-            }
-
-            return [];
-        },
-
-        pricesCache: {},
-        getAllPrices(symbol) {
-            if (!_.has(this.pricesCache, symbol)) {
-                this.pricesCache[symbol] = this.getAllPricesNonCached(symbol);
-                Meteor.setTimeout(() => {
-                    delete this.pricesCache[symbol];
-                }, 10 * 60 * 1000); // 10 min
-            }
-            return this.pricesCache[symbol];
-        },
-        getAllPricesNonCached: function (symbol, optionalStartDate, optionalEndDate) {
-            console.log("inside getPricesForSymbol: ", symbol);
-            var _prices = [];
-
-            // try Nasdaq first
-            var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol, optionalStartDate, optionalEndDate);
-            try {
-                var _res = HTTP.get(_nasdaqUrl);
-                var _dataset = _res.data.dataset;
-                var _unprocessedPrices = _dataset.data;
-                var _columnNames = _.map(_dataset.column_names, function (rawColName) {
-                    return rawColName.replace(/ /g, "_");
-                });
-
-                _.each(_unprocessedPrices, function (obj, idx) {
-                    // check that all column names are present
-                    if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                        var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, symbol);
-                        _prices.push({
-                            symbol: _convertedObj.symbol,
-                            dateString: _convertedObj.dateString,
-                            adjClose: _convertedObj.close,
-                            date: _convertedObj.date,
-
-                            hasAdjustment: _convertedObj.hasAdjustment,
-                            adjFactor: _convertedObj.adjFactor,
-                            adjType: _convertedObj.adjType,
-                        });
-                    } else {
-                        throw new Meteor.Error("missing keys for NASDAQ data import: ", symbol);
-                    }
-                })
-
-            } catch (e) {
-                console.log("ERROR: ", symbol, e);
-            }
-
-            if (_prices.length === 0) {
-                var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
+        cache: {},  // { prices, pricesMap, adjustments }
+        async _fetch(symbol) {
+            symbol = symbol.toUpperCase();
+            if (!_.has(this.cache, symbol)) {
                 try {
-                    var _res = HTTP.get(_wikiUrl);
-                    var _datatable = _res.data.datatable;
-                    _.each(_datatable.data, function (px) {
-                        var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-                        _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, date: _formatted.date});
-                    })
+                    const sevenYearsAgo = new Date();
+                    sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+                    console.log('calling yahoo finance: ', symbol);
+                    const result = await yahooFinance.chart(symbol, {
+                        period1: sevenYearsAgo,
+                        interval: '1d',
+                        events: 'div|split',
+                    });
 
-                } catch (e) {
-                    console.log("ERROR: ", symbol, e);
+                    const prices = _.sortBy(
+                        result.quotes
+                            .filter(item => item.close != null)
+                            .map(item => {
+                                const dateString = item.date.toISOString().slice(0, 10);
+                                const round = v => v != null ? Math.round(v * 100) / 100 : v;
+                                const adjClose = round(item.adjclose ?? item.close);
+                                const adjRatio = adjClose / item.close;
+                                return {
+                                    symbol,
+                                    date: item.date,
+                                    dateString,
+                                    open: round(item.open),
+                                    high: round(item.high),
+                                    low: round(item.low),
+                                    close: round(item.close),
+                                    volume: item.volume,
+                                    adjOpen: round(item.open * adjRatio),
+                                    adjHigh: round(item.high * adjRatio),
+                                    adjLow: round(item.low * adjRatio),
+                                    adjClose,
+                                    adjVolume: item.volume,
+                                    source: 'yahoo_finance',
+                                };
+                            })
+                            .filter(p => Utils.isBusinessDay(p.dateString)),
+                        'dateString'
+                    );
+
+                    const pricesMap = new Map();
+                    prices.forEach(priceObj => {
+                        if (pricesMap.has(priceObj.dateString)) {
+                            console.log('already has price for date', symbol, priceObj.dateString);
+                        }
+                        pricesMap.set(priceObj.dateString, priceObj);
+                    });
+
+                    const adjustments = (result.events?.splits ?? []).map(split => ({
+                        dateString: split.date.toISOString().slice(0, 10),
+                        adjFactor: split.denominator / split.numerator,
+                    }));
+
+                    const dividends = (result.events?.dividends ?? []).map(div => ({
+                        dateString: div.date.toISOString().slice(0, 10),
+                        amount: div.amount,
+                    }));
+
+                    this.cache[symbol] = { prices, pricesMap, adjustments, dividends };
+                } catch (error) {
+                    console.log('_fetch error', symbol, error);
+                    this.cache[symbol] = { prices: [], pricesMap: new Map(), adjustments: [], dividends: [] };
                 }
-            }
 
-            return _prices;
+                Meteor.setTimeout(() => {
+                    delete this.cache[symbol];
+                }, 3 * 60 * 1000); // 3 min
+            }
+            return this.cache[symbol];
+        },
+        async getAllPrices(symbol, getMap = false) {
+            const { prices, pricesMap } = await this._fetch(symbol);
+            return getMap ? pricesMap : prices;
+        },
+        async getAllAdjustments(symbol) {
+            const { adjustments } = await this._fetch(symbol);
+            return adjustments;
+        },
+        async getAllDividends(symbol) {
+            const { dividends } = await this._fetch(symbol);
+            return dividends;
+        },
+        async getPriceOnDayNew({
+            symbol,
+            dateString,
+            returnObj = false,
+            priceField = 'adjClose',
+            isStrict = true,
+        }) {
+            const symbolPricesMap = await this.getAllPrices(symbol, true);
+            const priceObj = symbolPricesMap.get(dateString);
+            if (returnObj) {
+                return priceObj;
+            } else if (isStrict) {
+                return priceObj[priceField];
+            } else {
+                return priceObj?.[priceField];
+            }
         },
     },
     ratingChanges: {
-        isUpgrade(rc) {
+        async isUpgrade(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) > map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
                 return map.get(newRatingId) > 60;
             }
         },
-        isDowngrade(rc) {
+        async isDowngrade(rc) {
             const {
                 oldRatingId,
                 newRatingId,
             } = rc;
 
-            const map = ServerUtils.getNumericRatingScalesMap();
+            const map = await ServerUtils.getNumericRatingScalesMap();
             if (map.has(oldRatingId) && map.has(newRatingId)) {
                 return map.get(newRatingId) < map.get(oldRatingId);
             } else if (map.has(newRatingId)) {
                 return map.get(newRatingId) < 60;
             }
         },
+        async getOldAndNewRatings(rc) {
+            const {
+                oldRatingId,
+                newRatingId,
+            } = rc;
+
+            const map = await ServerUtils.getNumericRatingScalesMap();
+            return {
+                oldRating: map.get(oldRatingId),
+                newRating: map.get(newRatingId),
+            };
+        },
     },
     earningsReleases: {
-        getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false) {
+        async getHistory(symbol, startDateStr, endDateStr, returnOnlyReportDates=false, returnObjects=false) {
             const validRecordsQuery = {
                 symbol,
                 currencyCode: {$nin: ['CND']},
@@ -378,11 +352,38 @@ StocksReactServerUtils = {
                 },
             }, validRecordsQuery, companyConfirmedQuery);
 
+            if (returnObjects) {
+                const deduplicationSet = new Set();
+
+                return (await EarningsReleases.find(query, {
+                    fields: {
+                        reportDateNextFiscalQuarter: 1,
+                        endDateNextFiscalQuarter: 1,
+                    },
+                    sort: {
+                        reportDateNextFiscalQuarter: 1,
+                    },
+                }).fetchAsync()).filter(e => {
+                    const stringified = EJSON.stringify(_.pick(e, [
+                        'reportDateNextFiscalQuarter',
+                        'endDateNextFiscalQuarter',
+                    ]));
+
+                    if (deduplicationSet.has(stringified)) {
+                        return false;
+                    }
+
+                    deduplicationSet.add(stringified);
+                    return true;
+                });
+            }
+
             const relevantReportDates = _.sortBy(
-                Promise.await(EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query)),
+                await EarningsReleases.rawCollection().distinct('reportDateNextFiscalQuarter', query),
                 _.identity
             );
 
+            // may return incorrect dates
             if (returnOnlyReportDates) {
                 return relevantReportDates;
             }
@@ -418,76 +419,16 @@ StocksReactServerUtils = {
                 console.log('--------------------------------------');
             });
         },
-        getAllEarningsReleasesUrl: () => {
-            const key = StocksReactServerUtils.apiKey();
-            const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?api_key=${key}`;
-            return url;
+        getAllEarningsReleasesUrl: async (cursorID) => {
+            const cursorPostfix = cursorID ? `&qopts.cursor_id=${cursorID}` : '';
+            return `${ServerUtils.earningsReleasesUrl}?api_key=${await ServerUtils.apiKey()}${cursorPostfix}`;
         },
-        getEarningsReleasesUrl: (symbol) => {
-            const key = StocksReactServerUtils.apiKey();
-            const url = `${StocksReactServerUtils.newEarningsReleaseBaseUrl}?ticker=${symbol}&api_key=${key}`;
-            return url;
-        },
-        getMetadataUrl(symbol) {
-            return `${StocksReactServerUtils.mtUrl}?ticker=${symbol}&api_key=${ServerUtils.apiKey()}`;
-        },
-        hasSplits(symbol) {
-            const url = ServerUtils.earningsReleases.getMetadataUrl(symbol);
-            console.log('calling hasSplits', symbol);
-            const response = HTTP.get(url);
-            const {
-                columns,
-                data,
-            } = response.data.datatable;
-
-            const firstRow = data[0];
-            if (!firstRow) {
-                console.log('cannot check if has splits ' + symbol);
-                return false;
-            }
-            if (columns.length !== firstRow.length) {
-                throw new Meteor.Error('mismatch between data and columns ' + symbol);
-            }
-            const splitDateIndex = _.findIndex(columns, column => column.name === 'mr_split_date');
-            const splitFactorIndex = _.findIndex(columns, column => column.name === 'mr_split_factor');
-            if (splitDateIndex === -1 || splitFactorIndex === -1) {
-                throw new Meteor.Error('cannot find index for splits ' + symbol);
-            }
-            const splitDate = firstRow[splitDateIndex];
-            const splitFactor = firstRow[splitFactorIndex];
-
-            const doesNotHaveSplits = _.isNull(splitDate) && _.isNull(splitFactor);
-            if (doesNotHaveSplits) {
-                return false;
-            }
-
-            return {
-                splitDate,
-                splitFactor,
-            };
-        },
-        getZeaUrl: function (symbol) {
-            var _url = "https://www.quandl.com/api/v3/datasets/ZEA/" + symbol + ".json?auth_token=" + StocksReactServerUtils.apiKey();
-            return _url;
+        getEarningsReleasesUrl: async (symbol) => {
+            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
         getAdjustedEps(rawData, adjustments, reportDate, fields) {
-            const relevantAdj = adjustments.filter(adj => {
-                const {
-                    adjType,
-                    dateString: adjDate,
-                } = adj;
-
-                if (![
-                    5,
-                    6,
-                    13,
-                ].includes(adjType)) {
-                    console.log('weird adj', adj);
-                }
-
-                // need to adjust old eps measurements, prior to adj date
-                return reportDate < adjDate;
-            });
+            // need to adjust old eps measurements, prior to adj date
+            const relevantAdj = adjustments.filter(adj => reportDate < adj.dateString);
             if (relevantAdj.length === 0) {
                 return rawData;
             }
@@ -507,7 +448,107 @@ StocksReactServerUtils = {
 
             return adjustedData;
         },
-    }
-};
+        processRowsForCSV(rows) {
+            return rows.map(row => {
+                const {
+                    reportDate,
+                    isAfterMarketClose,
+                    endDateNextFiscalQuarter,
+                    symbol,
+                    companyName,
+                    originalEpsExpectation,
+                    pctExpEpsOverOriginalEpsExpectation,
+                    originalAsOfExpectation,
+                    expectedEps,
+                    actualEps,
+                    expectedEpsNextQt,
+                    purchaseDate: dateBeforeRelease,
+                    purchasePrice: priceBeforeRelease,
+                    purchasePriceSMA50,
+                    purchasePriceSMA200,
+                    saleDate1: dateAfterRelease,
+                    salePrice1: priceAfterRelease,
+                    saleDate2: dateLater,
+                    salePrice2: priceLater,
+                    saleDate3: dateLatest,
+                    salePrice3: priceLatest,
+                    priorSaleDate,
+                    priorSalePrice,
+                    priorSalePriceSMA50,
+                    priorSalePriceSMA200,
+                    avgRating,
+                    numRatings,
+                    numRecentDowngrades,
+                    numRecentUpgrades,
+                    averageRatingChangeDate,
+                    altAvgRatingWithAdjRatings,
 
-ServerUtils = StocksReactServerUtils;
+                    epsActualPreviousFiscalQuarter,
+                    pctExpEpsOverPrevQt,
+                    epsActualOneYearAgoFiscalQuarter,
+                    pctExpEpsOverOneYearAgo,
+
+                    vooOpenPriceOnPurchaseDate,
+                    vooSMA,
+                    vooSMA50DaysAgo,
+                    vooSMA200DaysAgo,
+                } = row;
+
+                return {
+                    'Release Date': Utils.convertToStringDate(reportDate),
+                    'Is After Mkt Close': isAfterMarketClose ? 'Yes' : 'No',
+                    'Qt': Utils.convertToStringDate(endDateNextFiscalQuarter),
+                    'Symbol': symbol,
+                    'Co Name': companyName,
+                    'Average Rating (0-120)': _.isNaN(avgRating) ? null : avgRating.toFixed(2),
+                    '# of Ratings': numRatings,
+                    'Avg R. Ch. Date': averageRatingChangeDate,
+                    'Alt R (adj r)': _.isNaN(altAvgRatingWithAdjRatings) ? null : altAvgRatingWithAdjRatings.toFixed(2),
+                    '# Recent Downgr': numRecentDowngrades,
+                    '# Recent Upgr': numRecentUpgrades,
+                    '1st Eps Exp': originalEpsExpectation?.toFixed(4),
+                    '% Exp / 1st Exp': pctExpEpsOverOriginalEpsExpectation?.toFixed(4),
+                    '1st Eps Exp Date': originalAsOfExpectation,
+                    'Prior Sale Date': priorSaleDate,
+                    'Prior Sale Price': priorSalePrice,
+                    'Prior SMA 50': priorSalePriceSMA50?.toFixed(2),
+                    'Prior SMA 200': priorSalePriceSMA200?.toFixed(2),
+                    'Exp EPS': expectedEps?.toFixed(4),
+                    'Act EPS': actualEps?.toFixed(4),
+                    'Exp EPS Next Qt': expectedEpsNextQt?.toFixed(4),
+                    'Act EPS (prev qt)': epsActualPreviousFiscalQuarter?.toFixed(4),
+                    'Exp / prev qt': undefined,
+                    '% Exp / prev qt': _.isNumber(pctExpEpsOverPrevQt) ? pctExpEpsOverPrevQt.toFixed(4) : null,
+                    'Act EPS (1 yr ago)': epsActualOneYearAgoFiscalQuarter?.toFixed(4),
+                    'Exp / 1 yr': undefined,
+                    '% Exp / 1 yr': _.isNumber(pctExpEpsOverOneYearAgo) ? pctExpEpsOverOneYearAgo.toFixed(4) : null,
+                    'Price Before': priceBeforeRelease?.toFixed(2),
+                    'Before SMA 50': purchasePriceSMA50?.toFixed(2),
+                    'Before SMA 200': purchasePriceSMA200?.toFixed(2),
+                    'Date Before': dateBeforeRelease,
+                    'Price After': priceAfterRelease?.toFixed(2),
+                    'After / Before': (priceAfterRelease / priceBeforeRelease).toFixed(4),
+                    'Date After': dateAfterRelease,
+                    'Price Later': priceLater?.toFixed(2),
+                    'Later / Before': (priceLater / priceBeforeRelease).toFixed(4),
+                    'Date Later': dateLater,
+                    'Price Latest': priceLatest?.toFixed(2),
+                    'Latest / Before': (priceLatest / priceBeforeRelease).toFixed(4),
+                    'Date Latest': dateLatest,
+                    'vooOpenPriceOnPurchaseDate': vooOpenPriceOnPurchaseDate?.toFixed(4),
+                    'vooSMA': vooSMA?.toFixed(4),
+                    'vooSMA50DaysAgo': vooSMA50DaysAgo?.toFixed(4),
+                    'vooSMA200DaysAgo': vooSMA200DaysAgo?.toFixed(4),
+                };
+            });
+        },
+    },
+    async runPremiumCheck(context) {
+        if (!context) {
+            throw new Meteor.Error('something is not right');
+        }
+        if (context.connection && !await Permissions.isPremium()) {
+            throw new Meteor.Error('you do not have access');
+        }
+    },
+};

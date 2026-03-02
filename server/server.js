@@ -4,6 +4,19 @@ import _ from 'underscore';
 import { check, Match } from 'meteor/check';
 import { EJSON } from 'meteor/ejson';
 const momentBiz = require('moment-business-days');
+const { performance } = require('perf_hooks');
+import {
+    EarningsReleases,
+    RatingChanges,
+    ResearchCompanies,
+    RatingScales,
+    Settings,
+    Stocks,
+    SymbolMappings,
+} from '../lib/collections';
+import { Permissions } from '../lib/permissions';
+import { Utils } from '../lib/utils';
+import { ServerUtils, yahooFinance } from './utils';
 
 const dateStringSortDesc = {dateString: -1};
 const researchFirmIDsToExclude = [
@@ -16,193 +29,43 @@ const ADJ_CLOSE = 'adjClose';
 const getRatingChangesQuery = () => {
     return {
         researchFirmId: {$nin: researchFirmIDsToExclude},
-        dateString: {$gte: StocksReactUtils.monthsAgo(StocksReactUtils.ratingChangesLookbackMonths)},
+        dateString: {$gte: Utils.monthsAgo(Utils.ratingChangesLookbackMonths)},
     };
 };
 
-function getPortfolioPricesWiki(datesAndSymbolsMap) {
-    // todo: LIMIT COLUMNS requested
-
-
-
-    // step 1. split into batches (max response size is 10k records)
-    var _dates = _.keys(datesAndSymbolsMap);
-    var _batches = [];
-    var _datesBatch = [];
-    var _symbolsBatch = [];
-    _.each(_dates, function (dateStr, idx) {
-        var _symbolsForDate = datesAndSymbolsMap[dateStr];
-        var _futureSymbolsUnion = _.union(_symbolsBatch, _symbolsForDate);
-
-        if ((_datesBatch.length + 1) * (_futureSymbolsUnion.length) > 10000) {
-            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
-
-            _datesBatch = [dateStr];
-            _symbolsBatch = _symbolsForDate;
-        } else {
-            _datesBatch.push(dateStr);
-            _symbolsBatch = _futureSymbolsUnion;
-        }
-
-        // if last iteration, push batch
-        if (idx === _dates.length - 1) {
-            _batches.push({dates: _datesBatch, symbols: _symbolsBatch});
-        }
-    });
-
-
-
-    // step 2. get all prices
-    var _prices = [];
-    var _reponseMapFromWiki = {};
-    _.each(_batches, function (b) {
-        var _url = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(b.dates, b.symbols);
-        console.log("url: ", _url);
-        var _res = HTTP.get(_url);
-        if (_res) {
-            var _datatable = _res.data.datatable;
-            _.each(_datatable.data, function (px) {
-                var _formatted = StocksReactServerUtils.prices.getFormattedPriceObjWiki(px, _datatable.columns);
-
-                // only return the prices that were requested for date and symbol
-                if (_.contains(datesAndSymbolsMap[_formatted.dateString], _formatted.symbol)) {
-                    _prices.push({symbol: _formatted.symbol, dateString: _formatted.dateString, adjClose: _formatted.adjClose, close: _formatted.close});
-
-                    // update _reponseMapFromWiki
-                    if (!_reponseMapFromWiki[_formatted.dateString]) {
-                        _reponseMapFromWiki[_formatted.dateString] = [_formatted.symbol];
-                    } else {
-                        _reponseMapFromWiki[_formatted.dateString] = _.union(_reponseMapFromWiki[_formatted.dateString], [_formatted.symbol]);
-                    };
-                }
-            })
-        }
-    });
-
-
-
-    // step 3. quality check
-    var _missingMap = {};
-    _.each(_dates, function (d) {
-        var _symbolsNeeded = datesAndSymbolsMap[d];
-        var _symbolsObtained = _reponseMapFromWiki[d] || [];
-        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
-        _missingMap[d] = _symbolsNotObtained;
-    });
-
-
-    return {prices: _prices, missingMap: _missingMap};
-};
-
-function getPortfolioPricesNasdaq(datesAndSymbolsMap) {
-
-    // step 1. transform datesAndSymbolsMap
-    var _symbolsAndDatesMap = {};
-    var _dates = _.keys(datesAndSymbolsMap);
-    _.each(_dates, function (d) {
-        var _symbolsForDate = datesAndSymbolsMap[d];
-        _.each(_symbolsForDate, function (s) {
-            if (!_symbolsAndDatesMap[s]) {
-                _symbolsAndDatesMap[s] = [d];
-            } else {
-                _symbolsAndDatesMap[s].push(d);
-            }
-        });
-    });
-
-
-
-    // step 2. get all prices
-    var _prices = [];
-    var _responseMap = {};
-    var _symbols = _.keys(_symbolsAndDatesMap);
-    _.each(_symbols, function (s) {
-        var _minMaxDates = StocksReactUtils.getMinMaxDate(_symbolsAndDatesMap[s]);
-        var _url = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(s, _minMaxDates.min, _minMaxDates.max);
-        console.log("url: ", _url);
-        try {
-            var _res = HTTP.get(_url);
-            var _dataset = _res.data.dataset;
-            var _unprocessedPrices = _dataset.data;
-            var _columnNames = _.map(_dataset.column_names, function (rawColName) {
-                return rawColName.replace(/ /g, "_");
-            });
-
-            _.each(_unprocessedPrices, function (obj, idx) {
-
-                // check that all column names are present
-                if (_columnNames.length === obj.length && _columnNames.length === 8) {
-                    var _convertedObj = StocksReactServerUtils.prices.getFormattedPriceObjNasdaq(_columnNames, obj, s);
-
-                    // only return the prices that were requested for date and symbol
-                    if (_.contains(datesAndSymbolsMap[_convertedObj.dateString], _convertedObj.symbol)) {
-                        _prices.push({symbol: _convertedObj.symbol, dateString: _convertedObj.dateString, adjClose: _convertedObj.adjClose, close: _convertedObj.close});
-
-                        // update _responseMap
-                        if (!_responseMap[_convertedObj.dateString]) {
-                            _responseMap[_convertedObj.dateString] = [_convertedObj.symbol];
-                        } else {
-                            _responseMap[_convertedObj.dateString] = _.union(_responseMap[_convertedObj.dateString], [_convertedObj.symbol]);
-                        };
-                    }
-                } else {
-                    throw new Meteor.Error("missing keys for NASDAQ data import: ", s);
-                }
-            })
-
-        } catch (e) {
-            console.log("ERROR");
-            console.log(s + ": " + e.response.content);
-        };
-    });
-
-
-
-    // step 3. quality check
-    var _missingMap = {};
-    _.each(_dates, function (d) {
-        var _symbolsNeeded = datesAndSymbolsMap[d];
-        var _symbolsObtained = _responseMap[d] || [];
-        var _symbolsNotObtained = _.difference(_symbolsNeeded, _symbolsObtained);
-        _missingMap[d] = _symbolsNotObtained;
-    });
-
-
-    return {prices: _prices, missingMap: _missingMap};
-};
-
 Meteor.methods({
-    getLatestRatingChanges() {
+    async getLatestRatingChanges() {
         console.log('getLatestRatingChanges');
-        const ratingChanges = RatingChanges.find(getRatingChangesQuery(), {
+        const ratingChanges = await RatingChanges.find(getRatingChangesQuery(), {
             sort: dateStringSortDesc,
-            limit: StocksReactServerUtils.ratingsChangesLimitGlobal(),
-        }).fetch();
+            limit: await ServerUtils.ratingsChangesLimitGlobal(),
+        }).fetchAsync();
 
-        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+        return await ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
 
-    getLatestRatingChangesForSymbol(symbol) {
+    async getLatestRatingChangesForSymbol(symbol) {
         check(symbol, String);
+        console.log('getLatestRatingChangesForSymbol', symbol);
 
-        const ratingChanges = RatingChanges.find(_.extend(getRatingChangesQuery(), {
+        const ratingChanges = await RatingChanges.find(_.extend(getRatingChangesQuery(), {
             symbol: symbol,
         }), {
             sort: dateStringSortDesc,
-            limit: StocksReactServerUtils.ratingsChangesLimitSymbol(),
-        }).fetch();
+            limit: await ServerUtils.ratingsChangesLimitSymbol(),
+        }).fetchAsync();
 
-        return StocksReactServerUtils.getExtraRatingChangeData(ratingChanges);
+        return await ServerUtils.getExtraRatingChangeData(ratingChanges);
     },
 
-    getRatingChangeMetadata() {
+    async getRatingChangeMetadata() {
         return {
-            numChanges: RatingChanges.find().count(),
-            numFirms: ResearchCompanies.find().count(),
+            numChanges: await RatingChanges.find().countAsync(),
+            numFirms: await ResearchCompanies.find().countAsync(),
         };
     },
 
-    ratingChangesForSymbol(options) {
+    async ratingChangesForSymbol(options) {
         check(options, {
             symbol: String,
             startDate: String,
@@ -217,8 +80,8 @@ Meteor.methods({
                 {dateString: {$gte: startDate, $lte: endDate}},
             ],
         };
-        if (!Permissions.isPremium()) {
-            const lookback = Utils.getSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
+        if (!await Permissions.isPremium()) {
+            const lookback = await Utils.getCachedSetting('clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser');
             const noUserStartDate = moment().subtract(lookback, 'days').format(YYYY_MM_DD);
 
             query.$and.push({
@@ -226,26 +89,33 @@ Meteor.methods({
             });
         }
 
-        return RatingChanges.find(query, {
+        return await RatingChanges.find(query, {
             fields: {_id: 1, symbol: 1, date: 1, dateString: 1, oldRatingId: 1, newRatingId: 1, researchFirmId: 1},
             sort: {dateString: 1},
-        }).fetch();
+        }).fetchAsync();
     },
 
-    getPricesForSymbol: function (symbol) {
+    async getPricesForSymbol(symbol) {
         check(symbol, String);
-        var _prices = StocksReactServerUtils.prices.getAllPrices(symbol);
-        return _prices;
+
+        await ServerUtils.runPremiumCheck(this);
+        return await ServerUtils.prices.getAllPrices(symbol);
     },
 
-    getEarliestRatingChange: function (symbol) {
+    async emailPricesForSymbol(symbol) {
+        const prices = await Meteor.callAsync('getPricesForSymbol', symbol);
+        const maxDate = Utils.getMinMaxDate(prices).max;
+        await ServerUtils.emailJSON(prices, `${symbol}_prices_${maxDate}.json`, `prices for ${symbol} - ${maxDate}`);
+    },
+
+    async getEarliestRatingChange(symbol) {
         check(symbol, String);
 
-        const r = RatingChanges.findOne({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
+        const r = await RatingChanges.findOneAsync({symbol}, {sort: {dateString: 1}, fields: {dateString: 1}});
         return r?.dateString;
     },
 
-    getUpcomingEarningsReleases(options) {
+    async getUpcomingEarningsReleases(options) {
         check(options, {
             startDate: Number,
             endDate: Number,
@@ -269,7 +139,7 @@ Meteor.methods({
                 {
                     // make sure to only ever look forward
                     reportDateNextFiscalQuarter: {
-                        $gte: +StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(undefined, undefined, YYYYMMDD),
+                        $gte: +await Utils.getClosestPreviousWeekDayDateByCutoffTime(undefined, YYYYMMDD),
                     }
                 },
                 {
@@ -294,15 +164,15 @@ Meteor.methods({
             });
         }
 
-        const earningsReleases = EarningsReleases.find(
+        const earningsReleases = await EarningsReleases.find(
             query,
             {sort: {reportSourceFlag: 1, reportDateNextFiscalQuarter: 1, asOf: -1}}
-        ).fetch();
+        ).fetchAsync();
 
         if (withRatingChangesCounts) {
             const symbols = _.uniq(_.pluck(earningsReleases, 'symbol'));
 
-            const counts = Object.fromEntries(Promise.await(RatingChanges.rawCollection().aggregate([
+            const counts = Object.fromEntries((await RatingChanges.rawCollection().aggregate([
                 {$match: {symbol: {$in: symbols}}},
                 {$group : {_id: '$symbol', count: {$sum: 1}}},
             ]).toArray()).map(({_id, count}) => [_id, count]));
@@ -340,28 +210,8 @@ Meteor.methods({
         return earningsReleases;
     },
 
-    getPricesFromApi: function (datesAndSymbolsMap) {
-
-
-
-        // step 1. get all available data from Wiki with missing map
-        var _wikiData = getPortfolioPricesWiki(datesAndSymbolsMap);
-        var _wikiMissingMap = _wikiData.missingMap;
-        var _wikiPrices = _wikiData.prices;
-
-
-
-        // step 2. try to get from Nasdaq what's missing from Wiki. Output what's still missing in Nasdaq after Wiki.
-        var _nasdaqData = getPortfolioPricesNasdaq(_wikiMissingMap);
-        var _nasdaqMissingMap = _nasdaqData.missingMap;
-        var _nasdaqPrices = _nasdaqData.prices;
-        console.log("final missing map: ", _nasdaqMissingMap);
-
-        return _wikiPrices.concat(_nasdaqPrices);
-    },
-
-    insertAltRatingScale: function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
-        var _user = Meteor.user();
+    insertAltRatingScale: async function (firmNameStr, mainRatingString, mainRatingStringExactMatchBool, alternativeRatingString) {
+        var _user = await Meteor.userAsync();
         if (!_user) {
             throw new Meteor.Error("Please log in.");
         } else {
@@ -375,7 +225,7 @@ Meteor.methods({
         var _researchFirmQuery = {
             name: { $regex: firmNameStr }
         };
-        var _firms = ResearchCompanies.find(_researchFirmQuery).fetch();
+        var _firms = await ResearchCompanies.find(_researchFirmQuery).fetchAsync();
 
         var _firmId = _firms.length === 1 ? _firms[0]._id : null;
         if (_firmId) {
@@ -384,7 +234,7 @@ Meteor.methods({
                 firmRatingFullString: mainRatingStringExactMatchBool ? mainRatingString : { $regex: mainRatingString },
                 researchFirmId: _firmId
             };
-            var _ratingScales = RatingScales.find(_ratingScaleQuery).fetch();
+            var _ratingScales = await RatingScales.find(_ratingScaleQuery).fetchAsync();
 
             var _ratingScaleId = _ratingScales.length === 1 ? _ratingScales[0]._id : null;
             if (_ratingScaleId) {
@@ -397,8 +247,8 @@ Meteor.methods({
                     referenceRatingScaleId: _ratingScaleId
                 };
 
-                if (!RatingScales.findOne(_alternativeRatingScale)) {
-                    var _newId = RatingScales.insert(_alternativeRatingScale);
+                if (!await RatingScales.findOneAsync(_alternativeRatingScale)) {
+                    var _newId = await RatingScales.insertAsync(_alternativeRatingScale);
                     console.log("inserted id: ", _newId);
                 }
             } else {
@@ -410,40 +260,40 @@ Meteor.methods({
 
         return;
     },
-    addNewSymbolMapping: function(localStr, fromStr, universalStr) {
+    addNewSymbolMapping: async function(localStr, fromStr, universalStr) {
         var _obj = {
             symbolStr: localStr,
             from: fromStr,
             universalSymbolStr: universalStr
         };
-        if (SymbolMappings.find(_obj).count() == 0) {
-            return SymbolMappings.insert(_obj);
+        if (await SymbolMappings.find(_obj).countAsync() == 0) {
+            return await SymbolMappings.insertAsync(_obj);
         }
     },
 
-    getRegressionPerformance: function (symbol, maxRatingChangeDate, priceCheckDate) {
+    getRegressionPerformance: async function (symbol, maxRatingChangeDate, priceCheckDate) {
         check(symbol, String);
         check(maxRatingChangeDate, String);
         check(priceCheckDate, String);
         console.log('getRegressionPerformance', symbol, maxRatingChangeDate, priceCheckDate);
 
         // step 1. get all rating changes for symbol up to maxRatingChangeDate
-        var _ratingChangesForRegr = RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetch();
+        var _ratingChangesForRegr = await RatingChanges.find({symbol: symbol, dateString: {$lte: maxRatingChangeDate}}, {sort: {dateString: 1}}).fetchAsync();
 
         // step 2. get all stock prices for symbol between earliest rating change's closest prior business day and maxRatingChangeDate
         //moment().toISOString().substring(10,24)
-        var _regrStart = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(false, moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
+        var _regrStart = await Utils.getClosestPreviousWeekDayDateByCutoffTime(moment(_ratingChangesForRegr[0].dateString + moment().toISOString().substring(10,24)).tz("America/New_York"));
         var _regrEnd = maxRatingChangeDate;
-        var _allPrices = StocksReactServerUtils.prices.getAllPrices(symbol);
-        var _pricesForRegr = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
+        var _allPrices = await ServerUtils.prices.getAllPrices(symbol);
+        var _pricesForRegr = Utils.stockPrices.getPricesBetween(_allPrices, _regrStart, _regrEnd);
 
         // step 3. check that have all the needed prices in date range
         var _availablePricesStart = _pricesForRegr[0].dateString;
         var _availablePricesEnd = _.last(_pricesForRegr).dateString;
         if (_regrStart === _availablePricesStart && _regrEnd === _availablePricesEnd) {
-            const ratingChanges = RatingChanges.find({symbol}).fetch();
-            var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
-            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
+            const ratingChanges = await RatingChanges.find({symbol}).fetchAsync();
+            var _averageAnalystRatingSeries = await Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _regrStart, _regrEnd, ratingChanges);
+            var _avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, _pricesForRegr);
 
             var _priceReactionDelayInDays = 0;
             var pctDownPerDay = 0.5;
@@ -451,15 +301,15 @@ Meteor.methods({
             var stepSizePow = -7;
             var regrIterNum = 30;
             var _rollingNum = 50;
-            var _rollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
-            var _rollingPxEnd = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, _regrEnd, _rollingNum);
-            var _rollingPriceCheck = StocksReactUtils.stockPrices.getSimpleRollingPx(_allPrices, priceCheckDate, _rollingNum);
+            var _rollingPx = Utils.stockPrices.getSimpleRollingPx(_allPrices, _regrStart, _rollingNum);
+            var _rollingPxEnd = Utils.stockPrices.getSimpleRollingPx(_allPrices, _regrEnd, _rollingNum);
+            var _rollingPriceCheck = Utils.stockPrices.getSimpleRollingPx(_allPrices, priceCheckDate, _rollingNum);
             console.log("START AND END: ", _regrStart, _regrEnd, priceCheckDate);
-            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
+            var _weightedRatingsSeriesEveryDay = Utils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _regrStart, _regrEnd, _pricesForRegr, _priceReactionDelayInDays, "adjClose", pctDownPerDay, pctUpPerDay, Math.pow(10, stepSizePow), regrIterNum);
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
 
             // step 5. get all future prices
-            var _futurePrices = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrEnd, priceCheckDate);
+            var _futurePrices = Utils.stockPrices.getPricesBetween(_allPrices, _regrEnd, priceCheckDate);
             console.log("length 1: ", _futurePrices.length);
 
             // step 6. make sure all the needed future prices are in the db
@@ -475,7 +325,7 @@ Meteor.methods({
 
             // figure out the same but if predictions were based on the entire date range (regr + future)
             // step 5*. get all prices
-            var _regrAndFuturePrices = StocksReactUtils.stockPrices.getPricesBetween(_allPrices, _regrStart, priceCheckDate);
+            var _regrAndFuturePrices = Utils.stockPrices.getPricesBetween(_allPrices, _regrStart, priceCheckDate);
             console.log("length 2: ", _regrAndFuturePrices.length);
 
             // step 6*. make sure have all the needed prices
@@ -501,7 +351,7 @@ Meteor.methods({
             });
 
             // step 8.2*. get predictions based on ALL daily wgt ratings from regression AND future.
-            var _predictOnWgtRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+            var _predictOnWgtRegrAndFut = Utils.ratingChanges.predictionsBasedOnRatings(
                 _regrAndFutureWgtRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
 
@@ -525,7 +375,7 @@ Meteor.methods({
             });
 
             // step 9.2*. get predictions based on ALL daily avg ratings from regression AND future.
-            var _predictOnAvgRegrAndFut = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(
+            var _predictOnAvgRegrAndFut = Utils.ratingChanges.predictionsBasedOnRatings(
                 _regrAndFutureAvgRatingsEveryDay, _regrAndFuturePrices, "adjClose", _rollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
 
@@ -552,7 +402,7 @@ Meteor.methods({
         }
     },
 
-    generatePrediction(options) {
+    async generatePrediction(options) {
         check(options, {
             symbol: String,
             startDate: Match.Maybe(String),
@@ -581,17 +431,17 @@ Meteor.methods({
             pxRollingDays = 50,
         } = options;
 
-        if (!Permissions.isPremium()) {
+        if (!await Permissions.isPremium()) {
             throw new Meteor.Error('you do not have access');
         }
 
-        const allStockPrices = Meteor.call('getPricesForSymbol', symbol);
+        const allStockPrices = await Meteor.callAsync('getPricesForSymbol', symbol);
 
         if (!startDate) {
-            startDate = Meteor.call('getEarliestRatingChange', symbol);
+            startDate = await Meteor.callAsync('getEarliestRatingChange', symbol);
         }
 
-        const simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(
+        const simpleRollingPx = Utils.stockPrices.getSimpleRollingPx(
             allStockPrices,
             startDate,
             pxRollingDays
@@ -602,12 +452,12 @@ Meteor.methods({
             return {};
         }
         let _data = {};
-        let _settings = Settings.findOne();
+        let _settings = await Settings.findOneAsync();
         if (!_settings || !startDate) {
             return {};
         }
 
-        const rC = Meteor.call('ratingChangesForSymbol', {symbol, startDate, endDate});
+        const rC = await Meteor.callAsync('ratingChangesForSymbol', {symbol, startDate, endDate});
         if (_.isEmpty(rC)) {
             throw new Meteor.Error(`there are no rating changes ${symbol} ${startDate} ${endDate}`);
         }
@@ -617,7 +467,7 @@ Meteor.methods({
             console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
         }
 
-        const relevantPrices = StocksReactUtils.stockPrices.getPricesBetween(allStockPrices, startDate, endDate);
+        const relevantPrices = Utils.stockPrices.getPricesBetween(allStockPrices, startDate, endDate);
         let result = {
             symbol,
             historicalData: relevantPrices,
@@ -627,16 +477,16 @@ Meteor.methods({
         _data.stocksToGraphObjs = [];
         var _startDate = startDate;
         var _endDate = endDate;
-        var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
+        var _averageAnalystRatingSeries = await Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(symbol, _startDate, _endDate, rC);
         //TODO: start date and end date for regression are coming from a different date picker
         var _startDateForRegression = _startDate;
         var _endDateForRegression = _endDate;
         if (result && relevantPrices) {
-            var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
+            var _avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
                 _averageAnalystRatingSeries,
                 relevantPrices
             );
-            var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
+            var _weightedRatingsSeriesEveryDay = Utils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
                 _avgRatingsSeriesEveryDay,
                 _startDateForRegression,
                 _endDateForRegression,
@@ -650,10 +500,10 @@ Meteor.methods({
             );
             _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
             _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
-            var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
+            var _predictionsBasedOnAvgRatings = Utils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
                 return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
             }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
-            var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
+            var _predictionsBasedOnWeightedRatings = Utils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
                 return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
             }), relevantPrices, ADJ_CLOSE, simpleRollingPx, 0, 120, 60, pctDownPerDay, pctUpPerDay);
 
@@ -680,7 +530,7 @@ Meteor.methods({
             _data.stocksToGraphObjs = [JSON.parse(JSON.stringify(_objToGraph))];
         }
 
-        const _allEarningsReleasesForSymbol = Meteor.call('getUpcomingEarningsReleases', {
+        const _allEarningsReleasesForSymbol = await Meteor.callAsync('getUpcomingEarningsReleases', {
             startDate: Utils.convertToNumberDate(startDate),
             endDate: Utils.convertToNumberDate(endDate),
             companyConfirmedOnly: true, symbols: [symbol],
@@ -688,7 +538,7 @@ Meteor.methods({
 
         _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
         _data.ratingChanges = rC;
-        _data.ratingScales = StocksReactUtils.ratingChanges.getRatingScalesForRatingChanges(rC);
+        _data.ratingScales = await Utils.ratingChanges.getRatingScalesForRatingChanges(rC);
         _data.earningsReleases = _allEarningsReleasesForSymbol;
         _data.allGraphData = _.extend(result, {
             avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
@@ -698,7 +548,7 @@ Meteor.methods({
         return _data;
     },
 
-    getEarningsAnalysis(options) {
+    async getEarningsAnalysis(options) {
         check(options, {
             startDate: String,
             endDate: String,
@@ -712,11 +562,18 @@ Meteor.methods({
             isRecursive: Match.Optional(Boolean),
             includeHistory: Match.Optional(Boolean),
             bizDaysLookbackForHistory: Match.Optional(Number),
+            emailResults: Match.Optional(Boolean),
+            returnExpected: Match.Optional(Boolean),
+            isHistory: Match.Optional(Boolean),
         });
 
-        if (!Permissions.isPremium()) {
-            throw new Meteor.Error('you do not have access');
-        }
+        await ServerUtils.runPremiumCheck(this);
+
+        const start = performance.now();
+        const getEmailText = () => EJSON.stringify({
+            options,
+            ms: performance.now() - start,
+        });
 
         const {
             startDate,
@@ -731,7 +588,12 @@ Meteor.methods({
             isRecursive = false,
             includeHistory = false,
             bizDaysLookbackForHistory = 500,
+            emailResults = false,
+            returnExpected = false,
+            isHistory = false,
         } = options;
+
+        const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
 
         console.log('getEarningsAnalysis', {
             startDate,
@@ -746,26 +608,35 @@ Meteor.methods({
             isRecursive,
             includeHistory,
             bizDaysLookbackForHistory,
+            emailResults,
+            returnExpected,
+            isHistory,
+            fileName,
         });
 
         if (symbol && isRecursive) {
-            const reportDates = ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, true);
-            const lastReportDate = _.last(reportDates);
-            return reportDates.map(reportDate => {
+            const reportDates = await ServerUtils.earningsReleases.getHistory(symbol, startDate, endDate, false, true);
+            const lastQuarter = _.max(_.pluck(reportDates, 'endDateNextFiscalQuarter'));
+            const results = [];
+            for (const {reportDateNextFiscalQuarter: reportDate, endDateNextFiscalQuarter: quarter} of reportDates) {
                 const dateString = Utils.convertToStringDate(reportDate);
-                const isLastReportDate = reportDate === lastReportDate;
-                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+                const isLastReportDate = quarter === lastQuarter;
+                const result = await Meteor.callAsync('getEarningsAnalysis', _.extend({}, options, {
                     isRecursive: false,
                     startDate: dateString,
                     endDate: dateString,
                     isForecast: isForecast && isLastReportDate,
+                    emailResults: false,
+                    isHistory: true,
                 }));
-            }).flat();
+                results.push(...result);
+            }
+            return results;
         }
 
-        const validRatingScaleIDsMap = ServerUtils.getNumericRatingScalesMap();
+        const validRatingScaleIDsMap = await ServerUtils.getNumericRatingScalesMap();
 
-        const expectedReleasesQuery = {
+        const expectedReleasesQuery = { $and: [{
             epsMeanEstimateNextFiscalQuarter: {$nin: [
                 null,
             ]},
@@ -774,19 +645,39 @@ Meteor.methods({
                 $lte: Utils.convertToNumberDate(endDate),
             },
             reportSourceFlag: 1,
-            asOf: {
+            ...(returnExpected && emailResults || isHistory ? {} : {asOf: {
                 // allow 1 more day, because legacy earnings releases do not have
                 // `insertedDate` and their `asOf` gets moved to the next
                 // day right after release if latest release isn't in the API yet
-                $lte: moment(endDate).add(1, 'days').format(YYYY_MM_DD),
-            },
+                $lte: Utils.businessAdd(endDate, 2),
+            }}),
 
             currencyCode: {$nin: ['CND']},
 
             exchange: {$nin: [
                 'NASDAQ Other OTC',
             ]},
-        };
+        }],};
+
+        if (isHistory) {
+            /**
+             * legacy earnings releases do not have `insertedDate` or `insertedDateStr`, so i need a proxy
+             * based on the `asOf` date.
+             */
+            const insertedBeforeEndDateOrLegacyQuery = {
+                $or: [
+                    {
+                        insertedDateStr: {$lte: endDate},
+                    },
+                    {
+                        insertedDateStr: {$exists: false},
+                        asOf: {$lte: Utils.businessAdd(endDate, 2)},
+                    },
+                ],
+            };
+            expectedReleasesQuery.$and.push(insertedBeforeEndDateOrLegacyQuery);
+        }
+
         if (symbol) {
             expectedReleasesQuery.symbol = symbol;
         }
@@ -816,12 +707,12 @@ Meteor.methods({
         }
 
         // these are the expected earnings releases within the requested date range
-        const expectedEarningsReleases = EarningsReleases.find(
+        const expectedEarningsReleases = await EarningsReleases.find(
             expectedReleasesQuery,
             {
                 sort: {asOf: -1},
             }
-        ).fetch();
+        ).fetchAsync();
 
         if (expectedEarningsReleases.length === 0) {
             if (symbol) {
@@ -832,16 +723,103 @@ Meteor.methods({
 
         console.log('expectedEarningsReleases', expectedEarningsReleases.length, EJSON.stringify(expectedReleasesQuery));
 
+        if (returnExpected && emailResults) {
+            const pricesSet = new Set();
+            const prices = [];
+            const lookback = 5 + 265;
+            const lookahead = 15;
+
+            // todo: check this logic
+            /*
+            expectedEarningsReleases = expectedEarningsReleases.filter(e => {
+                const {
+                    insertedDateStr,
+                    asOf,
+                } = e;
+                const dateAfter = e.getSaleDate(0);
+
+                if (insertedDateStr) {
+                    return insertedDateStr <= dateAfter;
+                } else {
+                    return asOf <= Utils.businessAdd(dateAfter, 2);
+                }
+            });
+            */
+
+            for (const expectedRelease of expectedEarningsReleases) {
+                const dateBefore = expectedRelease.getPurchaseDate(advancePurchaseDays);
+                const dateAfter = expectedRelease.getSaleDate(0);
+
+                _.extend(expectedRelease, {
+                    dateBefore,
+                    dateAfter,
+                });
+
+                const symbol = expectedRelease.symbol;
+                for (const daysToAdd of _.range(-lookback, lookahead + 1)) {
+                    const dateString = Utils.businessAdd(dateBefore, daysToAdd);
+                    const key = `${symbol}_${dateString}`;
+                    if (pricesSet.has(key)) {
+                        continue;
+                    }
+
+                    pricesSet.add(key);
+
+                    const price = await ServerUtils.prices.getPriceOnDayNew({symbol, dateString, isStrict: false});
+                    const vooPrice = await ServerUtils.prices.getPriceOnDayNew({symbol: 'VOO', dateString});
+
+                    prices.push({
+                        symbol,
+                        dateString,
+                        price,
+                        vooPrice,
+                    });
+                }
+            };
+
+            const uniqueReleases = _.uniq(expectedEarningsReleases, false, (e) => {
+                return `${e.symbol}_${e.dateBefore}`;
+            });
+
+            await ServerUtils.emailCSV(
+                uniqueReleases,
+                fileName,
+                fileName,
+                getEmailText()
+            );
+            await ServerUtils.emailCSV(
+                prices,
+                fileName,
+                fileName + ' prices',
+                getEmailText()
+            );
+            return uniqueReleases;
+        }
+
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, 'symbol'));
-            return symbols.map(symbol => {
-                return Meteor.call('getEarningsAnalysis', _.extend({}, options, {
+            const historicalRows = [];
+            for (const symbol of symbols) {
+                const result = await Meteor.callAsync('getEarningsAnalysis', _.extend({}, options, {
                     startDate: momentBiz(startDate).businessAdd(-bizDaysLookbackForHistory).format(YYYY_MM_DD),
                     isRecursive: true,
                     symbol,
                     includeHistory: false,
-                }))
-            }).flat();
+                    emailResults: false,
+                }));
+                historicalRows.push(...result);
+            }
+
+            if (emailResults) {
+                await ServerUtils.emailCSV(
+                    ServerUtils.earningsReleases.processRowsForCSV(historicalRows),
+                    fileName,
+                    fileName,
+                    getEmailText()
+                );
+            }
+
+            return historicalRows;
         }
 
         const expectedMap = new Map();
@@ -850,6 +828,7 @@ Meteor.methods({
                 symbol,
                 asOf,
                 reportDateNextFiscalQuarter,
+                insertedDateStr,
             } = e;
 
             if (expectedMap.has(symbol)) {
@@ -857,7 +836,7 @@ Meteor.methods({
             }
 
             // see note above in `expectedReleasesQuery` for why `subtract` is needed
-            const asOfFormatted = Utils.convertToNumberDate(moment(asOf).subtract(1, 'days').format(YYYY_MM_DD));
+            const asOfFormatted = Utils.convertToNumberDate(Utils.businessAdd(asOf, -2));
             if (asOfFormatted <= reportDateNextFiscalQuarter) {
                 expectedMap.set(symbol, e);
                 return true;
@@ -891,13 +870,13 @@ Meteor.methods({
                 };
             }),
         };
-        const actualEarningsReleases = EarningsReleases.find(
+        const actualEarningsReleases = await EarningsReleases.find(
             actualReleasesQuery,
             {
                 sort: {asOf: 1},
                 ...(symbol && {limit: 1}),
             }
-        ).fetch();
+        ).fetchAsync();
         const actualMap = new Map();
         const uniqueActualEarningsReleases = actualEarningsReleases.filter(e => {
             const {
@@ -929,7 +908,7 @@ Meteor.methods({
             }
         };
 
-        (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases).forEach(e => {
+        for (const e of (isForecast ? uniqueExpectedEarningsReleases : uniqueActualEarningsReleases)) {
             const {
                 symbol,
             } = e;
@@ -937,12 +916,13 @@ Meteor.methods({
             const expectedE = expectedMap.get(symbol);
             const actualE = actualMap.get(symbol);
 
-            expectedE.adjustForSplits();
+            await expectedE.adjustForSplits();
             if (actualE) {
-                actualE.adjustForSplits();
+                await actualE.adjustForSplits();
             }
 
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
+            const expectedEpsNextQt = actualE?.epsMeanEstimateNextFiscalQuarter;
 
             const reportDate = expectedE.reportDateNextFiscalQuarter;
 
@@ -955,9 +935,10 @@ Meteor.methods({
                 epsActualPreviousFiscalQuarter,
                 epsActualOneYearAgoFiscalQuarter,
                 endDateNextFiscalQuarter,
+                companyName,
             } = expectedE;
 
-            const firstEverExpectation = EarningsReleases.findOne(
+            const firstEverExpectation = await EarningsReleases.findOneAsync(
                 {
                     symbol,
                     endDateNextFiscalQuarter,
@@ -972,28 +953,46 @@ Meteor.methods({
                     },
                 }
             );
-            firstEverExpectation.adjustForSplits();
+            await firstEverExpectation.adjustForSplits();
             const {
                 epsMeanEstimateNextFiscalQuarter: originalEpsExpectation,
                 asOf: originalAsOfExpectation,
+                insertedDate: originalInsertedDateExpectation,
             } = firstEverExpectation;
+            const firstEpsExpDate = originalInsertedDateExpectation ? moment(originalInsertedDateExpectation).format(YYYY_MM_DD) : originalAsOfExpectation;
 
             const isAfterMarketClose = reportTimeOfDayCode === 1;
             // todo: buy in advance, need to modify asOf in `expectedReleasesQuery`
+            // const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays + (isForecast ? 1 : 0));
             const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays);
             const saleDate1 = expectedE.getSaleDate(0);
             const saleDate2 = momentBiz(saleDate1).businessAdd(saleDelayInDays).format(YYYY_MM_DD);
             const saleDate3 = momentBiz(saleDate1).businessAdd(saleDelayInDaysFinal).format(YYYY_MM_DD);
 
-            const prices = ServerUtils.prices.getAllPrices(symbol, purchaseDate, saleDate2);
-            const purchasePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, purchaseDate);
-            const salePrice1 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate1);
-            const salePrice2 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate2);
-            const salePrice3 = StocksReactUtils.stockPrices.getPriceOnDay(prices, saleDate3);
+            const vooPrices = await ServerUtils.prices.getAllPrices('VOO');
+            const vooOpenPriceOnPurchaseDate = await Utils.stockPrices.getPriceOnDay(vooPrices, purchaseDate, 'open');
+            const vooSMA50Date = momentBiz(purchaseDate).businessAdd(-50).format(YYYY_MM_DD);
+            const vooSMA50DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA50Date, 10, !isForecast);
+            const vooSMA200Date = momentBiz(purchaseDate).businessAdd(-200).format(YYYY_MM_DD);
+            const vooSMA200DaysAgo = Utils.stockPrices.getSimpleRollingPx(vooPrices, vooSMA200Date, 10, !isForecast);
+            const vooSMA = Utils.stockPrices.getSimpleRollingPx(vooPrices, purchaseDate, 10, !isForecast);
+
+            const inc50Price = vooOpenPriceOnPurchaseDate / vooSMA50DaysAgo;
+            const inc200Price = vooOpenPriceOnPurchaseDate / vooSMA200DaysAgo;
+            const inc50SMA = vooSMA / vooSMA50DaysAgo;
+            const inc200SMA = vooSMA / vooSMA200DaysAgo;
+
+            const prices = await ServerUtils.prices.getAllPrices(symbol);
+            const purchasePrice = await Utils.stockPrices.getPriceOnDay(prices, purchaseDate);
+            const purchasePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 50, !isForecast);
+            const purchasePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, purchaseDate, 200, !isForecast);
+            const salePrice1 = await Utils.stockPrices.getPriceOnDay(prices, saleDate1);
+            const salePrice2 = await Utils.stockPrices.getPriceOnDay(prices, saleDate2);
+            const salePrice3 = await Utils.stockPrices.getPriceOnDay(prices, saleDate3);
 
             const ratingChangesCutoffDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
             const ratingChangesEarliestDate = momentBiz(purchaseDate).businessAdd(-ratingChangesDelayInDays-ratingChangesLookbackInDays).format(YYYY_MM_DD);
-            const ratingChanges = ServerUtils.getLatestRatings(
+            const ratingChanges = await ServerUtils.getLatestRatings(
                 symbol,
                 ratingChangesEarliestDate,
                 // todo: if isForecast is true, ignore the ratingChangesCutoffDate
@@ -1007,41 +1006,54 @@ Meteor.methods({
             const ratings = ratingChanges.map(rc => validRatingScaleIDsMap.get(rc.newRatingId));
             const avgRating = Utils.avg(ratings);
 
-            const altRatingsWithAdjRatings = ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
+            const altRatingsWithAdjRatings = await ServerUtils.getAltAdjustedRatings(ratingChanges, prices, purchaseDate);
             const altAvgRatingWithAdjRatings = Utils.avg(altRatingsWithAdjRatings);
 
             let numRecentUpgrades;
             let numRecentDowngrades;
             let priorSaleDate;
             let priorSalePrice;
-            const priorConfirmedRelease = expectedE.getPriorConfirmedRelease();
+            let priorSalePriceSMA50;
+            let priorSalePriceSMA200;
+            const priorConfirmedRelease = await expectedE.getPriorConfirmedRelease();
             if (priorConfirmedRelease) {
                 const priorPurchaseDate = priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
                 priorSaleDate = priorConfirmedRelease.getSaleDate(saleDelayInDaysFinal);
-                priorSalePrice = StocksReactUtils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                priorSalePrice = await Utils.stockPrices.getPriceOnDay(prices, priorSaleDate);
+                priorSalePriceSMA50 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 50);
+                priorSalePriceSMA200 = Utils.stockPrices.getSimpleRollingPx(prices, priorSaleDate, 200);
                 const priorCutoffDateForRatingChanges = momentBiz(priorPurchaseDate).businessAdd(-ratingChangesDelayInDays).format(YYYY_MM_DD);
                 const newRatingChangesStartDate = momentBiz(priorCutoffDateForRatingChanges).businessAdd(1).format(YYYY_MM_DD);
-                const ratingChangesSinceLastEarningsRelease = ServerUtils.getLatestRatings(
+                const ratingChangesSinceLastEarningsRelease = await ServerUtils.getLatestRatings(
                     symbol,
                     newRatingChangesStartDate,
                     ratingChangesCutoffDate
                 );
-                numRecentUpgrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isUpgrade(rc)).length;
-                numRecentDowngrades = ratingChangesSinceLastEarningsRelease.filter(rc => ServerUtils.ratingChanges.isDowngrade(rc)).length;
+                numRecentUpgrades = 0;
+                numRecentDowngrades = 0;
+                for (const rc of ratingChangesSinceLastEarningsRelease) {
+                    if (await ServerUtils.ratingChanges.isUpgrade(rc)) {
+                        numRecentUpgrades++;
+                    } else if (await ServerUtils.ratingChanges.isDowngrade(rc)) {
+                        numRecentDowngrades++;
+                    }
+                }
             }
 
             const data = {
                 insertedDate,
                 symbol,
+                companyName,
                 expectedEps,
                 actualEps,
+                expectedEpsNextQt,
                 reportDate,
                 expectedAsOf,
                 timeOfDayDescription,
                 endDateNextFiscalQuarter,
                 originalEpsExpectation,
                 pctExpEpsOverOriginalEpsExpectation: getRateOfChange(expectedEps, originalEpsExpectation),
-                originalAsOfExpectation,
+                originalAsOfExpectation: firstEpsExpDate,
 
                 isAfterMarketClose,
                 purchaseDate,
@@ -1063,140 +1075,40 @@ Meteor.methods({
                 pctExpEpsOverOneYearAgo: getRateOfChange(expectedEps, epsActualOneYearAgoFiscalQuarter),
 
                 purchasePrice,
+                purchasePriceSMA50,
+                purchasePriceSMA200,
                 salePrice1,
                 salePrice2,
                 salePrice3,
                 priorSalePrice,
+                priorSalePriceSMA50,
+                priorSalePriceSMA200,
+
+                vooOpenPriceOnPurchaseDate,
+                vooSMA,
+                vooSMA50DaysAgo,
+                vooSMA200DaysAgo,
+
+                inc50Price,
+                inc200Price,
+                inc50SMA,
+                inc200SMA,
             };
             results.push(data);
-        });
+        }
+
+        if (emailResults && !includeHistory) {
+            await ServerUtils.emailCSV(
+                ServerUtils.earningsReleases.processRowsForCSV(results),
+                fileName,
+                fileName,
+                getEmailText()
+            );
+        }
 
         return results;
     },
 
-    portfolioItems: function (portfolioIds, startStr, endStr) {
-        check(portfolioIds, [String]);
-        check(startStr, String);
-        check(endStr, String);
-
-        return PortfolioItems.find({
-            $or: [
-                {
-                    weight: {$exists: false},
-                }, {
-                    weight: {$exists: true, $gt: 0},
-                },
-            ],
-            portfolioId: {$in: portfolioIds}, $and: [{dateString: {$gte: startStr}}, {dateString: {$lte: endStr}}]
-        }, {
-            sort: {dateString: 1}
-        }).fetch();
-    },
-
-    getDefaultPerformanceDatesFor: function(portfolioId) {
-        check(portfolioId, String);
-
-        var _p = Portfolios.findOne({_id: portfolioId});
-        var pItemsExist = _p && PortfolioItems.findOne({portfolioId: _p._id});
-        var _minDateStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: 1}}).dateString : "";
-        var _maxDatrStr = pItemsExist ? PortfolioItems.findOne({portfolioId: _p._id}, {limit: 1, sort: {dateString: -1}}).dateString : "";
-
-        if (_p.rolling && pItemsExist) {
-            _minDateStr = moment(_minDateStr).tz("America/New_York").add(_p.lookback / 5 * 7, "days").format("YYYY-MM-DD");
-        }
-
-        // a case for combined portfolios (i.e., portfolios consisting of a screen by multiple criteria)
-        if (_p.criteria) {
-            var _ratingScaleIds = [];
-            var _researchFirms = [];
-            var _criteriaRatingScales = [];
-
-            // the purpose of this for loop is to figure out the widest date range where RatingChanges match portfolio's criteria
-            _.each(_p.criteria, function (criterion) {
-                var _query = JSON.parse(criterion);
-                var _ratingScales = RatingScales.find(_query).fetch();
-                _criteriaRatingScales.push(_ratingScales);
-
-                _.each(_ratingScales, function (ratingScaleObj) {
-                    var ratingScaleId = ratingScaleObj._id;
-                    _ratingScaleIds.push(ratingScaleId);
-                    _researchFirms.push(ratingScaleObj.researchFirmId);
-
-                    // check if a rating change with either that newRatingId or oldRatingId exists
-                    var _rChDatesQry = {$or: [{newRatingId: ratingScaleId}, {oldRatingId: ratingScaleId}]};
-                    var _ratingChangesExist = RatingChanges.findOne(_rChDatesQry);
-
-                    var _newMin = _ratingChangesExist ? RatingChanges.findOne(_rChDatesQry, {limit: 1, sort: {dateString: 1}}).dateString : "";
-                    var _newMax = _ratingChangesExist ? RatingChanges.findOne(_rChDatesQry, {limit: 1, sort: {dateString: -1}}).dateString : "";
-
-                    _minDateStr = (_minDateStr === "" ? _newMin : _newMin < _minDateStr ? _newMin : _minDateStr);
-                    _maxDatrStr = (_maxDatrStr === "" ? _newMax : _newMax > _maxDatrStr ? _newMax : _maxDatrStr);
-                })
-            });
-
-            // final RatingChanges are where dateString is between the calculated min and max dates and
-            // either newRatingId or oldRatingId is in the list of RatingScales of interest (based on
-            // portfolio's criteria) -- meaning that some symbol's rating changed TO a rating scale of interest or
-            // it changed FROM a rating scale of interest.
-            var _finalRatingChanges = RatingChanges.find({
-                $and: [{$or: [{newRatingId: {$in: _.uniq(_ratingScaleIds)}}, {oldRatingId: {$in: _.uniq(_ratingScaleIds)}}]}, {dateString: {$gte: _minDateStr}}, {dateString: {$lte: _maxDatrStr}}]
-            }, {
-                fields: {symbol: 1, dateString: 1, oldRatingId: 1, newRatingId: 1}
-            }).fetch();
-
-            return {
-                criteriaRatingScales: _criteriaRatingScales,
-                startDate: _minDateStr,
-                endDate: _maxDatrStr,
-                ratingChanges: _finalRatingChanges
-            };
-        }
-
-        return {
-            startDate: _minDateStr,
-            endDate: _maxDatrStr
-        };
-    },
-
-    insertNewRollingPortfolioItem: function (obj) {
-        // check that the symbol exists
-        var _p = Portfolios.findOne(obj.portfolioId);
-        if (!_p || !_p.rolling) {
-            throw new Meteor.Error("portfolio does not exist or it is not rolling!");
-        }
-
-        if (!Stocks.findOne(obj.symbol)) {
-            throw new Meteor.Error("symbol does not exist!");
-        } else {
-            // check if such portfolio item already exists for that date and symbol
-            var _existingPortfolioItem = PortfolioItems.findOne({symbol: obj.symbol, portfolioId: obj.portfolioId, dateString: obj.dateString});
-            if (_existingPortfolioItem) {
-                throw new Meteor.Error("portfolio item already exists!");
-            } else {
-                if (isNaN((new Date(obj.dateString)).valueOf())) {
-                    throw new Meteor.Error("date is not valid!");
-                } else {
-                    var _user = Meteor.user();
-                    if (!_user) {
-                        throw new Meteor.Error("Please log in to import portfolio items.");
-                    } else {
-                        var _dataImportPermissions = _user.permissions && _user.permissions.dataImports;
-                        var _canImportPortfolioItems = _dataImportPermissions && _dataImportPermissions.indexOf("canImportPortfolioItems") > -1;
-                        if (!_canImportPortfolioItems) {
-                            throw new Meteor.Error("You do not have permission to import portfolio items.");
-                        }
-                    }
-
-                    PortfolioItems.insert({
-                        symbol: obj.symbol,
-                        portfolioId: obj.portfolioId,
-                        dateString: obj.dateString,
-                        short: obj.short
-                    })
-                }
-            }
-        }
-    }
 });
 
 Accounts.onCreateUser(function(options, user) {
@@ -1227,103 +1139,77 @@ Meteor.methods({
         Meteor.users.update({_id: dummyUserId}, {$set: {registered: true}});
         return {username: newUsername, password: newPassword};
     },
-    createNewPortfolio: function (name) {
-        // Make sure the user is logged in before inserting a portfolio
-        if (! Meteor.userId()) {
-            throw new Meteor.Error("not-authorized");
-        }
 
-        Portfolios.insert({
-            name: name,
-            private: false,
-            ownerId: Meteor.userId(),
-            researchFirmId: null,
-            lastModifiedOn: moment().toISOString(),
-            lastModifiedBy: Meteor.userId(),
-            ownerName: Meteor.user().username
-        });
-    },
-
-    getSimilarSymbols(symbol) {
+    async getSimilarSymbols(symbol) {
         check(symbol, String);
 
         if (symbol.length < 1) return [];
 
-        const symbols = Stocks.find({
+        const symbols = await Stocks.find({
             _id: {$regex: symbol.toUpperCase()},
         }, {
             fields: {_id: 1},
             limit: 25,
-        }).fetch();
+        }).fetchAsync();
         return _.pluck(symbols, '_id');
     },
 
-    checkIfSymbolExists: function (symbol) {
+    async checkIfSymbolExists(symbol) {
         check(symbol, String);
 
-        var _wikiUrl = StocksReactServerUtils.prices.getWikiPricesQuandlUrl(false, [symbol]);
-        var _nasdaqUrl = StocksReactServerUtils.prices.getNasdaqPricesQuandlUrl(symbol);
-        var _zeaUrl = StocksReactServerUtils.earningsReleases.getZeaUrl(symbol);
-        const newEarningsReleaseUrl =  StocksReactServerUtils.earningsReleases.getEarningsReleasesUrl(symbol);
+        try {
+            console.log('getting yahoo finance quote for symbol', symbol);
+            const quote = await yahooFinance.quote(symbol);
+            if (quote) return true;
+        } catch (e) {
+            // symbol not found in Yahoo Finance, fall through to other checks
+        }
 
-        function checkDatatable(url) {
+        async function checkDatatable(url) {
             try {
-                var _res = HTTP.get(url);
-                if (_res.data.datatable.data.length > 0) {
-                    return true;
-                } else {
-                    return false;
-                }
-            } catch (e) {
-                return false;
-            }
-        };
-
-        function _checkNasdaq() {
-            try {
-                var _res = HTTP.get(_nasdaqUrl);
-                return true;
+                const response = await fetch(url);
+                const json = await response.json();
+                return json.datatable.data.length > 0;
             } catch (e) {
                 return false;
             }
         }
 
-        function _checkZEA() {
-            try {
-                var _res = HTTP.get(_zeaUrl);
+        const urls = [
+            await ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
+        ];
+
+        for (const url of urls) {
+            if (await checkDatatable(url)) {
                 return true;
-            } catch (e) {
-                return false;
             }
         }
-
-        return checkDatatable(_wikiUrl) || _checkNasdaq() || _checkZEA() || checkDatatable(newEarningsReleaseUrl);
+        return false;
     },
 
-    insertNewStockSymbols: function(symbolsArray) {
+    async insertNewStockSymbols(symbolsArray) {
         check(symbolsArray, [String]);
 
-        var _res = {};
-        var _symbolsAllCapsArray = [];
-        symbolsArray.forEach(function(symbol) {
-            _symbolsAllCapsArray.push(symbol.toUpperCase());
-        });
+        const result = {};
+        const symbols = symbolsArray.map(s => s.toUpperCase());
+        console.log('insertNewStockSymbols', symbols);
 
-        _.each(_symbolsAllCapsArray, function (s) {
-            if (Stocks.findOne({_id: s})) {
-                _res[s] = true;
+        // Look up all symbols in one query
+        const existingSymbols = new Set(await Stocks.rawCollection().distinct('_id', {_id: {$in: symbols}}));
+
+        // Process all symbols in one pass
+        for (const symbol of symbols) {
+            if (existingSymbols.has(symbol)) {
+                result[symbol] = true;
             } else {
-                Meteor.call("checkIfSymbolExists", s, function (error, result) {
-                    if (result) {
-                        Stocks.insert({_id: s});
-                        _res[s] = true;
-                    } else {
-                        _res[s] = false;
-                    }
-                })
+                const exists = await Meteor.callAsync("checkIfSymbolExists", symbol);
+                if (exists) {
+                    await Stocks.insertAsync({_id: symbol});
+                }
+                result[symbol] = exists;
             }
-        });
+        }
 
-        return _res;
+        return result;
     },
 });

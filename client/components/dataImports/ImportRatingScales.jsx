@@ -1,94 +1,147 @@
-import React, { Component } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
+import React, { useState } from 'react';
+import { useTracker } from 'meteor/react-meteor-data';
+import { Meteor } from 'meteor/meteor';
+import toast, { Toaster } from 'react-hot-toast';
 
-var _totalNUmberOfPossibleRatingThresholds = 12;
+const TOTAL_NUMBER_OF_POSSIBLE_RATING_THRESHOLDS = 12;
 
-class ImportRatingScales extends Component {
-    constructor(props) {
-        super(props);
+function ImportRatingScales() {
+    const [researchFirmString, setResearchFirmString] = useState('');
+    const [beforeCoverageInitiatedString, setBeforeCoverageInitiatedString] = useState('');
+    const [coverageDroppedString, setCoverageDroppedString] = useState('');
+    const [coverageTemporarilySuspendedString, setCoverageTemporarilySuspendedString] = useState('');
+    const [ratingStrings, setRatingStrings] = useState(
+        Array(TOTAL_NUMBER_OF_POSSIBLE_RATING_THRESHOLDS).fill('')
+    );
 
-        this.state = {
+    const { currentUser } = useTracker(() => ({
+        currentUser: Meteor.user()
+    }), []);
 
+    const handleRatingStringChange = (index, value) => {
+        const updatedRatingStrings = [...ratingStrings];
+        updatedRatingStrings[index] = value;
+        setRatingStrings(updatedRatingStrings);
+    };
+
+    const submitRatingScales = () => {
+        // Get all non-empty rating strings
+        const allRatings = ratingStrings
+            .map(rating => rating.trim())
+            .filter(rating => rating.length > 0);
+
+        // Validate required fields
+        if (!researchFirmString.trim() ||
+            !beforeCoverageInitiatedString.trim() ||
+            !coverageDroppedString.trim()) {
+            toast.error('Please fill in all required fields');
+            return;
+        }
+
+        const objToInsert = {
+            thresholdStringsArray: allRatings,
+            researchFirmString: researchFirmString.trim(),
+            beforeCoverageInitiatedString: beforeCoverageInitiatedString.trim(),
+            coverageDroppedString: coverageDroppedString.trim()
         };
 
-        this.submitRatingScales = this.submitRatingScales.bind(this);
-    }
-    submitRatingScales() {
-        let _allRatings = [];
-        for (var i = 1; i <= _totalNUmberOfPossibleRatingThresholds; i++) {
-            var _ref = "ratingString" + i;
-            if (this.refs[_ref].value.trim().length > 0) {
-                _allRatings.push(this.refs[_ref].value.trim());
-            }
+        if (coverageTemporarilySuspendedString.trim().length > 0) {
+            objToInsert.coverageTemporarilySuspendedString = coverageTemporarilySuspendedString.trim();
         }
-        if (this.refs.researchFirmString.value.trim().length > 0 &&
-            this.refs.beforeCoverageInitiatedString.value.trim().length > 0 &&
-            this.refs.coverageDroppedString.value.trim().length > 0
-        ) {
-            var _objToInsert = {
-                thresholdStringsArray: _allRatings,
-                researchFirmString: this.refs.researchFirmString.value.trim(),
-                beforeCoverageInitiatedString: this.refs.beforeCoverageInitiatedString.value.trim(),
-                coverageDroppedString: this.refs.coverageDroppedString.value.trim()
-            };
-            if (this.refs.coverageTemporarilySuspendedString.value.trim().length > 0) {
-                _objToInsert.coverageTemporarilySuspendedString = this.refs.coverageTemporarilySuspendedString.value.trim();
-            }
-            Meteor.call('importData', _objToInsert, 'grading_scales', function(error, result) {
-                if (!error && result) {
-                    if (result.cannotImportGradingScalesDueToMissingPermissions) {
-                        $.bootstrapGrowl("You do not have permission to import rating scales.", {
-                            type: 'danger',
-                            align: 'center',
-                            width: 400,
-                            delay: 10000000
-                        });
-                    } else {
-                        $.bootstrapGrowl("Successfully imported grading scales.", {
-                            type: 'success',
-                            align: 'center',
-                            width: 400,
-                            delay: 10000000
-                        });
-                    }
-                }
-            })
-        }
-    }
-    renderAllInputFields() {
-        let _arrayOfInputRefs = [];
-        for (var i = 1; i <= _totalNUmberOfPossibleRatingThresholds; i++) {
-            _arrayOfInputRefs.push("ratingString" + i);
-        }
-        return _arrayOfInputRefs.map((refString) => {
-            return <li key={refString}>Rating string: <input ref={refString}/></li>
-        })
-    }
 
-    render() {
+        const closableToast = (fn, message) => fn(t => (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {message}
+                <button onClick={() => toast.dismiss(t.id)}>✕</button>
+            </span>
+        ), { duration: 10000 });
 
+        Meteor.call('importData', objToInsert, 'grading_scales', (error) => {
+            if (error) {
+                closableToast(toast.error, `Import failed: ${error.message}`);
+            } else {
+                closableToast(toast.success, 'Successfully imported grading scales.');
+                clearForm();
+            }
+        });
+    };
+
+    const clearForm = () => {
+        setResearchFirmString('');
+        setBeforeCoverageInitiatedString('');
+        setCoverageDroppedString('');
+        setCoverageTemporarilySuspendedString('');
+        setRatingStrings(Array(TOTAL_NUMBER_OF_POSSIBLE_RATING_THRESHOLDS).fill(''));
+    };
+
+    const renderAllInputFields = () => {
+        return ratingStrings.map((value, index) => (
+            <li key={`ratingString${index + 1}`}>
+                Rating string:{' '}
+                <input
+                    value={value}
+                    onChange={(e) => handleRatingStringChange(index, e.target.value)}
+                    placeholder={`Rating ${index + 1}`}
+                />
+            </li>
+        ));
+    };
+
+    if (!currentUser) {
         return (
             <div className="container">
-                { this.props.currentUser ? (<div className="ratingScalesDataImport">
-                    <h1>Rating Scales Data Import</h1>
-                    <h3>Please specify the rating scale for <input ref="researchFirmString"/> company, from lowest to highest:</h3>
-                    <ol>
-                        {this.renderAllInputFields()}
-                        <li>Before coverage initiated string: <input ref="beforeCoverageInitiatedString"/></li>
-                        <li>Coverage dropped string: <input ref="coverageDroppedString"/></li>
-                        <li>Coverage temporarily suspended string:  <input ref="coverageTemporarilySuspendedString"/></li>
-                    </ol>
-
-                    <button onClick={this.submitRatingScales}>submit</button>
-                </div>) : <p>plz log in</p> }
+                <p>Please log in</p>
             </div>
         );
     }
+
+    return (
+        <div className="container">
+            <Toaster position="top-center" />
+            <div className="ratingScalesDataImport">
+                <h1>Rating Scales Data Import</h1>
+                <h3>
+                    Please specify the rating scale for{' '}
+                    <input
+                        value={researchFirmString}
+                        onChange={(e) => setResearchFirmString(e.target.value)}
+                        placeholder="Company name"
+                    />{' '}
+                    company, from lowest to highest:
+                </h3>
+                <ol>
+                    {renderAllInputFields()}
+                    <li>
+                        Before coverage initiated string:{' '}
+                        <input
+                            value={beforeCoverageInitiatedString}
+                            onChange={(e) => setBeforeCoverageInitiatedString(e.target.value)}
+                            placeholder="e.g., Not Rated"
+                        />
+                    </li>
+                    <li>
+                        Coverage dropped string:{' '}
+                        <input
+                            value={coverageDroppedString}
+                            onChange={(e) => setCoverageDroppedString(e.target.value)}
+                            placeholder="e.g., Coverage Dropped"
+                        />
+                    </li>
+                    <li>
+                        Coverage temporarily suspended string:{' '}
+                        <input
+                            value={coverageTemporarilySuspendedString}
+                            onChange={(e) => setCoverageTemporarilySuspendedString(e.target.value)}
+                            placeholder="(Optional) e.g., Suspended"
+                        />
+                    </li>
+                </ol>
+
+                <button onClick={submitRatingScales}>Submit</button>
+                <button onClick={clearForm} style={{ marginLeft: '10px' }}>Clear</button>
+            </div>
+        </div>
+    );
 }
 
-export default withTracker(() => {
-
-    return {
-        currentUser: Meteor.user()
-    }
-})(ImportRatingScales);
+export default ImportRatingScales;

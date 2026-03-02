@@ -1,299 +1,366 @@
-import React, { Component } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useTracker } from 'meteor/react-meteor-data';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import moment from 'moment-timezone';
-import { EJSON } from 'meteor/ejson';
+import _ from 'underscore';
+import { Meteor } from 'meteor/meteor';
+import { Settings, RatingScales } from '../../../lib/collections.js';
+import { Utils } from '../../../lib/utils.js';
 
 import StocksGraph from '../StocksGraph.jsx';
 import RegressionPerformance from './RegressionPerformance.jsx';
 
-const avgRatingStartDate = new ReactiveVar(undefined);
-const avgRatingEndDate = new ReactiveVar(undefined);
-const allStockPrices = new ReactiveVar(undefined);
-const priceReactionDelayDays = new ReactiveVar(0);
-const pctDownPerDay = new ReactiveVar(0.5);
-const pctUpPerDay = new ReactiveVar(0.5);
-const stepSizePow = new ReactiveVar(-7);
-const regrIterNum = new ReactiveVar(30);
-const simpleRollingPx = new ReactiveVar(undefined);
-const ratingChangesLoading = new ReactiveVar(false);
-const ratingChanges = new ReactiveVar([]);
+function AverageAndWeightedRatings({
+    symbol,
+    showAvgRatings,
+    showWeightedRating,
+    earningsReleases
+}) {
+    // Local state
+    const [pxRollingDays] = useState(50);
+    const [pctDownPerDay, setPctDownPerDay] = useState(0.5);
+    const [pctUpPerDay, setPctUpPerDay] = useState(0.5);
+    const [stepSizePow, setStepSizePow] = useState(-7);
+    const [regrIterNum, setRegrIterNum] = useState(30);
+    const [priceReactionDelayDays, setPriceReactionDelayDays] = useState(0);
 
-class AverageAndWeightedRatings extends Component {
+    const [avgRatingStartDate, setAvgRatingStartDate] = useState(undefined);
+    const [avgRatingEndDate, setAvgRatingEndDate] = useState(undefined);
+    const [allStockPrices, setAllStockPrices] = useState(undefined);
+    const [simpleRollingPx, setSimpleRollingPx] = useState(undefined);
+    const [ratingChangesLoading, setRatingChangesLoading] = useState(false);
+    const [ratingChanges, setRatingChanges] = useState([]);
+    const [regrWeights, setRegrWeights] = useState(undefined);
 
-    constructor(props) {
-        super(props);
-
-        let _settings = Settings.findOne();
-        var _4PMEST_IN_ISO = _settings && _settings.clientSettings.ratingChanges.fourPmInEstTimeString || "16:00:00";
-        let _avgRatingEndDate = StocksReactUtils.getClosestPreviousWeekDayDateByCutoffTime(_4PMEST_IN_ISO);
-
-        this.state = {
-            pxRollingDays: 50,
-            pctDownPerDay: pctDownPerDay.get(),
-            pctUpPerDay: pctUpPerDay.get(),
-            stepSizePow: stepSizePow.get(),
-            regrIterNum: regrIterNum.get(),
-            avgRatingEndDate: _avgRatingEndDate,
-            priceReactionDelayDays: priceReactionDelayDays.get(),
+    // Get settings
+    const { settings } = useTracker(() => {
+        return {
+            settings: Settings.findOne()
         };
+    }, []);
 
-        avgRatingEndDate.set(_avgRatingEndDate);
-
-        this.toggleFirm = this.toggleFirm.bind(this);
-        this.decreasePriceDelay = this.decreasePriceDelay.bind(this);
-    }
-
-    componentWillReceiveProps(nextProps) {
-        if (this.props.symbol !== nextProps.symbol) {
-            this.getPricesForSymbolAndEarliestRatingsChangeDate(nextProps.symbol);
-        }
-    }
-
-    componentWillMount() {
-        this.getPricesForSymbolAndEarliestRatingsChangeDate(this.props.symbol);
-
-        Tracker.autorun(() => {
-            const symbol = this.props.symbol;
-            const startDate = avgRatingStartDate.get();
-            const endDate = avgRatingEndDate.get();
-
-            if (!Settings.findOne() || !startDate) {
-                return;
+    // Initialize avgRatingEndDate on mount
+    useEffect(() => {
+        const initEndDate = async () => {
+            if (settings) {
+                const endDate = await Utils.getClosestPreviousWeekDayDateByCutoffTime();
+                setAvgRatingEndDate(endDate);
             }
+        };
+        initEndDate();
+    }, [settings]);
 
-            ratingChangesLoading.set(true);
-            ratingChanges.set([]);
-            Meteor.call(
-                'ratingChangesForSymbol',
-                {symbol, startDate, endDate},
-                (err, res) => {
-                    if (!err) {
-                        ratingChanges.set(res);
-                    } else {
-                        console.log('there was an error', err);
-                    }
-                    ratingChangesLoading.set(false);
-                }
-            );
-        });
-    }
-    // this is needed to keep the reactive vars and the local state in sync. the synced state is needed for shouldComponentUpdate
-    syncReactiveVarsAndState(reactiveVars, values, stateKeys) {
-        let newState = {};
-        reactiveVars.forEach((reactiveVar, index) => {
-            reactiveVar.set(values[index]);
-            newState[stateKeys[index]] = values[index];
-        });
-        this.setState(newState);
-    }
-    syncOneReactiveVarAndState(reactiveVar, value, stateKey) {
-        this.syncReactiveVarsAndState([reactiveVar], [value], [stateKey]);
-    }
+    // Load prices when symbol changes
+    useEffect(() => {
+        if (!symbol) return;
 
-    getPricesForSymbolAndEarliestRatingsChangeDate(symbol) {
-        var _that = this;
-        this.syncReactiveVarsAndState([allStockPrices, avgRatingStartDate], [undefined, undefined], ['allStockPrices', 'avgRatingStartDate']);
-        Meteor.call("getPricesForSymbol", symbol, function (err1, res1) {
-            Meteor.call("getEarliestRatingChange", symbol, function (err2, res2) {
-                if (res1 && res1.length > 0 && res2 && !err1 && !err2) {
-                    var _simpleRollingPx = StocksReactUtils.stockPrices.getSimpleRollingPx(res1, res2, _that.state.pxRollingDays);
-                    _that.syncReactiveVarsAndState([
-                        avgRatingStartDate,
-                        allStockPrices,
-                        simpleRollingPx,
-                    ], [
-                        res2,
-                        res1,
-                        _simpleRollingPx,
-                    ], [
-                        'avgRatingStartDate',
-                        'allStockPrices',
-                        'simpleRollingPx',
-                    ]);
+        setAllStockPrices(undefined);
+        setAvgRatingStartDate(undefined);
+
+        Meteor.call("getPricesForSymbol", symbol, (err1, pricesResult) => {
+            Meteor.call("getEarliestRatingChange", symbol, (err2, earliestChange) => {
+                if (pricesResult && pricesResult.length > 0 && earliestChange && !err1 && !err2) {
+                    const rollingPx = Utils.stockPrices.getSimpleRollingPx(pricesResult, earliestChange, pxRollingDays);
+                    setAvgRatingStartDate(earliestChange);
+                    setAllStockPrices(pricesResult);
+                    setSimpleRollingPx(rollingPx);
                 } else {
                     console.log("error in prices or rating changes");
                 }
             });
         });
-    }
+    }, [symbol, pxRollingDays]);
 
-    shouldComponentUpdate(nextProps, nextState) {
-        //update component only when there is new data available to be graphed, not necessarily when there is a new symbol prop
-        //because it takes a few seconds after new symbol prop is set to get new data to graph
-        if (EJSON.equals(this.props, nextProps) && EJSON.equals(this.state, nextState)) {
-            return false;
-        }
-        if (this.props.symbol !== nextProps.symbol ||
-                !EJSON.equals(nextState.allStockPrices, this.state.allStockPrices) ||
-            this.state.regrIterNum !== nextState.regrIterNum ||
-                !EJSON.equals(this.props.allGraphData, nextProps.allGraphData) ||
-            this.state.stepSizePow !== nextState.stepSizePow ||
-            this.state.pctDownPerDay !== nextState.pctDownPerDay || this.state.pctUpPerDay !== nextState.pctUpPerDay ||
-            this.state.avgRatingStartDate !== nextState.avgRatingStartDate ||
-            this.state.avgRatingEndDate !== nextState.avgRatingEndDate || this.state.priceReactionDelayDays !== nextState.priceReactionDelayDays
-            || this.props.showAvgRatings !== nextProps.showAvgRatings || this.props.showWeightedRating !== nextProps.showWeightedRating
-        ) {
-            return true;
-        }
+    // Load rating changes when dates change
+    useEffect(() => {
+        if (!settings || !avgRatingStartDate || !avgRatingEndDate) return;
 
-        return false;
-    }
+        setRatingChangesLoading(true);
+        setRatingChanges([]);
 
-    getIndividualRatingsEveryDay(prices, ratingChanges, ratingScales) {
-        let _res = [];
-        let _uniqFirmIds = _.uniq(_.pluck(ratingChanges, "researchFirmId"));
-        let _that = this;
-
-        _.each(prices, function (priceObj) {
-            let _ratingsMap = {};
-            _.each(_uniqFirmIds, function (firmId) {
-                let _ratingScaleId = _that.getScaleIdForFirmAndDate(firmId, priceObj.dateString, ratingChanges);
-                let _univVal = ratingScales.filter(function (obj) {
-                    return obj._id === _ratingScaleId
-                })[0].universalScaleValue;
-                _ratingsMap[firmId] = _univVal;
-            });
-
-            _res.push(_.extend(priceObj, {companyRatingsByResearchFirm: _ratingsMap}));
-        });
-
-        return _res;
-    }
-
-    getScaleIdForFirmAndDate(firmId, dateString, allRatingChanges) {
-        let _scaleId;
-        let ratingChanges = allRatingChanges.filter(function (obj) {
-            return obj.researchFirmId === firmId;
-        });
-
-        _.each(ratingChanges, function (ratingChange) {
-            if (_scaleId) {
-                // if value is already set, check if it should be reset to something newer
-                if (ratingChange.dateString <= dateString) {
-                    _scaleId = ratingChange.newRatingId;
-                }
-            } else {
-                // initialize the value. if date of rating change is less or equal to the date string, then grab the new value. otherwise grab
-                if (ratingChange.dateString <= dateString) {
-                    _scaleId = ratingChange.newRatingId;
+        Meteor.call(
+            'ratingChangesForSymbol',
+            { symbol, startDate: avgRatingStartDate, endDate: avgRatingEndDate },
+            (err, res) => {
+                if (!err) {
+                    setRatingChanges(res);
                 } else {
-                    _scaleId = ratingChange.oldRatingId;
+                    console.log('there was an error', err);
                 }
+                setRatingChangesLoading(false);
             }
-        });
+        );
+    }, [symbol, avgRatingStartDate, avgRatingEndDate, settings]);
 
-        return _scaleId;
-    }
-
-    // source 1: http://stackoverflow.com/questions/11849308/generate-colors-between-red-and-green-for-an-input-range
-    // source 2: http://jsfiddle.net/xgJ2e/2/
-    hsv2rgb(h, s, v) {
-        // adapted from http://schinckel.net/2012/01/10/hsv-to-rgb-in-javascript/
-        var rgb, i, data = [];
+    // Helper functions
+    const hsv2rgb = useCallback((h, s, v) => {
+        let rgb, i, data = [];
         if (s === 0) {
-            rgb = [v,v,v];
+            rgb = [v, v, v];
         } else {
             h = h / 60;
             i = Math.floor(h);
-            data = [v*(1-s), v*(1-s*(h-i)), v*(1-s*(1-(h-i)))];
-            switch(i) {
-                case 0:
-                    rgb = [v, data[2], data[0]];
-                    break;
-                case 1:
-                    rgb = [data[1], v, data[0]];
-                    break;
-                case 2:
-                    rgb = [data[0], v, data[2]];
-                    break;
-                case 3:
-                    rgb = [data[0], data[1], v];
-                    break;
-                case 4:
-                    rgb = [data[2], data[0], v];
-                    break;
-                default:
-                    rgb = [v, data[0], data[1]];
-                    break;
+            data = [v * (1 - s), v * (1 - s * (h - i)), v * (1 - s * (1 - (h - i)))];
+            switch (i) {
+                case 0: rgb = [v, data[2], data[0]]; break;
+                case 1: rgb = [data[1], v, data[0]]; break;
+                case 2: rgb = [data[0], v, data[2]]; break;
+                case 3: rgb = [data[0], data[1], v]; break;
+                case 4: rgb = [data[2], data[0], v]; break;
+                default: rgb = [v, data[0], data[1]]; break;
             }
         }
-        return '#' + rgb.map(function(x){
-                return ("0" + Math.round(x*255).toString(16)).slice(-2);
-            }).join('');
-    }
+        return '#' + rgb.map(x => ("0" + Math.round(x * 255).toString(16)).slice(-2)).join('');
+    }, []);
 
-    toggleFirm(event) {
-        console.log(event.target.value);
-    }
+    const changingStart = (date) => {
+        const newDate = StocksReact.ui.getStateForDateRangeChangeEvent(false, date);
+        setAvgRatingStartDate(newDate);
+    };
 
-    changingStart(date) {
-        this.syncOneReactiveVarAndState(avgRatingStartDate, StocksReact.ui.getStateForDateRangeChangeEvent(false, date), 'avgRatingStartDate');
-    }
-    changingEnd(date) {
-        this.syncOneReactiveVarAndState(avgRatingEndDate, StocksReact.ui.getStateForDateRangeChangeEvent(false, date), 'avgRatingEndDate');
-    }
+    const changingEnd = (date) => {
+        const newDate = StocksReact.ui.getStateForDateRangeChangeEvent(false, date);
+        setAvgRatingEndDate(newDate);
+    };
 
-    decreasePriceDelay() {
-        this.syncOneReactiveVarAndState(priceReactionDelayDays, priceReactionDelayDays.get() - 1, 'priceReactionDelayDays');
-    }
-    increasePriceDelay() {
-        this.syncOneReactiveVarAndState(priceReactionDelayDays, priceReactionDelayDays.get() + 1, 'priceReactionDelayDays');
-    }
-    refreshRegrIterNum(event) {
-        this.syncOneReactiveVarAndState(regrIterNum, parseInt(event.target.value), 'regrIterNum');
-    }
-    increaseStepSize() {
-        this.syncOneReactiveVarAndState(stepSizePow, stepSizePow.get() + 1, 'stepSizePow');
-    }
-    decreaseStepSize() {
-        this.syncOneReactiveVarAndState(stepSizePow, stepSizePow.get() - 1, 'stepSizePow');
-    }
-    setPctDown(event) {
-        this.syncOneReactiveVarAndState(pctDownPerDay, parseFloat(event.target.value), 'pctDownPerDay');
-    }
-    setPctUp(event) {
-        this.syncOneReactiveVarAndState(pctUpPerDay, parseFloat(event.target.value), 'pctUpPerDay');
-    }
+    const graphData = useTracker(() => {
+        if (!allStockPrices || !settings || !avgRatingStartDate || !avgRatingEndDate || ratingChangesLoading) {
+            return null;
+        }
 
+        const pricesReady = allStockPrices?.[0]?.symbol === symbol;
+        if (!pricesReady || ratingChanges.length === 0) {
+            return null;
+        }
 
-    renderAvgAnalystRatingsGraph() {
-        let _startDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(avgRatingStartDate.get());
-        let _endDate = StocksReact.dates._convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY(avgRatingEndDate.get());
-        let _stepSize = Math.pow(10, stepSizePow.get());
-        return (this.props.ratingChanges.length > 0 ? <div>
-                <span>price reaction delay for rating changes (in days): {priceReactionDelayDays.get()} </span>
-                <button type="button" className="btn btn-light" onClick={this.decreasePriceDelay.bind(this)}>-</button>
-                <button type="button" className="btn btn-light" onClick={this.increasePriceDelay.bind(this)}>+</button>
-                <input type="text" className="pctDownPerDay" id="pctDownPerDay" placeholder={pctDownPerDay.get()} onBlur={this.setPctDown.bind(this)} />
-                <input type="text" className="pctUpPerDay" id="pctUpPerDay" placeholder={pctUpPerDay.get()} onBlur={this.setPctUp.bind(this)} />
+        const ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges(ratingChanges);
+        if (!ratingScalesHandle.ready()) {
+            return null;
+        }
+
+        // Check for missing adjClose
+        const pricesWithNoAdjClose = _.filter(allStockPrices, price => !price["adjClose"]);
+        if (pricesWithNoAdjClose.length > 0) {
+            console.log("ERROR, these price dates do not have adjClose: ", _.pluck(pricesWithNoAdjClose, "dateString"));
+        }
+
+        const currentUser = Meteor.user();
+
+        const startDateForSubscription = currentUser
+            ? avgRatingStartDate
+            : moment(new Date().toISOString())
+                .subtract(settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days')
+                .format("YYYY-MM-DD");
+
+        const allAvailablePricesForSymbol = {
+            symbol,
+            historicalData: allStockPrices
+        };
+
+        const filteredPrices = Utils.stockPrices.getPricesBetween(
+            allAvailablePricesForSymbol.historicalData,
+            startDateForSubscription,
+            avgRatingEndDate
+        );
+
+        const result = {
+            ...allAvailablePricesForSymbol,
+            historicalData: filteredPrices
+        };
+
+        // Generate ratings series
+        const averageAnalystRatingSeries = Utils.ratingChanges.generateAverageAnalystRatingTimeSeries(
+            symbol,
+            startDateForSubscription,
+            avgRatingEndDate,
+            ratingChanges
+        );
+
+        const avgRatingsSeriesEveryDay = Utils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(
+            averageAnalystRatingSeries,
+            result.historicalData
+        );
+
+        // Add debugging
+        console.log('avgRatingsSeriesEveryDay:', avgRatingsSeriesEveryDay);
+
+        const weightedRatingsResult = Utils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(
+            avgRatingsSeriesEveryDay,
+            startDateForSubscription,
+            avgRatingEndDate,
+            result.historicalData,
+            priceReactionDelayDays,
+            "adjClose",
+            pctDownPerDay,
+            pctUpPerDay,
+            Math.pow(10, stepSizePow),
+            regrIterNum
+        );
+
+        // Update regression weights in state (outside of useTracker)
+        if (weightedRatingsResult?.weights !== regrWeights) {
+            setRegrWeights(weightedRatingsResult.weights);
+        }
+
+        const weightedRatingsSeriesEveryDay = weightedRatingsResult.ratings;
+
+        const predictionsBasedOnAvgRatings = Utils.ratingChanges.predictionsBasedOnRatings(
+            _.map(avgRatingsSeriesEveryDay, obj => ({
+                date: obj.date,
+                rating: obj.avg,
+                dateString: obj.date.toISOString().substring(0, 10)
+            })),
+            result.historicalData,
+            "adjClose",
+            simpleRollingPx,
+            0, 120, 60,
+            pctDownPerDay,
+            pctUpPerDay
+        );
+
+        const predictionsBasedOnWeightedRatings = Utils.ratingChanges.predictionsBasedOnRatings(
+            _.map(weightedRatingsSeriesEveryDay, obj => ({
+                date: obj.date,
+                rating: obj.weightedRating,
+                dateString: obj.date.toISOString().substring(0, 10)
+            })),
+            result.historicalData,
+            "adjClose",
+            simpleRollingPx,
+            0, 120, 60,
+            pctDownPerDay,
+            pctUpPerDay
+        );
+
+        let objToGraph = { ...result };
+
+        if (showAvgRatings && showWeightedRating) {
+            objToGraph = {
+                ...objToGraph,
+                avgAnalystRatingsEveryDay: avgRatingsSeriesEveryDay,
+                weightedAnalystRatingsEveryDay: weightedRatingsSeriesEveryDay,
+                predictionsBasedOnWeightedRatings,
+                predictionsBasedOnAvgRatings
+            };
+        } else if (showAvgRatings) {
+            objToGraph = {
+                ...objToGraph,
+                avgAnalystRatingsEveryDay: avgRatingsSeriesEveryDay,
+                predictionsBasedOnAvgRatings
+            };
+        } else if (showWeightedRating) {
+            objToGraph = {
+                ...objToGraph,
+                weightedAnalystRatingsEveryDay: weightedRatingsSeriesEveryDay,
+                predictionsBasedOnWeightedRatings
+            };
+        }
+
+        // Add more debugging
+        console.log('objToGraph:', objToGraph);
+        console.log('objToGraph.avgAnalystRatingsEveryDay:', objToGraph.avgAnalystRatingsEveryDay);
+
+        return {
+            stocksToGraphObjs: [JSON.parse(JSON.stringify(objToGraph))],
+            stockPrices: filteredPrices,
+            ratingScales: RatingScales.find().fetch(),
+            allGraphData: {
+                ...result,
+                avgAnalystRatingsEveryDay: avgRatingsSeriesEveryDay,
+                weightedAnalystRatingsEveryDay: weightedRatingsSeriesEveryDay
+            }
+        };
+    }, [
+        allStockPrices,
+        settings,
+        avgRatingStartDate,
+        avgRatingEndDate,
+        ratingChanges,
+        ratingChangesLoading,
+        symbol,
+        priceReactionDelayDays,
+        pctDownPerDay,
+        pctUpPerDay,
+        stepSizePow,
+        regrIterNum,
+        simpleRollingPx,
+        showAvgRatings,
+        showWeightedRating
+    ]);
+
+    const renderAvgAnalystRatingsGraph = () => {
+        if (!graphData || ratingChanges.length === 0) return null;
+
+        const stepSize = Math.pow(10, stepSizePow);
+
+        return (
+            <div>
+                <span>price reaction delay for rating changes (in days): {priceReactionDelayDays} </span>
+                <button type="button" className="btn btn-light" onClick={() => setPriceReactionDelayDays(prev => prev - 1)}>-</button>
+                <button type="button" className="btn btn-light" onClick={() => setPriceReactionDelayDays(prev => prev + 1)}>+</button>
+                <input
+                    type="text"
+                    className="pctDownPerDay"
+                    placeholder={pctDownPerDay}
+                    onBlur={(e) => setPctDownPerDay(parseFloat(e.target.value))}
+                />
+                <input
+                    type="text"
+                    className="pctUpPerDay"
+                    placeholder={pctUpPerDay}
+                    onBlur={(e) => setPctUpPerDay(parseFloat(e.target.value))}
+                />
                 <br/>
-                increase/decrease step size: {_stepSize} <button className="btn btn-light" onClick={this.decreaseStepSize.bind(this)}>-</button>
-                <button className="btn btn-light" onClick={this.increaseStepSize.bind(this)}>+</button>
-                # of regression iter: <input type="text" placeholder={regrIterNum.get()} onBlur={this.refreshRegrIterNum.bind(this)}/>
+                increase/decrease step size: {stepSize}{' '}
+                <button className="btn btn-light" onClick={() => setStepSizePow(prev => prev - 1)}>-</button>
+                <button className="btn btn-light" onClick={() => setStepSizePow(prev => prev + 1)}>+</button>
+                # of regression iter:{' '}
+                <input
+                    type="text"
+                    placeholder={regrIterNum}
+                    onBlur={(e) => setRegrIterNum(parseInt(e.target.value))}
+                />
 
-                <DatePicker selected={new Date(moment(avgRatingStartDate.get()))} onChange={date => this.changingStart(date)} />
-                <DatePicker selected={new Date(moment(avgRatingEndDate.get()))} onChange={date => this.changingEnd(date)} />
+                {avgRatingStartDate && (
+                    <DatePicker
+                        selected={new Date(moment(avgRatingStartDate))}
+                        onChange={changingStart}
+                    />
+                )}
+                {avgRatingEndDate && (
+                    <DatePicker
+                        selected={new Date(moment(avgRatingEndDate))}
+                        onChange={changingEnd}
+                    />
+                )}
 
-            <div className="col-md-12 individualStockGraph">
-                <StocksGraph
-                    stocksToGraphObjects={this.props.stocksToGraphObjs}/>
+                <div className="col-md-12 individualStockGraph">
+                    <StocksGraph stocksToGraphObjects={graphData.stocksToGraphObjs} />
+                </div>
             </div>
-        </div> : null);
-    }
+        );
+    };
 
-    renderEpsMeanEstimates() {
+    const renderEpsMeanEstimates = () => {
+        return earningsReleases.map((release, index) => {
+            const sourceFlag = release.reportSourceFlag;
+            const timeOfDayCode = release.reportTimeOfDayCode;
+            const key = `${release.symbol}_${index}`;
 
-        return this.props.earningsReleases.map((release, index) => {
-            let _sourceFlag = release.reportSourceFlag;
-            let _timeOfDayCodeForEarningsRelease = release.reportTimeOfDayCode;
-            let _key = release.symbol + "_" + index;
             return (
-                <div key={_key}>
+                <div key={key}>
                     <h1>This quarter</h1>
-                    <h1>Next earning release date: {release.reportDateNextFiscalQuarter} ({_sourceFlag === 1 ? "Company confirmed" : _sourceFlag === 2 ? "Estimated based on algorithm" : _sourceFlag === 3 ? "Unknown" : null},&nbsp;
-                        {_timeOfDayCodeForEarningsRelease === 1 ? "After market close" : _timeOfDayCodeForEarningsRelease === 2 ? "Before the open" : _timeOfDayCodeForEarningsRelease === 3 ? "During market trading" : _timeOfDayCodeForEarningsRelease === 4 ? "Unknown" : null})</h1>
+                    <h1>
+                        Next earning release date: {release.reportDateNextFiscalQuarter} (
+                        {sourceFlag === 1 ? "Company confirmed" :
+                         sourceFlag === 2 ? "Estimated based on algorithm" :
+                         sourceFlag === 3 ? "Unknown" : null},&nbsp;
+                        {timeOfDayCode === 1 ? "After market close" :
+                         timeOfDayCode === 2 ? "Before the open" :
+                         timeOfDayCode === 3 ? "During market trading" :
+                         timeOfDayCode === 4 ? "Unknown" : null})
+                    </h1>
                     <h1>Expected EPS: {release.epsMeanEstimateNextFiscalQuarter}</h1>
                     <br/>
                     <h3>Previous quarter EPS: {release.epsActualPreviousFiscalQuarter}</h3>
@@ -302,153 +369,31 @@ class AverageAndWeightedRatings extends Component {
                     <h5>Next quarter</h5>
                     <h5>Report date: {release.reportDateNextNextFiscalQuarter}</h5>
                 </div>
-            )
+            );
+        });
+    };
 
-        })
-    }
+    const isReady = allStockPrices?.[0]?.symbol === symbol && !ratingChangesLoading;
 
-    render() {
-
-        return (
+    return (
+        <div>
+            <br/>
             <div>
-                <br/>
-                <div>
-                    {this.props.ratingChangesAndStockPricesSubscriptionsForSymbolReady ?
-                        <div>
-                            {this.renderAvgAnalystRatingsGraph()}
-                            <br/><br/><br/><br/>
-                            <RegressionPerformance symbol={this.props.symbol}/>
-                            <br/>
-                            {this.renderEpsMeanEstimates()}
-                            <br/>
-                        </div> :
-                    "getting ratings changes and prices for " + this.props.symbol
-                    }
-                </div>
+                {isReady ? (
+                    <div>
+                        {renderAvgAnalystRatingsGraph()}
+                        <br/><br/><br/><br/>
+                        <RegressionPerformance symbol={symbol} />
+                        <br/>
+                        {renderEpsMeanEstimates()}
+                        <br/>
+                    </div>
+                ) : (
+                    `getting ratings changes and prices for ${symbol}`
+                )}
             </div>
-        );
-    }
+        </div>
+    );
 }
 
-export default withTracker((props) => {
-
-    let _avgRatingStartDate = avgRatingStartDate.get();
-    let _avgRatingEndDate = avgRatingEndDate.get();
-    let _allStockPrices = allStockPrices.get();
-
-
-
-    let _symbol = props.symbol;
-    const pricesReady = _allStockPrices?.[0].symbol === _symbol;
-    if (!pricesReady) {
-        return {};
-    }
-    let _data = {};
-    let _currentUser = Meteor.user();
-    let _settings = Settings.findOne();
-    if (!_settings || !_avgRatingStartDate) {
-        return {};
-    }
-
-
-    let _format = "YYYY-MM-DD";
-
-    let _dayDiff = 1;
-    var _d = new Date().toISOString();
-    var _dateStr = _d.substring(11, _d.length);
-    var _4PMEST_IN_ISO = _settings.clientSettings.ratingChanges.fourPmInEstTimeString;
-    if (_dateStr > _4PMEST_IN_ISO) {
-        _dayDiff = 0;
-    }
-
-    let _startDateForRatingChangesSubscription =
-        _currentUser ?
-            _avgRatingStartDate :
-            moment(new Date().toISOString()).subtract(_settings.clientSettings.upcomingEarningsReleases.numberOfDaysBeforeTodayForRatingChangesPublicationIfNoUser, 'days').format("YYYY-MM-DD");
-    let _endDateRatingChanges = _avgRatingEndDate;
-
-    if (_allStockPrices && !ratingChangesLoading.get()) {
-        const rC = ratingChanges.get();
-
-        let _ratingScalesHandle = StocksReact.functions.getRatingScalesHandleFromAvailableRatingChanges(rC);
-
-        if (_ratingScalesHandle.ready()) {
-            var _allNewStockPricesArr = _allStockPrices;
-            var _pricesWithNoAdjClose = _.filter(_allNewStockPricesArr, function (price) { return !price["adjClose"];})
-            if (_pricesWithNoAdjClose.length > 0) {
-                console.log("ERROR, these price dates do not have adjClose: ", _.pluck(_pricesWithNoAdjClose, "dateString"));
-            }
-
-            let _allAvailablePricesForSymbol = {
-                symbol: _symbol,
-                historicalData: _allNewStockPricesArr
-            };
-
-            if (rC.length > 0) {
-
-                let result = _.extend(_allAvailablePricesForSymbol, {historicalData: StocksReactUtils.stockPrices.getPricesBetween(_allAvailablePricesForSymbol.historicalData, _startDateForRatingChangesSubscription, _endDateRatingChanges)});
-                _data.stockPrices = result.historicalData;
-
-                _data.stocksToGraphObjs = [];
-                var _startDate = _startDateForRatingChangesSubscription;
-                var _endDate = _endDateRatingChanges;
-                var _averageAnalystRatingSeries = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeries(_symbol, _startDate, _endDate, rC);
-                //TODO: start date and end date for regression are coming from a different date picker
-                var _startDateForRegression = _startDate;
-                var _endDateForRegression = _endDate;
-                if (result && result.historicalData) {
-                    var _avgRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateAverageAnalystRatingTimeSeriesEveryDay(_averageAnalystRatingSeries, result.historicalData);
-                    var _priceReactionDelayInDays = priceReactionDelayDays.get();
-                    var _weightedRatingsSeriesEveryDay = StocksReactUtils.ratingChanges.generateWeightedAnalystRatingsTimeSeriesEveryDay(_avgRatingsSeriesEveryDay, _startDateForRegression, _endDateForRegression, result.historicalData, _priceReactionDelayInDays, "adjClose", pctDownPerDay.get(), pctUpPerDay.get(), Math.pow(10, stepSizePow.get()), regrIterNum.get());
-                    _data.regrWeights = _weightedRatingsSeriesEveryDay.weights;
-                    _weightedRatingsSeriesEveryDay = _weightedRatingsSeriesEveryDay.ratings;
-                    var _predictionsBasedOnAvgRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_avgRatingsSeriesEveryDay, function (obj) {
-                        return {date: obj.date, rating: obj.avg, dateString: obj.date.toISOString().substring(0,10)};
-                    }), result.historicalData, "adjClose", simpleRollingPx.get(), 0, 120, 60, pctDownPerDay.get(), pctUpPerDay.get());
-                    var _predictionsBasedOnWeightedRatings = StocksReactUtils.ratingChanges.predictionsBasedOnRatings(_.map(_weightedRatingsSeriesEveryDay, function (obj) {
-                        return {date: obj.date, rating: obj.weightedRating, dateString: obj.date.toISOString().substring(0,10)};
-                    }), result.historicalData, "adjClose", simpleRollingPx.get(), 0, 120, 60, pctDownPerDay.get(), pctUpPerDay.get());
-
-                    var _objToGraph = result;
-                    if (props.showAvgRatings && props.showWeightedRating) {
-                        _objToGraph = _.extend(_objToGraph, {
-                            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
-                            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
-                            predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings,
-                            predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
-                        })
-                    } else if (props.showAvgRatings) {
-                        _objToGraph = _.extend(_objToGraph, {
-                            avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
-                            predictionsBasedOnAvgRatings: _predictionsBasedOnAvgRatings
-                        })
-                    } else if (props.showWeightedRating) {
-                        _objToGraph = _.extend(_objToGraph, {
-                            weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay,
-                            predictionsBasedOnWeightedRatings: _predictionsBasedOnWeightedRatings
-                        })
-                    }
-
-                    _data.stocksToGraphObjs = [JSON.parse(JSON.stringify(_objToGraph))];
-                }
-
-                //todo: make sure we are already subscribed to EarningsReleases
-                let _allEarningsReleasesForSymbol = props.earningsReleases;
-
-                _data.ratingChangesAndStockPricesSubscriptionsForSymbolReady = true;
-                _data.ratingChanges = rC;
-                _data.ratingScales = RatingScales.find().fetch()
-                _data.earningsReleases = _allEarningsReleasesForSymbol;
-                _data.allGraphData = _.extend(result, {
-                    avgAnalystRatingsEveryDay: _avgRatingsSeriesEveryDay,
-                    weightedAnalystRatingsEveryDay: _weightedRatingsSeriesEveryDay
-                })
-
-            } else {
-                console.log("there are no rating changes");
-            }
-        }
-    }
-
-    return _data;
-})(AverageAndWeightedRatings);
+export default AverageAndWeightedRatings;

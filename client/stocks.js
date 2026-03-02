@@ -1,58 +1,56 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { Meteor } from 'meteor/meteor';
 import moment from 'moment-timezone';
+import _ from 'underscore';
 
-    Accounts.ui.config({
-        passwordSignupFields: "USERNAME_ONLY"
-    });
+Meteor.subscribe("settings");
 
-    Meteor.subscribe("settings");
-
-    //Meteor.startup(function () {
-    //    React.render(<App />, document.getElementById("render-target"));
-    //});
-
-    StocksReact = {};
-    StocksReact.dates = {
+// Global utilities (consider moving to a proper module later)
+window.StocksReact = {
+    dates: {
         _convert__YYYY_MM_DD__to__MM_slash_DD_slash_YYYY: function(yyyy_mm_dd) {
-            var _years = yyyy_mm_dd.substring(0,4);
-            var _months = yyyy_mm_dd.substring(5,7);
-            var _days = yyyy_mm_dd.substring(8,10);
-            return _months + "/" + _days + "/" + _years;
+            const years = yyyy_mm_dd.substring(0, 4);
+            const months = yyyy_mm_dd.substring(5, 7);
+            const days = yyyy_mm_dd.substring(8, 10);
+            return `${months}/${days}/${years}`;
         }
-    };
-    StocksReact.functions = {
+    },
+
+    functions: {
         getRatingScalesHandleFromAvailableRatingChanges: function(ratingChanges) {
-            const _uniqOldRatingIds = _.uniq(_.pluck(ratingChanges, 'oldRatingId'));
-            const _uniqNewRatingIds = _.uniq(_.pluck(ratingChanges, 'newRatingId'));
-            var _allUniqRatingIdsForSubscription = _.union(_uniqOldRatingIds, _uniqNewRatingIds);
+            const uniqOldRatingIds = _.uniq(_.pluck(ratingChanges, 'oldRatingId'));
+            const uniqNewRatingIds = _.uniq(_.pluck(ratingChanges, 'newRatingId'));
+            const allUniqRatingIdsForSubscription = _.union(uniqOldRatingIds, uniqNewRatingIds);
 
-            return Meteor.subscribe("specificRatingScales", _allUniqRatingIdsForSubscription);
+            return Meteor.subscribe("specificRatingScales", allUniqRatingIdsForSubscription);
         }
-    };
+    },
 
-    StocksReact.ui = {
-        setDateRangeOptions: function(dateRangeClassName) {
-            var _daterangeOptions = {
-                autoclose: true,
-                todayHighlight: true,
-                orientation: "top auto"
-            };
-            $("." + dateRangeClassName).datepicker(_daterangeOptions);
-        },
-        getStateForDateRangeChangeEvent: function(event, optionalDate=false) {
-            var _newVal = optionalDate || $(event.target).val();
-            var _format = "YYYY-MM-DD";
-            var _momentDate = moment(new Date(_newVal).toISOString()).format(_format);
-            if (moment(_momentDate).isAfter(moment())) {
-                _momentDate = moment(new Date().toISOString()).format(_format);
-            }
+    ui: {
+        // Note: setDateRangeOptions is removed since you're using react-datepicker now
+        // If you still need it, use react-datepicker props instead
+
+        getStateForDateRangeChangeEvent: function(event, optionalDate = false) {
+            const format = "YYYY-MM-DD";
+            let newVal;
+
             if (optionalDate) {
-                return _momentDate;
+                // Called from DatePicker with date object
+                newVal = optionalDate;
+            } else {
+                // Legacy support - shouldn't be needed with controlled inputs
+                console.warn('getStateForDateRangeChangeEvent called without optionalDate');
+                return null;
             }
-            var _id = $(event.target).attr('id');
-            var _set = {};
-            _set[_id] = _momentDate;
 
-            return _set;
+            let momentDate = moment(new Date(newVal).toISOString()).format(format);
+
+            // Don't allow future dates
+            if (moment(momentDate).isAfter(moment())) {
+                momentDate = moment(new Date().toISOString()).format(format);
+            }
+
+            return momentDate;
         }
-    };
+    }
+};

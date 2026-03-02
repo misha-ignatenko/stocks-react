@@ -1,197 +1,200 @@
-import React, { Component } from 'react';
-import { withTracker } from 'meteor/react-meteor-data';
+import React, { useState, useEffect } from 'react';
+import { useTracker } from 'meteor/react-meteor-data';
+import { Meteor } from 'meteor/meteor';
 import { Random } from 'meteor/random';
 
 import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings.jsx';
 
-class IndividualStock extends Component {
+function IndividualStock() {
+    const [individualStockStartDate, setIndividualStockStartDate] = useState(null);
+    const [individualStockEndDate, setIndividualStockEndDate] = useState(null);
+    const [selectedStock, setSelectedStock] = useState(null);
+    const [stocksToGraphObjects, setStocksToGraphObjects] = useState([]);
+    const [showRegisterNewAccountFields, setShowRegisterNewAccountFields] = useState(false);
+    const [showRegisterAccountBtn, setShowRegisterAccountBtn] = useState(true);
+    const [showAvgRatings, setShowAvgRatings] = useState(true);
+    const [showWeightedRating, setShowWeightedRating] = useState(true);
+    const [searchValue, setSearchValue] = useState('');
+    const [newUsername, setNewUsername] = useState('');
+    const [newPassword, setNewPassword] = useState(Random.id());
 
-    constructor(props) {
-        super(props);
+    const { currentUser } = useTracker(() => ({
+        currentUser: Meteor.user()
+    }), []);
 
-        this.state = {
-            individualStockStartDate: null,
-            individualStockEndDate: null,
-            selectedStock: null,
-            stocksToGraphObjects: [],
-            showRegisterNewAccountFields: false,
-            showRegisterAccountBtn: true
-            , showAvgRatings: true
-            , showWeightedRating: true
-        };
-
-        this.selectTab = this.selectTab.bind(this);
-        this.searchingStock = this.searchingStock.bind(this);
-        this.selectFirstSearchResult = this.selectFirstSearchResult.bind(this);
-        this.clearSelectedStock = this.clearSelectedStock.bind(this);
-    }
-
-    componentWillMount() {
-        if (_.isNull(Meteor.user())) {
-            var _username = Random.id() + "@ign-stocks.com";
-            var _password = Random.id();
-            return;
-            Accounts.createUser({
-                username: _username,
-                password: _password,
-                registered: false
-            });
+    useEffect(() => {
+        if (currentUser) {
+            setNewUsername(currentUser.username || '');
         }
-    }
-    searchingStock() {
-        $("#individualStockSearch").val($("#individualStockSearch").val().toUpperCase());
-        //TODO get rid of non-letter charachers (except for . -- allowed)
-    }
-    renderSearchResults() {
-        return (this.state.selectedStock) ? [] : null;
-    }
-    setSelectedStock(key) {
-        $("#individualStockSearch").val(key);
-        this.setState({
-            selectedStock: key,
-        });
-    }
-    clearSelectedStock() {
-        this.setState({
-            selectedStock: null,
-        });
-        $("#individualStockSearch").val("");
-    }
-    resetDateRange() {
-        $("#individualStockStartDate").val("");
-        $("#individualStockEndDate").val("");
-        this.setState({
-            individualStockStartDate: null,
-            individualStockEndDate: null
-        });
-    }
+    }, [currentUser]);
 
-    //TODO: add alert to prevent user from adding too many stocks
+    const searchingStock = (e) => {
+        setSearchValue(e.target.value.toUpperCase());
+    };
 
-    selectFirstSearchResult(event) {
+    const clearSelectedStock = () => {
+        setSelectedStock(null);
+        setSearchValue('');
+    };
+
+    const resetDateRange = () => {
+        setIndividualStockStartDate(null);
+        setIndividualStockEndDate(null);
+    };
+
+    const selectFirstSearchResult = async (event) => {
         if (event.keyCode === 13) {
-            var _that = this;
-            var _s = $("#individualStockSearch").val();
-            Meteor.call("insertNewStockSymbols", [_s], function (err, res) {
-                if (res[_s]) {
-                    _that.setSelectedStock(_s);
+            const symbol = searchValue;
+            try {
+                const res = await Meteor.callAsync("insertNewStockSymbols", [symbol]);
+                if (res[symbol]) {
+                    setSelectedStock(symbol);
                 } else {
-                    console.log("the symbol is invalid: ", _s);
-                    _that.clearSelectedStock();
+                    console.log("the symbol is invalid: ", symbol);
+                    clearSelectedStock();
                 }
-            });
+            } catch (err) {
+                console.error("Error inserting stock symbol:", err);
+                clearSelectedStock();
+            }
         }
-    }
-    showRegisterAccountFields() {
-        this.setState({
-            showRegisterNewAccountFields: true,
-            showRegisterAccountBtn: false
-        });
-    }
-    hideRegisterAccountFields() {
-        this.setState({
-            showRegisterNewAccountFields: false,
-            showRegisterAccountBtn: true
-        });
-    }
-    registerDummyUser() {
-        var _newUsername = React.findDOMNode(this.refs.fromDummyToReal_username).value.trim();
-        var _newPassword = React.findDOMNode(this.refs.fromDummyToReal_password).value.trim().toString();
-        if (_newUsername && _newPassword) {
-            var _that = this;
-            Meteor.call("registerRealAccountFromDummy", _newUsername, _newPassword, function(error, result) {
-                //make sure that dummy account was deleted and that you are logged in with the new real account credentials
-                //empty out fields and hide that menu
+    };
+
+    const showRegisterAccountFields = () => {
+        setShowRegisterNewAccountFields(true);
+        setShowRegisterAccountBtn(false);
+    };
+
+    const hideRegisterAccountFields = () => {
+        setShowRegisterNewAccountFields(false);
+        setShowRegisterAccountBtn(true);
+    };
+
+    const registerDummyUser = () => {
+        if (newUsername && newPassword) {
+            Meteor.call("registerRealAccountFromDummy", newUsername, newPassword, (error, result) => {
                 if (!error && result) {
                     Meteor.loginWithPassword(result.username, result.password);
-                    //_that.hideRegisterAccountFields();
                 }
             });
         }
-    }
+    };
 
-    selectTab(e) {
-        let _clickedTabId = $(e.target).attr("id");
+    const selectTab = (tabId) => {
+        setShowAvgRatings(tabId !== 'wgt');
+        setShowWeightedRating(tabId !== 'avg');
+    };
 
-        this.setState({
-            showAvgRatings: _clickedTabId === 'wgt' ? false : true,
-            showWeightedRating: _clickedTabId === 'avg' ? false : true
-        });
-    }
-
-    render() {
-        let _b = "btn btn-light";
-        let _ab = "btn btn-light active";
-
+    if (!currentUser) {
         return (
             <div className="container">
-                { this.props.currentUser ? <div>
-                    {this.props.currentUser.registered ? null :  (this.state.showRegisterAccountBtn) ? <button onClick={this.showRegisterAccountFields}>register account</button> : null }
-                    { !this.props.currentUser.registered && this.state.showRegisterNewAccountFields ? <div>
-                        username: <input ref="fromDummyToReal_username" value={this.props.currentUser.username}/>
-                        password: <input ref="fromDummyToReal_password" value={Random.id()}/>
-                        <br/>
-                        <button onClick={this.registerDummyUser}>register</button>
-                        <button onClick={this.hideRegisterAccountFields}>cancel</button>
-                    </div> : null }
-                    <br/>
-                    <br/>
-                    search for:
-                    <input className="individualStockSearch"
-                           id="individualStockSearch" onChange={this.searchingStock} onKeyDown={this.selectFirstSearchResult}/>
-                    <div id="individualStockSearchResults">{this.renderSearchResults()}</div>
-                    <br/>
-                    { this.state.selectedStock ? <div>
-                        selected stock:
-                        {this.state.selectedStock}<button onClick={this.clearSelectedStock}>clear</button>
-                    </div> : null}
-
-                    <div className="btn-group" role="group" aria-label="...">
-                        <button type="button" className={this.state.showAvgRatings && !this.state.showWeightedRating ? _ab : _b} id='avg' onClick={this.selectTab}>avg only</button>
-                        <button type="button" className={this.state.showAvgRatings && this.state.showWeightedRating ? _ab : _b} id='both' onClick={this.selectTab}>both</button>
-                        <button type="button" className={!this.state.showAvgRatings && this.state.showWeightedRating ? _ab : _b} id='wgt' onClick={this.selectTab}>wgt only</button>
-                    </div>
-                    {/*<br/>*/}
-                    { this.state.individualStockStartDate || this.state.individualStockEndDate ? <div>
-                        <button onClick={this.resetDateRange}>reset date range</button>
-                    </div> : null }
-                    {/*<br/>*/}
-                    {this.state.individualStockStartDate}
-                    {/*<br/>*/}
-                    {this.state.individualStockEndDate}
-                    {/*<br/>*/}
-
-                    { this.state.selectedStock && this.state.individualStockStartDate && this.state.individualStockEndDate ? <div>
-                        <br/>
-                        <br/>
-                        <h1>Details for {this.state.selectedStock}</h1>
-                        <div className="col-md-12 individualStockGraph">
-                            <StocksGraph
-                                stocksToGraphObjects={this.state.stocksToGraphObjects}/>
-                        </div>
-                    </div> : null}
-
-                    {this.state.selectedStock ?
-                        <div className="container">
-                            <AverageAndWeightedRatings
-                                earningsReleases={[]}
-                                symbol={this.state.selectedStock}
-                                showAvgRatings={this.state.showAvgRatings}
-                                showWeightedRating={this.state.showWeightedRating}/>
-                        </div> :
-                        null
-                    }
-
-                </div> : "You must be logged in to view this page."}
+                You must be logged in to view this page.
             </div>
-        )
+        );
     }
+
+    const _b = "btn btn-light";
+    const _ab = "btn btn-light active";
+
+    return (
+        <div className="container">
+            {!currentUser.registered && showRegisterAccountBtn && (
+                <button onClick={showRegisterAccountFields}>Register account</button>
+            )}
+
+            {!currentUser.registered && showRegisterNewAccountFields && (
+                <div>
+                    username:{' '}
+                    <input
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                    />
+                    password:{' '}
+                    <input
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <br/>
+                    <button onClick={registerDummyUser}>Register</button>
+                    <button onClick={hideRegisterAccountFields}>Cancel</button>
+                </div>
+            )}
+
+            <br/>
+            <br/>
+            search for:
+            <input
+                className="individualStockSearch"
+                value={searchValue}
+                onChange={searchingStock}
+                onKeyDown={selectFirstSearchResult}
+                placeholder="Enter stock symbol"
+            />
+            <br/>
+
+            {selectedStock && (
+                <div>
+                    selected stock: {selectedStock}
+                    <button onClick={clearSelectedStock}>Clear</button>
+                </div>
+            )}
+
+            <div className="btn-group" role="group" aria-label="...">
+                <button
+                    type="button"
+                    className={showAvgRatings && !showWeightedRating ? _ab : _b}
+                    onClick={() => selectTab('avg')}
+                >
+                    avg only
+                </button>
+                <button
+                    type="button"
+                    className={showAvgRatings && showWeightedRating ? _ab : _b}
+                    onClick={() => selectTab('both')}
+                >
+                    both
+                </button>
+                <button
+                    type="button"
+                    className={!showAvgRatings && showWeightedRating ? _ab : _b}
+                    onClick={() => selectTab('wgt')}
+                >
+                    wgt only
+                </button>
+            </div>
+
+            {(individualStockStartDate || individualStockEndDate) && (
+                <div>
+                    <button onClick={resetDateRange}>Reset date range</button>
+                </div>
+            )}
+
+            {individualStockStartDate}
+            {individualStockEndDate}
+
+            {selectedStock && individualStockStartDate && individualStockEndDate && (
+                <div>
+                    <br/>
+                    <br/>
+                    <h1>Details for {selectedStock}</h1>
+                    <div className="col-md-12 individualStockGraph">
+                        <StocksGraph stocksToGraphObjects={stocksToGraphObjects} />
+                    </div>
+                </div>
+            )}
+
+            {selectedStock && (
+                <div className="container">
+                    <AverageAndWeightedRatings
+                        earningsReleases={[]}
+                        symbol={selectedStock}
+                        showAvgRatings={showAvgRatings}
+                        showWeightedRating={showWeightedRating}
+                    />
+                </div>
+            )}
+        </div>
+    );
 }
 
-export default withTracker(() => {
-
-    let _user = Meteor.user();
-    return {
-        currentUser: _user
-    }
-})(IndividualStock);
+export default IndividualStock;
