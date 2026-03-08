@@ -289,6 +289,7 @@ Meteor.methods({
         check(symbol, String);
         check(maxRatingChangeDate, String);
         check(priceCheckDate, String);
+        await ServerUtils.runPremiumCheck(this);
         console.log(
             "getRegressionPerformance",
             symbol,
