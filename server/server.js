@@ -239,8 +239,15 @@ Meteor.methods({
             },
         ).fetchAsync();
 
+        // chronological time-of-day order: before open (2), during (3), after close (1), unknown (4)
+        const timeOfDayOrder = { 2: 1, 3: 2, 1: 3, 4: 4 };
         return _.uniq(
-            _.sortBy(releases, (e) => e.reportDateNextFiscalQuarter),
+            _.sortBy(
+                releases,
+                (e) =>
+                    e.reportDateNextFiscalQuarter * 10 +
+                    (timeOfDayOrder[e.reportTimeOfDayCode] ?? 4),
+            ),
             false,
             (e) => `${e.reportDateNextFiscalQuarter}-${e.symbol}`,
         );

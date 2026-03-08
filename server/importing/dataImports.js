@@ -176,8 +176,8 @@ Meteor.methods({
 
             const asOf = moment().format(Utils.dateFormat);
             const lastModified = new Date();
-            const from = moment().format("YYYY-MM-DD");
-            const to = moment().add(60, "days").format("YYYY-MM-DD");
+            const from = moment().format(Utils.dateFormat);
+            const to = Utils.businessAdd(from, 5);
 
             const data = await new Promise((resolve, reject) => {
                 finnhubClient.earningsCalendar({ from, to }, (error, data) => {
