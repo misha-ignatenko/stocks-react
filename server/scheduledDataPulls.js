@@ -17,8 +17,8 @@ Meteor.startup(function () {
         });
     }, TZ);
 
-    // 2:30am & 9:30am Eastern (offset by 30min to avoid overlap)
-    cron.schedule("30 2,9 * * *", () => {
+    // 2:05am & 9:05am Eastern (offset by 5min to avoid overlap)
+    cron.schedule("5 2,9 * * *", () => {
         console.log("Running: earnings releases (yahoo)");
         Meteor.callAsync("importEarningsReleasesFromYahoo").catch((error) => {
             console.error("Error in earnings releases (yahoo) cron:", error);
@@ -36,8 +36,8 @@ Meteor.startup(function () {
         emailResults: true,
     };
 
-    // every weekday at 9:30am Eastern
-    cron.schedule("30 9 * * 1-5", () => {
+    // every weekday at 9:45am Eastern
+    cron.schedule("45 9 * * 1-5", () => {
         console.log("Running: 1st job");
         Meteor.callAsync("getEarningsAnalysis", {
             startDate: Utils.businessAdd(Utils.todaysDate(), 1),
