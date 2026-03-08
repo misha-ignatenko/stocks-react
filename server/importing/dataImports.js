@@ -163,10 +163,11 @@ Meteor.methods({
         return { numInserted, numUpdated, numSkipped };
     },
 
-    async importEarningsReleasesFromFinnhub() {
+    async importEarningsReleasesFromFinnhub({ daysAhead }) {
+        check(daysAhead, Number);
         await Email.send({
-            subject: "getting earnings releases (finnhub)",
-            text: JSON.stringify({ timeNow: new Date() }),
+            subject: `getting earnings releases (finnhub, ${daysAhead}d)`,
+            text: JSON.stringify({ timeNow: new Date(), daysAhead }),
         });
         try {
             const apiKey = await Utils.getCachedSetting(
@@ -177,7 +178,7 @@ Meteor.methods({
             const asOf = moment().format(Utils.dateFormat);
             const lastModified = new Date();
             const from = moment().format(Utils.dateFormat);
-            const to = Utils.businessAdd(from, 5);
+            const to = Utils.businessAdd(from, daysAhead);
 
             const data = await new Promise((resolve, reject) => {
                 finnhubClient.earningsCalendar({ from, to }, (error, data) => {
@@ -256,15 +257,16 @@ Meteor.methods({
             });
             const result = { numInserted, numUpdated, numSkipped };
             await Email.send({
-                subject: "DONE getting earnings releases (finnhub)",
-                text: JSON.stringify({ timeNow: new Date(), ...result }),
+                subject: `DONE getting earnings releases (finnhub, ${daysAhead}d)`,
+                text: JSON.stringify({ timeNow: new Date(), daysAhead, ...result }),
             });
             return result;
         } catch (error) {
             await Email.send({
-                subject: "ERROR from getting earnings releases (finnhub)",
+                subject: `ERROR from getting earnings releases (finnhub, ${daysAhead}d)`,
                 text: JSON.stringify({
                     timeNow: new Date(),
+                    daysAhead,
                     errorString: error.toString(),
                 }),
             });

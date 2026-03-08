@@ -25,11 +25,19 @@ Meteor.startup(function () {
         });
     }, TZ);
 
-    // 2:10am & 9:10am Eastern
+    // 2:10am & 9:10am Eastern (2 days ahead)
     cron.schedule("10 2,9 * * *", () => {
-        console.log("Running: earnings releases (finnhub)");
-        Meteor.callAsync("importEarningsReleasesFromFinnhub").catch((error) => {
-            console.error("Error in earnings releases (finnhub) cron:", error);
+        console.log("Running: earnings releases (finnhub, 2d)");
+        Meteor.callAsync("importEarningsReleasesFromFinnhub", { daysAhead: 2 }).catch((error) => {
+            console.error("Error in earnings releases (finnhub, 2d) cron:", error);
+        });
+    }, TZ);
+
+    // 2:15am & 9:15am Eastern (5 days ahead)
+    cron.schedule("15 2,9 * * *", () => {
+        console.log("Running: earnings releases (finnhub, 5d)");
+        Meteor.callAsync("importEarningsReleasesFromFinnhub", { daysAhead: 5 }).catch((error) => {
+            console.error("Error in earnings releases (finnhub, 5d) cron:", error);
         });
     }, TZ);
 
