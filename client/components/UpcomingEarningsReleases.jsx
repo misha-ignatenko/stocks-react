@@ -8,17 +8,18 @@ import { Utils } from "../../lib/utils";
 export const UpcomingEarningsReleases = () => {
     const [earningsReleases, setEarningsReleases] = useState(null);
 
-    const user = useTracker(
-        () => Meteor.user({ fields: { registered: 1 } }),
-        [],
-    );
+    const { user, loggingIn } = useTracker(() => ({
+        user: Meteor.user({ fields: { registered: 1 } }),
+        loggingIn: Meteor.loggingIn(),
+    }), []);
 
     useEffect(() => {
+        if (loggingIn) return;
         setEarningsReleases(null);
         Meteor.call("getUpcomingEarningsReleases", (err, res) => {
             if (!err) setEarningsReleases(res);
         });
-    }, [user]);
+    }, [user, loggingIn]);
 
     const exportCSV = () => {
         Utils.download_table_as_csv("upcomingEarningsReleases");
