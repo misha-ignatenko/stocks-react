@@ -1,4 +1,8 @@
-import { RatingChanges, EarningsReleases } from "../lib/collections";
+import {
+    RatingChanges,
+    EarningsReleases,
+    EarningsReleasesYahooMonitoring,
+} from "../lib/collections";
 
 RatingChanges.createIndex({ dateString: 1, researchFirmId: 1, symbol: 1 });
 RatingChanges.createIndex({ dateString: 1, symbol: 1 });
@@ -24,3 +28,10 @@ EarningsReleases.createIndex({
     asOf: -1,
 });
 EarningsReleases.createIndex({ asOf: -1 });
+
+EarningsReleasesYahooMonitoring.createIndex({
+    reportDateNextFiscalQuarter: 1,
+    symbol: 1,
+});
+EarningsReleasesYahooMonitoring.createIndex({ symbol: 1, asOf: -1 });
+EarningsReleasesYahooMonitoring.createIndex({ asOf: -1 });
