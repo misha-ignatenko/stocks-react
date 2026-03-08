@@ -8,160 +8,16 @@ import { Utils } from "../../lib/utils";
 import {
     SymbolMappings,
     EarningsReleases,
-    EarningsReleasesYahooMonitoring,
     EarningsReleasesFinnhubMonitoring,
-    Stocks,
     ResearchCompanies,
     RatingScales,
     RatingChanges,
 } from "../../lib/collections";
-import { yahooFinance } from "../utils";
 const { DefaultApi: FinnhubDefaultApi } = require("finnhub");
 
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
-    async importEarningsReleasesFromYahoo() {
-        await Email.send({
-            subject: "getting earnings releases (yahoo)",
-            text: JSON.stringify({ timeNow: new Date() }),
-        });
-        try {
-            const symbols = await Stocks.rawCollection().distinct("_id", {
-                delisted: { $exists: false },
-            });
-            const result = await Meteor.callAsync(
-                "importEarningsReleasesFromYahooForSymbols",
-                symbols,
-            );
-            await Email.send({
-                subject: "DONE getting earnings releases (yahoo)",
-                text: JSON.stringify({ timeNow: new Date(), ...result }),
-            });
-            return result;
-        } catch (error) {
-            await Email.send({
-                subject: "ERROR from getting earnings releases (yahoo)",
-                text: JSON.stringify({
-                    timeNow: new Date(),
-                    errorString: error.toString(),
-                }),
-            });
-        }
-    },
-
-    async importEarningsReleasesFromYahooForSymbols(symbols) {
-        check(symbols, [String]);
-        symbols = symbols.map((s) => s.toUpperCase());
-        const asOf = moment().format(Utils.dateFormat);
-        const lastModified = new Date();
-
-        let numInserted = 0;
-        let numUpdated = 0;
-        let numSkipped = 0;
-
-        const DELAY_BETWEEN_SYMBOLS_MS = 100;
-
-        for (const symbol of symbols) {
-            try {
-                console.log("fetching summary for symbol: ", symbol);
-                const summary = await yahooFinance.quoteSummary(
-                    symbol,
-                    {
-                        modules: [
-                            "calendarEvents",
-                            "earningsTrend",
-                            "earningsHistory",
-                            "price",
-                        ],
-                    },
-                    { validateResult: false },
-                );
-                const earningsDate =
-                    summary.calendarEvents?.earnings?.earningsDate?.[0];
-                if (!earningsDate) {
-                    numSkipped++;
-                    continue;
-                }
-
-                const currentQuarterTrend = summary.earningsTrend?.trend?.find(
-                    (t) => t.period === "0q",
-                );
-                const history = summary.earningsHistory?.history ?? [];
-
-                const reportDateNextFiscalQuarter = Utils.convertToNumberDate(
-                    moment(earningsDate).format(Utils.dateFormat),
-                );
-                const endDateNextFiscalQuarter = currentQuarterTrend?.endDate
-                    ? Utils.convertToNumberDate(
-                          moment(currentQuarterTrend.endDate).format(
-                              Utils.dateFormat,
-                          ),
-                      )
-                    : null;
-                const epsMeanEstimateNextFiscalQuarter =
-                    currentQuarterTrend?.earningsEstimate?.avg ?? null;
-                const epsActualPreviousFiscalQuarter =
-                    history[0]?.epsActual ?? null;
-                const epsActualOneYearAgoFiscalQuarter =
-                    history[3]?.epsActual ?? null;
-                const companyName =
-                    summary.price?.longName ?? summary.price?.shortName ?? null;
-                const isEarningsDateEstimate =
-                    summary.calendarEvents?.earnings?.isEarningsDateEstimate ??
-                    true;
-
-                const record = {
-                    symbol,
-                    asOf,
-                    lastModified,
-                    reportDateNextFiscalQuarter,
-                    endDateNextFiscalQuarter,
-                    epsMeanEstimateNextFiscalQuarter,
-                    epsActualPreviousFiscalQuarter,
-                    epsActualOneYearAgoFiscalQuarter,
-                    companyName,
-                    isEarningsDateEstimate,
-                };
-
-                const dataQuery = _.omit(record, ["asOf", "lastModified"]);
-                const existing =
-                    await EarningsReleasesYahooMonitoring.findOneAsync(
-                        dataQuery,
-                    );
-
-                if (existing) {
-                    await EarningsReleasesYahooMonitoring.updateAsync(
-                        existing._id,
-                        { $set: { asOf, lastModified } },
-                    );
-                    numUpdated++;
-                } else {
-                    await EarningsReleasesYahooMonitoring.insertAsync({
-                        ...record,
-                        insertedDate: lastModified,
-                        insertedDateStr: asOf,
-                    });
-                    numInserted++;
-                }
-            } catch (error) {
-                console.log(
-                    "importEarningsReleasesFromYahoo error",
-                    symbol,
-                    error.message,
-                );
-                numSkipped++;
-            }
-            await new Promise((r) => setTimeout(r, DELAY_BETWEEN_SYMBOLS_MS));
-        }
-
-        console.log("importEarningsReleasesFromYahoo done", {
-            numInserted,
-            numUpdated,
-            numSkipped,
-        });
-        return { numInserted, numUpdated, numSkipped };
-    },
 
     async importEarningsReleasesFromFinnhub({ daysAhead }) {
         check(daysAhead, Number);

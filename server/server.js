@@ -7,7 +7,6 @@ const momentBiz = require("moment-business-days");
 const { performance } = require("perf_hooks");
 import {
     EarningsReleases,
-    EarningsReleasesYahooMonitoring,
     EarningsReleasesFinnhubMonitoring,
     RatingChanges,
     ResearchCompanies,
@@ -198,29 +197,6 @@ Meteor.methods({
             e.key = `${e.reportDateNextFiscalQuarter}-${e.reportTimeOfDayCode}-${e.symbol}`;
         });
         return _.uniq(sorted, false, (e) => e.key);
-    },
-
-    async getUpcomingEarningsReleasesYahoo() {
-        const startDate = +moment().format(YYYYMMDD);
-        const endDate = +moment().add(10, "days").format(YYYYMMDD);
-
-        const releases = await EarningsReleasesYahooMonitoring.find(
-            {
-                reportDateNextFiscalQuarter: {
-                    $gte: startDate,
-                    $lte: endDate,
-                },
-            },
-            {
-                sort: { reportDateNextFiscalQuarter: 1, asOf: -1 },
-            },
-        ).fetchAsync();
-
-        return _.uniq(
-            _.sortBy(releases, (e) => e.reportDateNextFiscalQuarter),
-            false,
-            (e) => `${e.reportDateNextFiscalQuarter}-${e.symbol}`,
-        );
     },
 
     async getUpcomingEarningsReleasesFinnhub() {

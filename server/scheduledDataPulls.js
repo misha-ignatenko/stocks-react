@@ -17,14 +17,6 @@ Meteor.startup(function () {
         });
     }, TZ);
 
-    // 2:05am & 9:05am Eastern (offset by 5min to avoid overlap)
-    cron.schedule("5 2,9 * * *", () => {
-        console.log("Running: earnings releases (yahoo)");
-        Meteor.callAsync("importEarningsReleasesFromYahoo").catch((error) => {
-            console.error("Error in earnings releases (yahoo) cron:", error);
-        });
-    }, TZ);
-
     // 2:10am & 9:10am Eastern (2 days ahead)
     cron.schedule("10 2,9 * * *", () => {
         console.log("Running: earnings releases (finnhub, 2d)");
