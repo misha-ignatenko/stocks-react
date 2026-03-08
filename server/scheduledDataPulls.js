@@ -15,6 +15,14 @@ Meteor.startup(function () {
         });
     });
 
+    // 7am & 2pm utc (offset by 30min to avoid overlap)
+    cron.schedule("30 7,14 * * *", () => {
+        console.log("Running: earnings releases (yahoo)");
+        Meteor.callAsync("importEarningsReleasesFromYahoo").catch((error) => {
+            console.error("Error in earnings releases (yahoo) cron:", error);
+        });
+    });
+
     const baseOptions = {
         advancePurchaseDays: 1,
         saleDelayInDays: 2,
