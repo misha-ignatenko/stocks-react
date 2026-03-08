@@ -9,12 +9,14 @@ import {
     SymbolMappings,
     EarningsReleases,
     EarningsReleasesYahooMonitoring,
+    EarningsReleasesFinnhubMonitoring,
     Stocks,
     ResearchCompanies,
     RatingScales,
     RatingChanges,
 } from "../../lib/collections";
 import { yahooFinance } from "../utils";
+const { DefaultApi: FinnhubDefaultApi } = require("finnhub");
 
 var _totalMaxGradingValue = 120;
 
@@ -159,6 +161,114 @@ Meteor.methods({
             numSkipped,
         });
         return { numInserted, numUpdated, numSkipped };
+    },
+
+    async importEarningsReleasesFromFinnhub() {
+        await Email.send({
+            subject: "getting earnings releases (finnhub)",
+            text: JSON.stringify({ timeNow: new Date() }),
+        });
+        try {
+            const apiKey = await Utils.getCachedSetting(
+                "dataImports.earningsReleases.finnhubApiKey",
+            );
+            const finnhubClient = new FinnhubDefaultApi(apiKey);
+
+            const asOf = moment().format(Utils.dateFormat);
+            const lastModified = new Date();
+            const from = moment().format("YYYY-MM-DD");
+            const to = moment().add(60, "days").format("YYYY-MM-DD");
+
+            const data = await new Promise((resolve, reject) => {
+                finnhubClient.earningsCalendar({ from, to }, (error, data) => {
+                    if (error) reject(error);
+                    else resolve(data);
+                });
+            });
+            const entries = data?.earningsCalendar ?? [];
+
+            // bmo = before market open, amc = after market close, dmh = during market hours
+            const hourToTimeOfDayCode = { bmo: 2, amc: 1, dmh: 3 };
+
+            let numInserted = 0;
+            let numUpdated = 0;
+            let numSkipped = 0;
+
+            for (const entry of entries) {
+                try {
+                    const { symbol, date, hour, epsEstimate, quarter, year } =
+                        entry;
+                    if (!symbol || !date) {
+                        numSkipped++;
+                        continue;
+                    }
+
+                    const reportDateNextFiscalQuarter =
+                        Utils.convertToNumberDate(date);
+                    const reportTimeOfDayCode =
+                        hourToTimeOfDayCode[hour] ?? 4;
+
+                    const record = {
+                        symbol,
+                        asOf,
+                        lastModified,
+                        reportDateNextFiscalQuarter,
+                        reportTimeOfDayCode,
+                        epsMeanEstimateNextFiscalQuarter: epsEstimate ?? null,
+                        quarter: quarter ?? null,
+                        year: year ?? null,
+                    };
+
+                    const dataQuery = _.omit(record, ["asOf", "lastModified"]);
+                    const existing =
+                        await EarningsReleasesFinnhubMonitoring.findOneAsync(
+                            dataQuery,
+                        );
+
+                    if (existing) {
+                        await EarningsReleasesFinnhubMonitoring.updateAsync(
+                            existing._id,
+                            { $set: { asOf, lastModified } },
+                        );
+                        numUpdated++;
+                    } else {
+                        await EarningsReleasesFinnhubMonitoring.insertAsync({
+                            ...record,
+                            insertedDate: lastModified,
+                            insertedDateStr: asOf,
+                        });
+                        numInserted++;
+                    }
+                } catch (error) {
+                    console.log(
+                        "importEarningsReleasesFromFinnhub entry error",
+                        entry?.symbol,
+                        error.message,
+                    );
+                    numSkipped++;
+                }
+            }
+
+            console.log("importEarningsReleasesFromFinnhub done", {
+                numInserted,
+                numUpdated,
+                numSkipped,
+            });
+            const result = { numInserted, numUpdated, numSkipped };
+            await Email.send({
+                subject: "DONE getting earnings releases (finnhub)",
+                text: JSON.stringify({ timeNow: new Date(), ...result }),
+            });
+            return result;
+        } catch (error) {
+            await Email.send({
+                subject: "ERROR from getting earnings releases (finnhub)",
+                text: JSON.stringify({
+                    timeNow: new Date(),
+                    errorString: error.toString(),
+                }),
+            });
+        }
     },
 
     async importEarningsReleases() {

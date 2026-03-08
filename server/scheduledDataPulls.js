@@ -25,6 +25,14 @@ Meteor.startup(function () {
         });
     }, TZ);
 
+    // 2:10am & 9:10am Eastern
+    cron.schedule("10 2,9 * * *", () => {
+        console.log("Running: earnings releases (finnhub)");
+        Meteor.callAsync("importEarningsReleasesFromFinnhub").catch((error) => {
+            console.error("Error in earnings releases (finnhub) cron:", error);
+        });
+    }, TZ);
+
     const baseOptions = {
         advancePurchaseDays: 1,
         saleDelayInDays: 2,
