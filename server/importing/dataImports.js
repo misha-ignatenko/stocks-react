@@ -72,14 +72,18 @@ Meteor.methods({
             for (const symbol of batch) {
                 try {
                     console.log("fetching summary for symbol: ", symbol);
-                    const summary = await yahooFinance.quoteSummary(symbol, {
-                        modules: [
-                            "calendarEvents",
-                            "earningsTrend",
-                            "earningsHistory",
-                            "price",
-                        ],
-                    });
+                    const summary = await yahooFinance.quoteSummary(
+                        symbol,
+                        {
+                            modules: [
+                                "calendarEvents",
+                                "earningsTrend",
+                                "earningsHistory",
+                                "price",
+                            ],
+                        },
+                        { validateResult: false },
+                    );
                     const earningsDate =
                         summary.calendarEvents?.earnings?.earningsDate?.[0];
                     if (!earningsDate) {
