@@ -11,11 +11,21 @@ import {
     Settings,
 } from "../lib/collections";
 import { Meteor } from "meteor/meteor";
+import { MongoInternals } from "meteor/mongo";
 import { Email } from "./email";
 import YahooFinance from "yahoo-finance2";
 export const yahooFinance = new YahooFinance();
 
 export const ServerUtils = {
+    dropCollection(collectionName) {
+        const driver = MongoInternals.defaultRemoteCollectionDriver();
+        driver.mongo.db.dropCollection(collectionName).then(result => {
+            console.log('collection dropped: ', result);
+        }).catch(error => {
+            console.log('there was an error while removing collection: ', error);
+        });
+    },
+
     async setSetting(field, value) {
         return await Settings.updateAsync(await Utils.getSetting("_id"), {
             $set: {

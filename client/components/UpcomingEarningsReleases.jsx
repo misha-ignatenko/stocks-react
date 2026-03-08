@@ -9,7 +9,6 @@ const TIME_OF_DAY_MAP = { 1: "After market close", 2: "Before the open", 3: "Dur
 
 export const UpcomingEarningsReleases = () => {
     const [earningsReleases, setEarningsReleases] = useState(null);
-    const [yahooReleases, setYahooReleases] = useState(null);
     const [finnhubReleases, setFinnhubReleases] = useState(null);
 
     const { user, loggingIn } = useTracker(() => ({
@@ -20,13 +19,9 @@ export const UpcomingEarningsReleases = () => {
     useEffect(() => {
         if (loggingIn) return;
         setEarningsReleases(null);
-        setYahooReleases(null);
         setFinnhubReleases(null);
         Meteor.call("getUpcomingEarningsReleases", (err, res) => {
             if (!err) setEarningsReleases(res);
-        });
-        Meteor.call("getUpcomingEarningsReleasesYahoo", (err, res) => {
-            if (!err) setYahooReleases(res);
         });
         Meteor.call("getUpcomingEarningsReleasesFinnhub", (err, res) => {
             if (!err) setFinnhubReleases(res);
@@ -71,56 +66,6 @@ export const UpcomingEarningsReleases = () => {
                 </div>
             ) : (
                 <h3>there are no earnings releases.</h3>
-            )}
-
-            <hr />
-            <h4>Yahoo Finance (monitoring)</h4>
-            {yahooReleases === null ? (
-                "getting yahoo earnings releases."
-            ) : yahooReleases.length ? (
-                <div>
-                    <button
-                        type="button"
-                        className="btn btn-light"
-                        onClick={() => Utils.download_table_as_csv("upcomingEarningsReleasesYahoo")}
-                    >
-                        Export as a CSV
-                    </button>
-                    <br />
-                    <br />
-                    <Table id="upcomingEarningsReleasesYahoo" bordered>
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th>Company</th>
-                                <th>Report Date</th>
-                                <th>Is Estimate</th>
-                                <th>End Date</th>
-                                <th>EPS Est.</th>
-                                <th>EPS Prev Qt</th>
-                                <th>EPS 1yr Ago</th>
-                                <th>As Of</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {yahooReleases.map((e) => (
-                                <tr key={`${e.reportDateNextFiscalQuarter}-${e.symbol}`}>
-                                    <td>{e.symbol}</td>
-                                    <td>{e.companyName}</td>
-                                    <td>{e.reportDateNextFiscalQuarter}</td>
-                                    <td>{e.isEarningsDateEstimate ? "Yes" : "No"}</td>
-                                    <td>{e.endDateNextFiscalQuarter ?? ""}</td>
-                                    <td>{e.epsMeanEstimateNextFiscalQuarter ?? ""}</td>
-                                    <td>{e.epsActualPreviousFiscalQuarter ?? ""}</td>
-                                    <td>{e.epsActualOneYearAgoFiscalQuarter ?? ""}</td>
-                                    <td>{e.asOf}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </Table>
-                </div>
-            ) : (
-                <h3>there are no yahoo earnings releases.</h3>
             )}
 
             <hr />

@@ -1,7 +1,6 @@
 import {
     RatingChanges,
     EarningsReleases,
-    EarningsReleasesYahooMonitoring,
     EarningsReleasesFinnhubMonitoring,
 } from "../lib/collections";
 
@@ -29,13 +28,6 @@ EarningsReleases.createIndex({
     asOf: -1,
 });
 EarningsReleases.createIndex({ asOf: -1 });
-
-EarningsReleasesYahooMonitoring.createIndex({
-    reportDateNextFiscalQuarter: 1,
-    symbol: 1,
-});
-EarningsReleasesYahooMonitoring.createIndex({ symbol: 1, asOf: -1 });
-EarningsReleasesYahooMonitoring.createIndex({ asOf: -1 });
 
 EarningsReleasesFinnhubMonitoring.createIndex({
     reportDateNextFiscalQuarter: 1,

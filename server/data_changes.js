@@ -1,11 +1,12 @@
 import { EJSON } from "meteor/ejson";
 import moment from "moment-timezone";
 import _ from "underscore";
-import { MongoInternals } from "meteor/mongo";
 import { Meteor } from "meteor/meteor";
+import { Utils } from "../lib/utils";
+import { ServerUtils } from "./utils";
+import { RatingChanges, EarningsReleases, Stocks } from "../lib/collections";
 
-/*
-Utils.migrateAddedOnDate = (startDate, endDate) => {
+ServerUtils.migrateAddedOnDate = (startDate, endDate) => {
     // correct `addedOn` date formats
     RatingChanges.find(
         {
@@ -26,7 +27,7 @@ Utils.migrateAddedOnDate = (startDate, endDate) => {
     });
 };
 
-Utils.migrateDate = function (startDate, endDate) {
+ServerUtils.migrateDate = function (startDate, endDate) {
     // correct `date` date formats
     RatingChanges.find(
         {
@@ -47,6 +48,7 @@ Utils.migrateDate = function (startDate, endDate) {
     });
 };
 
+/*
 // remove old `quote` field
 Stocks.find({
     quote: {$exists: true},
@@ -61,18 +63,12 @@ Stocks.find({
 });
 */
 
-/*
-Utils.removePickListItems = function () {
-    const driver = MongoInternals.defaultRemoteCollectionDriver();
-    driver.mongo.db.dropCollection('pickListItems').then(result => {
-        console.log('result: ', result);
-    }).catch(error => {
-        console.log('there was an error: ', error);
-    });
+ServerUtils.removePickListItems = function () {
+    ServerUtils.dropCollection('pickListItems');
 };
-// Utils.removePickListItems();
+// ServerUtils.removePickListItems();
 
-Utils.removeIndividualStocksAccess = () => {
+ServerUtils.removeIndividualStocksAccess = () => {
     Meteor.users.find({
         individualStocksAccess: {$exists: true},
     }, {
@@ -85,19 +81,9 @@ Utils.removeIndividualStocksAccess = () => {
         Meteor.users.update(user._id, {$unset: {individualStocksAccess: 1}});
     });
 };
-Utils.removeIndividualStocksAccess();
+// ServerUtils.removeIndividualStocksAccess();
 
-Utils.dropCollection = function (collectionName) {
-    const driver = MongoInternals.defaultRemoteCollectionDriver();
-    driver.mongo.db.dropCollection(collectionName).then(result => {
-        console.log('collection dropped: ', result);
-    }).catch(error => {
-        console.log('there was an error while removing collection: ', error);
-    });
-};
-// Utils.dropCollection('quandlDataPullErrors');
-
-*/
+// ServerUtils.dropCollection('quandlDataPullErrors');
 
 /*
 // initialize `insertedDateStr`
