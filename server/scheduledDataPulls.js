@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import _ from "underscore";
+import moment from "moment-timezone";
 import { Meteor } from "meteor/meteor";
 import { Utils } from "../lib/utils";
 
@@ -32,6 +33,17 @@ Meteor.startup(function () {
             console.error("Error in earnings releases (finnhub, 5d) cron:", error);
         });
     }, TZ);
+
+    // 2:20am-2:24am & 9:20am-9:24am Eastern (nasdaq, +0 to +4 business days)
+    [0, 1, 2, 3, 4].forEach((offset) => {
+        cron.schedule(`${20 + offset} 2,9 * * *`, () => {
+            const date = Utils.businessAdd(moment().format(Utils.dateFormat), offset);
+            console.log(`Running: earnings releases (nasdaq, +${offset}bd, ${date})`);
+            Meteor.callAsync("importEarningsReleasesFromNasdaq", { date }).catch((error) => {
+                console.error(`Error in earnings releases (nasdaq, +${offset}bd) cron:`, error);
+            });
+        }, TZ);
+    });
 
     const baseOptions = {
         advancePurchaseDays: 1,

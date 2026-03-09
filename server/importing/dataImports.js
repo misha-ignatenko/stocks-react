@@ -9,6 +9,7 @@ import {
     SymbolMappings,
     EarningsReleases,
     EarningsReleasesFinnhubMonitoring,
+    EarningsReleasesNasdaqMonitoring,
     ResearchCompanies,
     RatingScales,
     RatingChanges,
@@ -125,6 +126,121 @@ Meteor.methods({
                     daysAhead,
                     errorString: error.toString(),
                 }),
+            });
+        }
+    },
+
+    async importEarningsReleasesFromNasdaq({ date }) {
+        check(date, String); // YYYY-MM-DD
+        await Email.send({
+            subject: `getting earnings releases (nasdaq, ${date})`,
+            text: JSON.stringify({ timeNow: new Date(), date }),
+        });
+        try {
+            const url = `https://api.nasdaq.com/api/calendar/earnings?date=${date}`;
+            const response = await fetch(url, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept": "application/json",
+                },
+            });
+            const json = await response.json();
+            const rows = json?.data?.rows ?? [];
+
+            const timeMap = {
+                "time-pre-market": 2,
+                "time-after-hours": 1,
+                "time-during-market": 3,
+                "time-not-supplied": 4,
+            };
+            const monthToQuarter = {
+                Jan: 1, Feb: 1, Mar: 1,
+                Apr: 2, May: 2, Jun: 2,
+                Jul: 3, Aug: 3, Sep: 3,
+                Oct: 4, Nov: 4, Dec: 4,
+            };
+            const parseEps = (str) => {
+                if (!str || str === "N/A") return null;
+                const negative = str.startsWith("(");
+                const num = parseFloat(str.replace(/[$(),]/g, ""));
+                return isNaN(num) ? null : (negative ? -num : num);
+            };
+
+            const asOf = moment().format(Utils.dateFormat);
+            const lastModified = new Date();
+            const reportDateNextFiscalQuarter = Utils.convertToNumberDate(date);
+
+            let numInserted = 0;
+            let numUpdated = 0;
+            let numSkipped = 0;
+
+            for (const row of rows) {
+                try {
+                    const { symbol, time, epsForecast, fiscalQuarterEnding, noOfEsts, lastYearEPS, name } = row;
+                    if (!symbol) { numSkipped++; continue; }
+
+                    const reportTimeOfDayCode = timeMap[time];
+                    if (reportTimeOfDayCode === undefined) throw new Error(`unknown time value: ${time}`);
+                    const epsMeanEstimateNextFiscalQuarter = parseEps(epsForecast);
+
+                    let quarter = null;
+                    let year = null;
+                    if (fiscalQuarterEnding && fiscalQuarterEnding !== "N/A") {
+                        const [monthStr, yearStr] = fiscalQuarterEnding.split("/");
+                        quarter = monthToQuarter[monthStr] ?? null;
+                        year = yearStr ? parseInt(yearStr) : null;
+                    }
+
+                    const numEstimates = noOfEsts === "N/A" ? null : parseInt(noOfEsts);
+
+                    const record = {
+                        symbol,
+                        asOf,
+                        lastModified,
+                        reportDateNextFiscalQuarter,
+                        reportTimeOfDayCode,
+                        epsMeanEstimateNextFiscalQuarter,
+                        quarter,
+                        year,
+                        numEstimates: isNaN(numEstimates) ? null : numEstimates,
+                        name: name ?? null,
+                        lastYearEPS: parseEps(lastYearEPS),
+                    };
+
+                    const dataQuery = _.omit(record, ["asOf", "lastModified"]);
+                    const existing = await EarningsReleasesNasdaqMonitoring.findOneAsync(dataQuery);
+
+                    if (existing) {
+                        await EarningsReleasesNasdaqMonitoring.updateAsync(
+                            existing._id,
+                            { $set: { asOf, lastModified } },
+                        );
+                        numUpdated++;
+                    } else {
+                        await EarningsReleasesNasdaqMonitoring.insertAsync({
+                            ...record,
+                            insertedDate: lastModified,
+                            insertedDateStr: asOf,
+                        });
+                        numInserted++;
+                    }
+                } catch (error) {
+                    console.log("importEarningsReleasesFromNasdaq entry error", row?.symbol, error.message);
+                    numSkipped++;
+                }
+            }
+
+            const result = { numInserted, numUpdated, numSkipped };
+            console.log("importEarningsReleasesFromNasdaq done", result);
+            await Email.send({
+                subject: `DONE getting earnings releases (nasdaq, ${date})`,
+                text: JSON.stringify({ timeNow: new Date(), date, ...result }),
+            });
+            return result;
+        } catch (error) {
+            await Email.send({
+                subject: `ERROR from getting earnings releases (nasdaq, ${date})`,
+                text: JSON.stringify({ timeNow: new Date(), date, errorString: error.toString() }),
             });
         }
     },
