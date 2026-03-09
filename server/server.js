@@ -150,8 +150,8 @@ Meteor.methods({
             : await Utils.getCachedSetting(
                   "clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser",
               );
-        const startDate = +moment().format(YYYYMMDD);
-        const endDate = +moment().add(daysToAdd, "days").format(YYYYMMDD);
+        const startDate = Utils.convertToNumberDate(Utils.todaysDate());
+        const endDate = Utils.convertToNumberDate(Utils.businessAdd(Utils.todaysDate(), daysToAdd));
 
         const closestWeekDay = +(await Utils.getClosestPreviousWeekDayDateByCutoffTime(
             undefined,

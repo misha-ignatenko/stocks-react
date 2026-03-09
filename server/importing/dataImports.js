@@ -1,5 +1,4 @@
 import { check, Match } from "meteor/check";
-import moment from "moment-timezone";
 import _ from "underscore";
 import { Meteor } from "meteor/meteor";
 import { Email } from "../email";
@@ -32,9 +31,9 @@ Meteor.methods({
             );
             const finnhubClient = new FinnhubDefaultApi(apiKey);
 
-            const asOf = moment().format(Utils.dateFormat);
+            const asOf = Utils.todaysDate();
             const lastModified = new Date();
-            const from = moment().format(Utils.dateFormat);
+            const from = Utils.todaysDate();
             const to = Utils.businessAdd(from, daysAhead);
 
             const data = await new Promise((resolve, reject) => {
@@ -166,7 +165,7 @@ Meteor.methods({
                 return isNaN(num) ? null : (negative ? -num : num);
             };
 
-            const asOf = moment().format(Utils.dateFormat);
+            const asOf = Utils.todaysDate();
             const lastModified = new Date();
             const reportDateNextFiscalQuarter = Utils.convertToNumberDate(date);
 
@@ -256,7 +255,7 @@ Meteor.methods({
         let numInserted = 0;
 
         const expectedNumberOfColumns = 24;
-        const today = moment().format(Utils.dateFormat);
+        const today = Utils.todaysDate();
 
         try {
             let cursorID;

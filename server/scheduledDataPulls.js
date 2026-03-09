@@ -1,6 +1,5 @@
 import cron from "node-cron";
 import _ from "underscore";
-import moment from "moment-timezone";
 import { Meteor } from "meteor/meteor";
 import { Utils } from "../lib/utils";
 
@@ -21,7 +20,7 @@ Meteor.startup(function () {
     // 2:05am-2:09am & 9:05am-9:09am Eastern (nasdaq, +0 to +4 business days)
     [0, 1, 2, 3, 4].forEach((offset) => {
         cron.schedule(`${5 + offset} 2,9 * * *`, () => {
-            const date = Utils.businessAdd(moment().format(Utils.dateFormat), offset);
+            const date = Utils.businessAdd(Utils.todaysDate(), offset);
             console.log(`Running: earnings releases (nasdaq, +${offset}bd, ${date})`);
             Meteor.callAsync("importEarningsReleasesFromNasdaq", { date }).catch((error) => {
                 console.error(`Error in earnings releases (nasdaq, +${offset}bd) cron:`, error);
