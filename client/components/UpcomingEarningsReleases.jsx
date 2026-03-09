@@ -25,9 +25,6 @@ export const UpcomingEarningsReleases = () => {
         Meteor.call("getUpcomingEarningsReleases", (err, res) => {
             if (!err) setEarningsReleases(res);
         });
-        Meteor.call("getUpcomingEarningsReleasesFinnhub", (err, res) => {
-            if (!err) setFinnhubReleases(res);
-        });
         Meteor.call("getUpcomingEarningsReleasesNasdaq", (err, res) => {
             if (!err) setNasdaqReleases(res);
         });

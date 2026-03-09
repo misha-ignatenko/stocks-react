@@ -25,6 +25,11 @@ const researchFirmIDsToExclude = ["vt29AuAATaAu7r3rS", "TMbx3pyYK8gSqH3W6"];
 const YYYYMMDD = Utils.dateFormatYYYYMMDD;
 const YYYY_MM_DD = Utils.dateFormat;
 const ADJ_CLOSE = "adjClose";
+const nonCanadaFilter = {
+    currencyCode: { $nin: ["CND"] },
+    exchange: { $nin: ["NASDAQ Other OTC"] },
+};
+
 const getRatingChangesQuery = () => {
     return {
         researchFirmId: { $nin: researchFirmIDsToExclude },
@@ -161,11 +166,7 @@ Meteor.methods({
                     },
                 },
                 {
-                    currencyCode: { $nin: ["CND"] },
-                },
-                {
-                    // exclude toronto
-                    symbol: { $not: new RegExp("^T\\.") },
+                    ...nonCanadaFilter,
                 },
                 {
                     reportSourceFlag: 1,
@@ -253,12 +254,16 @@ Meteor.methods({
     async compareEarningsReleasesByDate({ date }) {
         check(date, Number); // YYYYMMDD integer
 
-        const [mainReleases, finnhubReleases] = await Promise.all([
+        const [mainReleases, nasdaqReleases] = await Promise.all([
             EarningsReleases.find(
-                { reportDateNextFiscalQuarter: date, reportSourceFlag: 1 },
+                {
+                    reportDateNextFiscalQuarter: date,
+                    reportSourceFlag: 1,
+                    ...nonCanadaFilter,
+                },
                 { sort: { asOf: -1 } },
             ).fetchAsync(),
-            EarningsReleasesFinnhubMonitoring.find(
+            EarningsReleasesNasdaqMonitoring.find(
                 { reportDateNextFiscalQuarter: date },
                 { sort: { asOf: -1 } },
             ).fetchAsync(),
@@ -269,17 +274,17 @@ Meteor.methods({
             _.uniq(mainReleases, false, (e) => e.symbol),
             "symbol",
         );
-        const finnhubBySymbol = _.indexBy(
-            _.uniq(finnhubReleases, false, (e) => e.symbol),
+        const nasdaqBySymbol = _.indexBy(
+            _.uniq(nasdaqReleases, false, (e) => e.symbol),
             "symbol",
         );
 
         const mainSymbols = Object.keys(mainBySymbol);
-        const finnhubSymbols = new Set(Object.keys(finnhubBySymbol));
+        const nasdaqSymbols = new Set(Object.keys(nasdaqBySymbol));
 
-        const overlapping = mainSymbols.filter((s) => finnhubSymbols.has(s));
-        const onlyInMain = mainSymbols.filter((s) => !finnhubSymbols.has(s));
-        const onlyInFinnhub = [...finnhubSymbols].filter((s) => !mainBySymbol[s]);
+        const overlapping = mainSymbols.filter((s) => nasdaqSymbols.has(s));
+        const onlyInMain = mainSymbols.filter((s) => !nasdaqSymbols.has(s));
+        const onlyInNasdaq = [...nasdaqSymbols].filter((s) => !mainBySymbol[s]);
 
         const groupByTimeOfDay = (symbols, sourceMap) =>
             _.groupBy(symbols, (s) => sourceMap[s]?.reportTimeOfDayCode ?? 4);
@@ -287,7 +292,7 @@ Meteor.methods({
         return {
             overlapping: groupByTimeOfDay(overlapping, mainBySymbol),
             onlyInMain: groupByTimeOfDay(onlyInMain, mainBySymbol),
-            onlyInFinnhub: groupByTimeOfDay(onlyInFinnhub, finnhubBySymbol),
+            onlyInNasdaq: groupByTimeOfDay(onlyInNasdaq, nasdaqBySymbol),
         };
     },
 
@@ -777,9 +782,7 @@ Meteor.methods({
                               },
                           }),
 
-                    currencyCode: { $nin: ["CND"] },
-
-                    exchange: { $nin: ["NASDAQ Other OTC"] },
+                    ...nonCanadaFilter,
                 },
             ],
         };
