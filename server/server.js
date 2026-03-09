@@ -229,6 +229,47 @@ Meteor.methods({
         );
     },
 
+    async compareEarningsReleasesByDate({ date }) {
+        check(date, Number); // YYYYMMDD integer
+
+        const [mainReleases, finnhubReleases] = await Promise.all([
+            EarningsReleases.find(
+                { reportDateNextFiscalQuarter: date, reportSourceFlag: 1 },
+                { sort: { asOf: -1 } },
+            ).fetchAsync(),
+            EarningsReleasesFinnhubMonitoring.find(
+                { reportDateNextFiscalQuarter: date },
+                { sort: { asOf: -1 } },
+            ).fetchAsync(),
+        ]);
+
+        // deduplicate by symbol, keeping most recent asOf
+        const mainBySymbol = _.indexBy(
+            _.uniq(mainReleases, false, (e) => e.symbol),
+            "symbol",
+        );
+        const finnhubBySymbol = _.indexBy(
+            _.uniq(finnhubReleases, false, (e) => e.symbol),
+            "symbol",
+        );
+
+        const mainSymbols = Object.keys(mainBySymbol);
+        const finnhubSymbols = new Set(Object.keys(finnhubBySymbol));
+
+        const overlapping = mainSymbols.filter((s) => finnhubSymbols.has(s));
+        const onlyInMain = mainSymbols.filter((s) => !finnhubSymbols.has(s));
+        const onlyInFinnhub = [...finnhubSymbols].filter((s) => !mainBySymbol[s]);
+
+        const groupByTimeOfDay = (symbols, sourceMap) =>
+            _.groupBy(symbols, (s) => sourceMap[s]?.reportTimeOfDayCode ?? 4);
+
+        return {
+            overlapping: groupByTimeOfDay(overlapping, mainBySymbol),
+            onlyInMain: groupByTimeOfDay(onlyInMain, mainBySymbol),
+            onlyInFinnhub: groupByTimeOfDay(onlyInFinnhub, finnhubBySymbol),
+        };
+    },
+
     insertAltRatingScale: async function (
         firmNameStr,
         mainRatingString,
