@@ -116,7 +116,7 @@ Meteor.methods({
                 }
             }
 
-            const result = { numInserted, numUpdated, numSkipped, numMainInserted, numMainUpdated };
+            const result = { numInserted, numUpdated, numSkipped };
             console.log("importEarningsReleasesFromNasdaq done", result);
             await Email.send({
                 subject: `DONE getting earnings releases (nasdaq, ${date})`,
