@@ -7,7 +7,6 @@ const momentBiz = require("moment-business-days");
 const { performance } = require("perf_hooks");
 import {
     EarningsReleases,
-    EarningsReleasesNasdaqMonitoring,
     RatingChanges,
     ResearchCompanies,
     RatingScales,
@@ -170,6 +169,9 @@ Meteor.methods({
                 {
                     reportSourceFlag: 1,
                 },
+                {
+                    source: { $ne: "nasdaq" },
+                },
             ],
         };
 
@@ -204,8 +206,11 @@ Meteor.methods({
         const startDate = +moment().format(YYYYMMDD);
         const endDate = +moment().add(10, "days").format(YYYYMMDD);
 
-        const releases = await EarningsReleasesNasdaqMonitoring.find(
-            { reportDateNextFiscalQuarter: { $gte: startDate, $lte: endDate } },
+        const releases = await EarningsReleases.find(
+            {
+                reportDateNextFiscalQuarter: { $gte: startDate, $lte: endDate },
+                source: "nasdaq",
+            },
             { sort: { reportDateNextFiscalQuarter: 1, asOf: -1 } },
         ).fetchAsync();
 
@@ -228,12 +233,16 @@ Meteor.methods({
                 {
                     reportDateNextFiscalQuarter: date,
                     reportSourceFlag: 1,
+                    source: { $ne: "nasdaq" },
                     ...nonCanadaFilter,
                 },
                 { sort: { asOf: -1 } },
             ).fetchAsync(),
-            EarningsReleasesNasdaqMonitoring.find(
-                { reportDateNextFiscalQuarter: date },
+            EarningsReleases.find(
+                {
+                    reportDateNextFiscalQuarter: date,
+                    source: "nasdaq",
+                },
                 { sort: { asOf: -1 } },
             ).fetchAsync(),
         ]);
