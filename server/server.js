@@ -7,7 +7,6 @@ const momentBiz = require("moment-business-days");
 const { performance } = require("perf_hooks");
 import {
     EarningsReleases,
-    EarningsReleasesFinnhubMonitoring,
     EarningsReleasesNasdaqMonitoring,
     RatingChanges,
     ResearchCompanies,
@@ -199,36 +198,6 @@ Meteor.methods({
             e.key = `${e.reportDateNextFiscalQuarter}-${e.reportTimeOfDayCode}-${e.symbol}`;
         });
         return _.uniq(sorted, false, (e) => e.key);
-    },
-
-    async getUpcomingEarningsReleasesFinnhub() {
-        const startDate = +moment().format(YYYYMMDD);
-        const endDate = +moment().add(10, "days").format(YYYYMMDD);
-
-        const releases = await EarningsReleasesFinnhubMonitoring.find(
-            {
-                reportDateNextFiscalQuarter: {
-                    $gte: startDate,
-                    $lte: endDate,
-                },
-            },
-            {
-                sort: { reportDateNextFiscalQuarter: 1, asOf: -1 },
-            },
-        ).fetchAsync();
-
-        // chronological time-of-day order: before open (2), during (3), after close (1), unknown (4)
-        const timeOfDayOrder = { 2: 1, 3: 2, 1: 3, 4: 4 };
-        return _.uniq(
-            _.sortBy(
-                releases,
-                (e) =>
-                    e.reportDateNextFiscalQuarter * 10 +
-                    (timeOfDayOrder[e.reportTimeOfDayCode] ?? 4),
-            ),
-            false,
-            (e) => `${e.reportDateNextFiscalQuarter}-${e.symbol}`,
-        );
     },
 
     async getUpcomingEarningsReleasesNasdaq() {
