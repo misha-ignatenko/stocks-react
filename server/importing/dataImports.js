@@ -7,7 +7,6 @@ import { Utils } from "../../lib/utils";
 import {
     SymbolMappings,
     EarningsReleases,
-    EarningsReleasesNasdaqMonitoring,
     ResearchCompanies,
     RatingScales,
     RatingChanges,
@@ -57,8 +56,6 @@ Meteor.methods({
             let numInserted = 0;
             let numUpdated = 0;
             let numSkipped = 0;
-            let numMainInserted = 0;
-            let numMainUpdated = 0;
 
             for (const row of rows) {
                 try {
@@ -85,41 +82,6 @@ Meteor.methods({
                         }
                     }
 
-                    const record = {
-                        symbol,
-                        asOf,
-                        lastModified,
-                        reportDateNextFiscalQuarter,
-                        endDateNextFiscalQuarter,
-                        reportTimeOfDayCode,
-                        epsMeanEstimateNextFiscalQuarter,
-                        epsActualOneYearAgoFiscalQuarter,
-                        quarter,
-                        year,
-                        numEstimates: isNaN(numEstimates) ? null : numEstimates,
-                        name: name ?? null,
-                    };
-
-                    // upsert into monitoring collection
-                    const dataQuery = _.omit(record, ["asOf", "lastModified"]);
-                    const existing = await EarningsReleasesNasdaqMonitoring.findOneAsync(dataQuery);
-
-                    if (existing) {
-                        await EarningsReleasesNasdaqMonitoring.updateAsync(
-                            existing._id,
-                            { $set: { asOf, lastModified } },
-                        );
-                        numUpdated++;
-                    } else {
-                        await EarningsReleasesNasdaqMonitoring.insertAsync({
-                            ...record,
-                            insertedDate: lastModified,
-                            insertedDateStr: asOf,
-                        });
-                        numInserted++;
-                    }
-
-                    // upsert into main EarningsReleases collection
                     const mainRecord = {
                         symbol,
                         asOf,
@@ -139,14 +101,14 @@ Meteor.methods({
                         for (const id of matchingIDs) {
                             await EarningsReleases.updateAsync(id, { $set: { asOf, lastModified } });
                         }
-                        numMainUpdated++;
+                        numUpdated++;
                     } else {
                         await EarningsReleases.insertAsync({
                             ...mainRecord,
                             insertedDate: lastModified,
                             insertedDateStr: asOf,
                         });
-                        numMainInserted++;
+                        numInserted++;
                     }
                 } catch (error) {
                     console.log("importEarningsReleasesFromNasdaq entry error", row?.symbol, error.message);
