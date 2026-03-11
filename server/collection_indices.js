@@ -1,8 +1,6 @@
 import {
     RatingChanges,
     EarningsReleases,
-    EarningsReleasesFinnhubMonitoring,
-    EarningsReleasesNasdaqMonitoring,
 } from "../lib/collections";
 
 RatingChanges.createIndex({ dateString: 1, researchFirmId: 1, symbol: 1 });
@@ -29,17 +27,3 @@ EarningsReleases.createIndex({
     asOf: -1,
 });
 EarningsReleases.createIndex({ asOf: -1 });
-
-EarningsReleasesFinnhubMonitoring.createIndex({
-    reportDateNextFiscalQuarter: 1,
-    symbol: 1,
-});
-EarningsReleasesFinnhubMonitoring.createIndex({ symbol: 1, asOf: -1 });
-EarningsReleasesFinnhubMonitoring.createIndex({ asOf: -1 });
-
-EarningsReleasesNasdaqMonitoring.createIndex({
-    reportDateNextFiscalQuarter: 1,
-    symbol: 1,
-});
-EarningsReleasesNasdaqMonitoring.createIndex({ symbol: 1, asOf: -1 });
-EarningsReleasesNasdaqMonitoring.createIndex({ asOf: -1 });

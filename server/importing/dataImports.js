@@ -59,7 +59,7 @@ Meteor.methods({
 
             for (const row of rows) {
                 try {
-                    const { symbol, time, epsForecast, fiscalQuarterEnding, noOfEsts, lastYearEPS, name } = row;
+                    const { symbol, time, epsForecast, fiscalQuarterEnding, noOfEsts, lastYearEPS, lastYearRptDt, name, marketCap } = row;
                     if (!symbol) { numSkipped++; continue; }
 
                     const reportTimeOfDayCode = timeMap[time];
@@ -67,16 +67,16 @@ Meteor.methods({
                     const epsMeanEstimateNextFiscalQuarter = parseEps(epsForecast);
                     const epsActualOneYearAgoFiscalQuarter = parseEps(lastYearEPS);
                     const numEstimates = noOfEsts === "N/A" ? null : parseInt(noOfEsts);
+                    const parsedMarketCap = marketCap ? parseInt(marketCap.replace(/[$,]/g, "")) : null;
+                    const parsedLastYearRptDt = lastYearRptDt && lastYearRptDt !== "N/A"
+                        ? lastYearRptDt : null;
 
-                    let quarter = null;
-                    let year = null;
                     let endDateNextFiscalQuarter = null;
                     if (fiscalQuarterEnding && fiscalQuarterEnding !== "N/A") {
                         const [monthStr, yearStr] = fiscalQuarterEnding.split("/");
                         const monthNum = monthStrToNum[monthStr] ?? null;
-                        year = yearStr ? parseInt(yearStr) : null;
-                        if (monthNum) {
-                            quarter = Math.ceil(monthNum / 3);
+                        const year = yearStr ? parseInt(yearStr) : null;
+                        if (monthNum && year) {
                             const lastDay = new Date(year, monthNum, 0).getDate();
                             endDateNextFiscalQuarter = parseInt(`${year}${String(monthNum).padStart(2, "0")}${String(lastDay).padStart(2, "0")}`);
                         }
@@ -93,6 +93,8 @@ Meteor.methods({
                         epsActualOneYearAgoFiscalQuarter,
                         companyName: name ?? null,
                         numEstimates: isNaN(numEstimates) ? null : numEstimates,
+                        marketCap: isNaN(parsedMarketCap) ? null : parsedMarketCap,
+                        lastYearRptDt: parsedLastYearRptDt,
                         reportSourceFlag: 1,
                         source: "nasdaq",
                     };

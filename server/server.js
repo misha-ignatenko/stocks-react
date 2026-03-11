@@ -27,6 +27,7 @@ const nonCanadaFilter = {
     currencyCode: { $nin: ["CND"] },
     exchange: { $nin: ["NASDAQ Other OTC"] },
 };
+const companyConfirmedFilter = { reportSourceFlag: 1 };
 
 const getRatingChangesQuery = () => {
     return {
@@ -167,10 +168,7 @@ Meteor.methods({
                     ...nonCanadaFilter,
                 },
                 {
-                    reportSourceFlag: 1,
-                },
-                {
-                    source: { $ne: "nasdaq" },
+                    ...companyConfirmedFilter,
                 },
             ],
         };
@@ -202,29 +200,6 @@ Meteor.methods({
         return _.uniq(sorted, false, (e) => e.key);
     },
 
-    async getUpcomingEarningsReleasesNasdaq() {
-        const startDate = +moment().format(YYYYMMDD);
-        const endDate = +moment().add(10, "days").format(YYYYMMDD);
-
-        const releases = await EarningsReleases.find(
-            {
-                reportDateNextFiscalQuarter: { $gte: startDate, $lte: endDate },
-                source: "nasdaq",
-            },
-            { sort: { reportDateNextFiscalQuarter: 1, asOf: -1 } },
-        ).fetchAsync();
-
-        const timeOfDayOrder = { 2: 1, 3: 2, 1: 3, 4: 4 };
-        return _.uniq(
-            _.sortBy(
-                releases,
-                (e) => e.reportDateNextFiscalQuarter * 10 + (timeOfDayOrder[e.reportTimeOfDayCode] ?? 4),
-            ),
-            false,
-            (e) => `${e.reportDateNextFiscalQuarter}-${e.symbol}`,
-        );
-    },
-
     async compareEarningsReleasesByDate({ date }) {
         check(date, Number); // YYYYMMDD integer
 
@@ -232,7 +207,7 @@ Meteor.methods({
             EarningsReleases.find(
                 {
                     reportDateNextFiscalQuarter: date,
-                    reportSourceFlag: 1,
+                    ...companyConfirmedFilter,
                     source: { $ne: "nasdaq" },
                     ...nonCanadaFilter,
                 },
@@ -241,6 +216,7 @@ Meteor.methods({
             EarningsReleases.find(
                 {
                     reportDateNextFiscalQuarter: date,
+                    ...companyConfirmedFilter,
                     source: "nasdaq",
                 },
                 { sort: { asOf: -1 } },
@@ -748,7 +724,7 @@ Meteor.methods({
                         $gte: Utils.convertToNumberDate(startDate),
                         $lte: Utils.convertToNumberDate(endDate),
                     },
-                    reportSourceFlag: 1,
+                    ...companyConfirmedFilter,
                     ...((returnExpected && emailResults) || isHistory
                         ? {}
                         : {
