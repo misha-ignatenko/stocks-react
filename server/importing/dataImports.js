@@ -17,10 +17,6 @@ Meteor.methods({
 
     async importEarningsReleasesFromNasdaq({ date }) {
         check(date, String); // YYYY-MM-DD
-        await Email.send({
-            subject: `getting earnings releases (nasdaq, ${date})`,
-            text: JSON.stringify({ timeNow: new Date(), date }),
-        });
         try {
             const url = `https://api.nasdaq.com/api/calendar/earnings?date=${date}`;
             const response = await fetch(url, {
@@ -134,11 +130,6 @@ Meteor.methods({
     },
 
     async importEarningsReleases() {
-        await Email.send({
-            subject: "getting earnings releases (new)",
-            text: JSON.stringify({ timeNow: new Date() }),
-        });
-
         let dataCount = 0;
         let numMatching = 0;
         let numInserted = 0;
