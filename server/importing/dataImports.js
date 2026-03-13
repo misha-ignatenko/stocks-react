@@ -14,7 +14,6 @@ import {
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
-
     async importEarningsReleasesFromNasdaq({ date }) {
         check(date, String); // YYYY-MM-DD
         try {
@@ -22,7 +21,7 @@ Meteor.methods({
             const response = await fetch(url, {
                 headers: {
                     "User-Agent": "Mozilla/5.0",
-                    "Accept": "application/json",
+                    Accept: "application/json",
                 },
             });
             const json = await response.json();
@@ -35,14 +34,24 @@ Meteor.methods({
                 "time-not-supplied": 4,
             };
             const monthStrToNum = {
-                Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
-                Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+                Jan: 1,
+                Feb: 2,
+                Mar: 3,
+                Apr: 4,
+                May: 5,
+                Jun: 6,
+                Jul: 7,
+                Aug: 8,
+                Sep: 9,
+                Oct: 10,
+                Nov: 11,
+                Dec: 12,
             };
             const parseEps = (str) => {
                 if (!str || str === "N/A") return null;
                 const negative = str.startsWith("(");
                 const num = parseFloat(str.replace(/[$(),]/g, ""));
-                return isNaN(num) ? null : (negative ? -num : num);
+                return isNaN(num) ? null : negative ? -num : num;
             };
 
             const asOf = Utils.todaysDate();
@@ -55,26 +64,54 @@ Meteor.methods({
 
             for (const row of rows) {
                 try {
-                    const { symbol, time, epsForecast, fiscalQuarterEnding, noOfEsts, lastYearEPS, lastYearRptDt, name, marketCap } = row;
-                    if (!symbol) { numSkipped++; continue; }
+                    const {
+                        symbol,
+                        time,
+                        epsForecast,
+                        fiscalQuarterEnding,
+                        noOfEsts,
+                        lastYearEPS,
+                        lastYearRptDt,
+                        name,
+                        marketCap,
+                    } = row;
+                    if (!symbol) {
+                        numSkipped++;
+                        continue;
+                    }
 
                     const reportTimeOfDayCode = timeMap[time];
-                    if (reportTimeOfDayCode === undefined) throw new Error(`unknown time value: ${time}`);
-                    const epsMeanEstimateNextFiscalQuarter = parseEps(epsForecast);
-                    const epsActualOneYearAgoFiscalQuarter = parseEps(lastYearEPS);
-                    const numEstimates = noOfEsts === "N/A" ? null : parseInt(noOfEsts);
-                    const parsedMarketCap = marketCap ? parseInt(marketCap.replace(/[$,]/g, "")) : null;
-                    const parsedLastYearRptDt = lastYearRptDt && lastYearRptDt !== "N/A"
-                        ? lastYearRptDt : null;
+                    if (reportTimeOfDayCode === undefined)
+                        throw new Error(`unknown time value: ${time}`);
+                    const epsMeanEstimateNextFiscalQuarter =
+                        parseEps(epsForecast);
+                    const epsActualOneYearAgoFiscalQuarter =
+                        parseEps(lastYearEPS);
+                    const numEstimates =
+                        noOfEsts === "N/A" ? null : parseInt(noOfEsts);
+                    const parsedMarketCap = marketCap
+                        ? parseInt(marketCap.replace(/[$,]/g, ""))
+                        : null;
+                    const parsedLastYearRptDt =
+                        lastYearRptDt && lastYearRptDt !== "N/A"
+                            ? lastYearRptDt
+                            : null;
 
                     let endDateNextFiscalQuarter = null;
                     if (fiscalQuarterEnding && fiscalQuarterEnding !== "N/A") {
-                        const [monthStr, yearStr] = fiscalQuarterEnding.split("/");
+                        const [monthStr, yearStr] =
+                            fiscalQuarterEnding.split("/");
                         const monthNum = monthStrToNum[monthStr] ?? null;
                         const year = yearStr ? parseInt(yearStr) : null;
                         if (monthNum && year) {
-                            const lastDay = new Date(year, monthNum, 0).getDate();
-                            endDateNextFiscalQuarter = parseInt(`${year}${String(monthNum).padStart(2, "0")}${String(lastDay).padStart(2, "0")}`);
+                            const lastDay = new Date(
+                                year,
+                                monthNum,
+                                0,
+                            ).getDate();
+                            endDateNextFiscalQuarter = parseInt(
+                                `${year}${String(monthNum).padStart(2, "0")}${String(lastDay).padStart(2, "0")}`,
+                            );
                         }
                     }
 
@@ -89,15 +126,20 @@ Meteor.methods({
                         epsActualOneYearAgoFiscalQuarter,
                         companyName: name ?? null,
                         numEstimates: isNaN(numEstimates) ? null : numEstimates,
-                        marketCap: isNaN(parsedMarketCap) ? null : parsedMarketCap,
+                        marketCap: isNaN(parsedMarketCap)
+                            ? null
+                            : parsedMarketCap,
                         lastYearRptDt: parsedLastYearRptDt,
                         reportSourceFlag: 1,
                         source: "nasdaq",
                     };
-                    const matchingIDs = await getMatchingEarningsReleaseIDs(mainRecord);
+                    const matchingIDs =
+                        await getMatchingEarningsReleaseIDs(mainRecord);
                     if (matchingIDs.length) {
                         for (const id of matchingIDs) {
-                            await EarningsReleases.updateAsync(id, { $set: { asOf, lastModified } });
+                            await EarningsReleases.updateAsync(id, {
+                                $set: { asOf, lastModified },
+                            });
                         }
                         numUpdated++;
                     } else {
@@ -109,7 +151,11 @@ Meteor.methods({
                         numInserted++;
                     }
                 } catch (error) {
-                    console.log("importEarningsReleasesFromNasdaq entry error", row?.symbol, error.message);
+                    console.log(
+                        "importEarningsReleasesFromNasdaq entry error",
+                        row?.symbol,
+                        error.message,
+                    );
                     numSkipped++;
                 }
             }
@@ -124,7 +170,11 @@ Meteor.methods({
         } catch (error) {
             await Email.send({
                 subject: `ERROR from getting earnings releases (nasdaq, ${date})`,
-                text: JSON.stringify({ timeNow: new Date(), date, errorString: error.toString() }),
+                text: JSON.stringify({
+                    timeNow: new Date(),
+                    date,
+                    errorString: error.toString(),
+                }),
             });
         }
     },

@@ -150,12 +150,15 @@ Meteor.methods({
                   "clientSettings.upcomingEarningsReleases.numberOfDaysFromTodayForEarningsReleasesPublicationIfNoUser",
               );
         const startDate = Utils.convertToNumberDate(Utils.todaysDate());
-        const endDate = Utils.convertToNumberDate(Utils.businessAdd(Utils.todaysDate(), daysToAdd));
+        const endDate = Utils.convertToNumberDate(
+            Utils.businessAdd(Utils.todaysDate(), daysToAdd),
+        );
 
-        const closestWeekDay = +(await Utils.getClosestPreviousWeekDayDateByCutoffTime(
-            undefined,
-            YYYYMMDD,
-        ));
+        const closestWeekDay =
+            +(await Utils.getClosestPreviousWeekDayDateByCutoffTime(
+                undefined,
+                YYYYMMDD,
+            ));
         const query = {
             $and: [
                 {

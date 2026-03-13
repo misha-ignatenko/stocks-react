@@ -10,20 +10,22 @@ ServerUtils.migrateAddedOnDate = (startDate, endDate) => {
     // correct `addedOn` date formats
     RatingChanges.find(
         {
-            dateString: {$gt: startDate, $lte: endDate},
-            addedOn: {$type: 2},
+            dateString: { $gt: startDate, $lte: endDate },
+            addedOn: { $type: 2 },
         },
         {
             limit: 5,
             fields: {
                 addedOn: 1,
             },
-        }
-    ).forEach(ratingChange => {
+        },
+    ).forEach((ratingChange) => {
         const correctDate = new Date(ratingChange.addedOn);
         console.log(ratingChange._id, ratingChange.addedOn, correctDate);
 
-        RatingChanges.update(ratingChange._id, {$set: {addedOn: correctDate}});
+        RatingChanges.update(ratingChange._id, {
+            $set: { addedOn: correctDate },
+        });
     });
 };
 
@@ -31,20 +33,20 @@ ServerUtils.migrateDate = function (startDate, endDate) {
     // correct `date` date formats
     RatingChanges.find(
         {
-            dateString: {$gt: startDate, $lte: endDate},
-            date: {$type: 2},
+            dateString: { $gt: startDate, $lte: endDate },
+            date: { $type: 2 },
         },
         {
             limit: 5,
             fields: {
                 date: 1,
             },
-        }
-    ).forEach(ratingChange => {
+        },
+    ).forEach((ratingChange) => {
         const correctDate = new Date(ratingChange.date);
         console.log(ratingChange._id, ratingChange.date, correctDate);
 
-        RatingChanges.update(ratingChange._id, {$set: {date: correctDate}});
+        RatingChanges.update(ratingChange._id, { $set: { date: correctDate } });
     });
 };
 
@@ -64,22 +66,29 @@ Stocks.find({
 */
 
 ServerUtils.removePickListItems = function () {
-    ServerUtils.dropCollection('pickListItems');
+    ServerUtils.dropCollection("pickListItems");
 };
 // ServerUtils.removePickListItems();
 
 ServerUtils.removeIndividualStocksAccess = () => {
-    Meteor.users.find({
-        individualStocksAccess: {$exists: true},
-    }, {
-        fields: {
-            individualStocksAccess: 1,
-            username: 1,
-        },
-    }).forEach(user => {
-        console.log('user with individualStocksAccess', user);
-        Meteor.users.update(user._id, {$unset: {individualStocksAccess: 1}});
-    });
+    Meteor.users
+        .find(
+            {
+                individualStocksAccess: { $exists: true },
+            },
+            {
+                fields: {
+                    individualStocksAccess: 1,
+                    username: 1,
+                },
+            },
+        )
+        .forEach((user) => {
+            console.log("user with individualStocksAccess", user);
+            Meteor.users.update(user._id, {
+                $unset: { individualStocksAccess: 1 },
+            });
+        });
 };
 // ServerUtils.removeIndividualStocksAccess();
 

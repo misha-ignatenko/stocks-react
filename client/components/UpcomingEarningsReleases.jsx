@@ -8,10 +8,13 @@ import { Utils } from "../../lib/utils";
 export const UpcomingEarningsReleases = () => {
     const [earningsReleases, setEarningsReleases] = useState(null);
 
-    const { user, loggingIn } = useTracker(() => ({
-        user: Meteor.user({ fields: { registered: 1 } }),
-        loggingIn: Meteor.loggingIn(),
-    }), []);
+    const { user, loggingIn } = useTracker(
+        () => ({
+            user: Meteor.user({ fields: { registered: 1 } }),
+            loggingIn: Meteor.loggingIn(),
+        }),
+        [],
+    );
 
     useEffect(() => {
         if (loggingIn) return;
@@ -30,11 +33,14 @@ export const UpcomingEarningsReleases = () => {
                     <button
                         type="button"
                         className="btn btn-light"
-                        onClick={() => Utils.download_table_as_csv("upcomingEarningsReleases")}
+                        onClick={() =>
+                            Utils.download_table_as_csv(
+                                "upcomingEarningsReleases",
+                            )
+                        }
                     >
                         Export as a CSV
-                    </button>
-                    {" "}
+                    </button>{" "}
                     <NavLink to="/contact">Contact Us</NavLink>
                     <br />
                     <br />
@@ -59,8 +65,14 @@ export const UpcomingEarningsReleases = () => {
                                     <td>{e.symbol}</td>
                                     <td>{e.companyName ?? ""}</td>
                                     <td>{e.exchange ?? ""}</td>
-                                    <td>{e.epsMeanEstimateNextFiscalQuarter ?? ""}</td>
-                                    <td>{e.epsActualOneYearAgoFiscalQuarter ?? ""}</td>
+                                    <td>
+                                        {e.epsMeanEstimateNextFiscalQuarter ??
+                                            ""}
+                                    </td>
+                                    <td>
+                                        {e.epsActualOneYearAgoFiscalQuarter ??
+                                            ""}
+                                    </td>
                                     <td>{e.source ?? ""}</td>
                                 </tr>
                             ))}
