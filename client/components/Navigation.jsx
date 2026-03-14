@@ -55,10 +55,6 @@ function Navigation() {
                         Earnings by Symbol
                     </NavLink>{" "}
                     |{" "}
-                    <NavLink to="/analysis" style={activeStyle}>
-                        Analysis
-                    </NavLink>{" "}
-                    |{" "}
                 </span>
             ) : null}
             <NavLink to="/contact" style={activeStyle}>
