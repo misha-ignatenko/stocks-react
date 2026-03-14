@@ -21,27 +21,22 @@ Meteor.startup(function () {
         TZ,
     );
 
-    // 2:05am-2:09am & 9:05am-9:09am Eastern (nasdaq, +0 to +4 business days)
-    [0, 1, 2, 3, 4].forEach((offset) => {
-        cron.schedule(
-            `${5 + offset} 2,9 * * *`,
-            () => {
-                const date = Utils.businessAdd(Utils.todaysDate(), offset);
-                console.log(
-                    `Running: earnings releases (nasdaq, +${offset}bd, ${date})`,
+    // 2:05am & 9:05am Eastern (nasdaq, today + 4 business days ahead)
+    cron.schedule(
+        "5 2,9 * * *",
+        () => {
+            console.log("Running: earnings releases (nasdaq)");
+            Meteor.callAsync("importEarningsReleasesFromNasdaq", {
+                startDate: Utils.todaysDate(),
+            }).catch((error) => {
+                console.error(
+                    "Error in earnings releases (nasdaq) cron:",
+                    error,
                 );
-                Meteor.callAsync("importEarningsReleasesFromNasdaq", {
-                    date,
-                }).catch((error) => {
-                    console.error(
-                        `Error in earnings releases (nasdaq, +${offset}bd) cron:`,
-                        error,
-                    );
-                });
-            },
-            TZ,
-        );
-    });
+            });
+        },
+        TZ,
+    );
 
     const baseOptions = {
         advancePurchaseDays: 1,

@@ -14,169 +14,195 @@ import {
 var _totalMaxGradingValue = 120;
 
 Meteor.methods({
-    async importEarningsReleasesFromNasdaq({ date }) {
-        check(date, String); // YYYY-MM-DD
-        try {
-            const url = `https://api.nasdaq.com/api/calendar/earnings?date=${date}`;
-            const response = await fetch(url, {
-                headers: {
-                    "User-Agent": "Mozilla/5.0",
-                    Accept: "application/json",
-                },
-            });
-            const json = await response.json();
-            const rows = json?.data?.rows ?? [];
+    async importEarningsReleasesFromNasdaq({
+        startDate,
+        businessDaysAhead = 10,
+    }) {
+        check(startDate, String); // YYYY-MM-DD
+        check(businessDaysAhead, Match.Optional(Number));
+        await ServerUtils.runPremiumCheck(this);
 
-            const timeMap = {
-                "time-pre-market": 2,
-                "time-after-hours": 1,
-                "time-during-market": 3,
-                "time-not-supplied": 4,
-            };
-            const monthStrToNum = {
-                Jan: 1,
-                Feb: 2,
-                Mar: 3,
-                Apr: 4,
-                May: 5,
-                Jun: 6,
-                Jul: 7,
-                Aug: 8,
-                Sep: 9,
-                Oct: 10,
-                Nov: 11,
-                Dec: 12,
-            };
-            const parseEps = (str) => {
-                if (!str || str === "N/A") return null;
-                const negative = str.startsWith("(");
-                const num = parseFloat(str.replace(/[$(),]/g, ""));
-                return isNaN(num) ? null : negative ? -num : num;
-            };
+        await Email.send({
+            subject: `BEGIN getting earnings releases (nasdaq, ${startDate}, +${businessDaysAhead}bd)`,
+            text: JSON.stringify({
+                timeNow: new Date(),
+                startDate,
+                businessDaysAhead,
+            }),
+        });
 
-            const asOf = Utils.todaysDate();
-            const lastModified = new Date();
-            const reportDateNextFiscalQuarter = Utils.convertToNumberDate(date);
-
-            let numInserted = 0;
-            let numUpdated = 0;
-            let numSkipped = 0;
-
-            for (const row of rows) {
-                try {
-                    const {
-                        symbol,
-                        time,
-                        epsForecast,
-                        fiscalQuarterEnding,
-                        noOfEsts,
-                        lastYearEPS,
-                        lastYearRptDt,
-                        name,
-                        marketCap,
-                    } = row;
-                    if (!symbol) {
-                        numSkipped++;
-                        continue;
-                    }
-
-                    const reportTimeOfDayCode = timeMap[time];
-                    if (reportTimeOfDayCode === undefined)
-                        throw new Error(`unknown time value: ${time}`);
-                    const epsMeanEstimateNextFiscalQuarter =
-                        parseEps(epsForecast);
-                    const epsActualOneYearAgoFiscalQuarter =
-                        parseEps(lastYearEPS);
-                    const numEstimates =
-                        noOfEsts === "N/A" ? null : parseInt(noOfEsts);
-                    const parsedMarketCap = marketCap
-                        ? parseInt(marketCap.replace(/[$,]/g, ""))
-                        : null;
-                    const parsedLastYearRptDt =
-                        lastYearRptDt && lastYearRptDt !== "N/A"
-                            ? lastYearRptDt
-                            : null;
-
-                    let endDateNextFiscalQuarter = null;
-                    if (fiscalQuarterEnding && fiscalQuarterEnding !== "N/A") {
-                        const [monthStr, yearStr] =
-                            fiscalQuarterEnding.split("/");
-                        const monthNum = monthStrToNum[monthStr] ?? null;
-                        const year = yearStr ? parseInt(yearStr) : null;
-                        if (monthNum && year) {
-                            const lastDay = new Date(
-                                year,
-                                monthNum,
-                                0,
-                            ).getDate();
-                            endDateNextFiscalQuarter = parseInt(
-                                `${year}${String(monthNum).padStart(2, "0")}${String(lastDay).padStart(2, "0")}`,
-                            );
-                        }
-                    }
-
-                    const mainRecord = {
-                        symbol,
-                        asOf,
-                        lastModified,
-                        reportDateNextFiscalQuarter,
-                        endDateNextFiscalQuarter,
-                        reportTimeOfDayCode,
-                        epsMeanEstimateNextFiscalQuarter,
-                        epsActualOneYearAgoFiscalQuarter,
-                        companyName: name ?? null,
-                        numEstimates: isNaN(numEstimates) ? null : numEstimates,
-                        marketCap: isNaN(parsedMarketCap)
-                            ? null
-                            : parsedMarketCap,
-                        lastYearRptDt: parsedLastYearRptDt,
-                        reportSourceFlag: 1,
-                        source: "nasdaq",
-                    };
-                    const matchingIDs =
-                        await getMatchingEarningsReleaseIDs(mainRecord);
-                    if (matchingIDs.length) {
-                        for (const id of matchingIDs) {
-                            await EarningsReleases.updateAsync(id, {
-                                $set: { asOf, lastModified },
-                            });
-                        }
-                        numUpdated++;
-                    } else {
-                        await EarningsReleases.insertAsync({
-                            ...mainRecord,
-                            insertedDate: lastModified,
-                            insertedDateStr: asOf,
-                        });
-                        numInserted++;
-                    }
-                } catch (error) {
-                    console.log(
-                        "importEarningsReleasesFromNasdaq entry error",
-                        row?.symbol,
-                        error.message,
-                    );
-                    numSkipped++;
-                }
-            }
-
-            const result = { numInserted, numUpdated, numSkipped };
-            console.log("importEarningsReleasesFromNasdaq done", result);
-            await Email.send({
-                subject: `DONE getting earnings releases (nasdaq, ${date})`,
-                text: JSON.stringify({ timeNow: new Date(), date, ...result }),
-            });
-            return result;
-        } catch (error) {
-            await Email.send({
-                subject: `ERROR from getting earnings releases (nasdaq, ${date})`,
-                text: JSON.stringify({
-                    timeNow: new Date(),
-                    date,
-                    errorString: error.toString(),
-                }),
-            });
+        const dates = [];
+        for (let i = 0; i <= businessDaysAhead; i++) {
+            dates.push(Utils.businessAdd(startDate, i));
         }
+
+        const timeMap = {
+            "time-pre-market": 2,
+            "time-after-hours": 1,
+            "time-during-market": 3,
+            "time-not-supplied": 4,
+        };
+        const monthStrToNum = {
+            Jan: 1,
+            Feb: 2,
+            Mar: 3,
+            Apr: 4,
+            May: 5,
+            Jun: 6,
+            Jul: 7,
+            Aug: 8,
+            Sep: 9,
+            Oct: 10,
+            Nov: 11,
+            Dec: 12,
+        };
+        const parseEps = (str) => {
+            if (!str || str === "N/A") return null;
+            const negative = str.startsWith("(");
+            const num = parseFloat(str.replace(/[$(),]/g, ""));
+            return isNaN(num) ? null : negative ? -num : num;
+        };
+
+        const asOf = Utils.todaysDate();
+        const lastModified = new Date();
+        const statsByDate = {};
+
+        for (const date of dates) {
+            const dateStats = { numInserted: 0, numUpdated: 0, numSkipped: 0 };
+            try {
+                const url = `https://api.nasdaq.com/api/calendar/earnings?date=${date}`;
+                console.log("importEarningsReleasesFromNasdaq fetching", url);
+                const response = await fetch(url, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0",
+                        Accept: "application/json",
+                    },
+                });
+                const json = await response.json();
+                const rows = json?.data?.rows ?? [];
+                const reportDateNextFiscalQuarter =
+                    Utils.convertToNumberDate(date);
+
+                for (const row of rows) {
+                    try {
+                        const {
+                            symbol,
+                            time,
+                            epsForecast,
+                            fiscalQuarterEnding,
+                            noOfEsts,
+                            lastYearEPS,
+                            lastYearRptDt,
+                            name,
+                            marketCap,
+                        } = row;
+                        if (!symbol) {
+                            dateStats.numSkipped++;
+                            continue;
+                        }
+
+                        const reportTimeOfDayCode = timeMap[time];
+                        if (reportTimeOfDayCode === undefined)
+                            throw new Error(`unknown time value: ${time}`);
+                        const epsMeanEstimateNextFiscalQuarter =
+                            parseEps(epsForecast);
+                        const epsActualOneYearAgoFiscalQuarter =
+                            parseEps(lastYearEPS);
+                        const numEstimates =
+                            noOfEsts === "N/A" ? null : parseInt(noOfEsts);
+                        const parsedMarketCap = marketCap
+                            ? parseInt(marketCap.replace(/[$,]/g, ""))
+                            : null;
+                        const parsedLastYearRptDt =
+                            lastYearRptDt && lastYearRptDt !== "N/A"
+                                ? lastYearRptDt
+                                : null;
+
+                        let endDateNextFiscalQuarter = null;
+                        if (
+                            fiscalQuarterEnding &&
+                            fiscalQuarterEnding !== "N/A"
+                        ) {
+                            const [monthStr, yearStr] =
+                                fiscalQuarterEnding.split("/");
+                            const monthNum = monthStrToNum[monthStr] ?? null;
+                            const year = yearStr ? parseInt(yearStr) : null;
+                            if (monthNum && year) {
+                                const lastDay = new Date(
+                                    year,
+                                    monthNum,
+                                    0,
+                                ).getDate();
+                                endDateNextFiscalQuarter = parseInt(
+                                    `${year}${String(monthNum).padStart(2, "0")}${String(lastDay).padStart(2, "0")}`,
+                                );
+                            }
+                        }
+
+                        const mainRecord = {
+                            symbol,
+                            asOf,
+                            lastModified,
+                            reportDateNextFiscalQuarter,
+                            endDateNextFiscalQuarter,
+                            reportTimeOfDayCode,
+                            epsMeanEstimateNextFiscalQuarter,
+                            epsActualOneYearAgoFiscalQuarter,
+                            companyName: name ?? null,
+                            numEstimates: isNaN(numEstimates)
+                                ? null
+                                : numEstimates,
+                            marketCap: isNaN(parsedMarketCap)
+                                ? null
+                                : parsedMarketCap,
+                            lastYearRptDt: parsedLastYearRptDt,
+                            reportSourceFlag: 1,
+                            source: "nasdaq",
+                        };
+                        const matchingIDs =
+                            await getMatchingEarningsReleaseIDs(mainRecord);
+                        if (matchingIDs.length) {
+                            for (const id of matchingIDs) {
+                                await EarningsReleases.updateAsync(id, {
+                                    $set: { asOf, lastModified },
+                                });
+                            }
+                            dateStats.numUpdated++;
+                        } else {
+                            await EarningsReleases.insertAsync({
+                                ...mainRecord,
+                                insertedDate: lastModified,
+                                insertedDateStr: asOf,
+                            });
+                            dateStats.numInserted++;
+                        }
+                    } catch (error) {
+                        console.log(
+                            "importEarningsReleasesFromNasdaq entry error",
+                            row?.symbol,
+                            error.message,
+                        );
+                        dateStats.numSkipped++;
+                    }
+                }
+            } catch (error) {
+                dateStats.error = error.toString();
+            }
+            statsByDate[date] = dateStats;
+        }
+
+        console.log("importEarningsReleasesFromNasdaq done", statsByDate);
+        const lines = Object.entries(statsByDate)
+            .map(
+                ([date, s]) =>
+                    `${date}: +${s.numInserted} ins, ${s.numUpdated} upd, ${s.numSkipped} skip${s.error ? `, ERROR: ${s.error}` : ""}`,
+            )
+            .join("\n");
+        await Email.send({
+            subject: "DONE getting earnings releases (nasdaq)",
+            text: `${new Date().toISOString()}\n\n${lines}`,
+        });
+        return statsByDate;
     },
 
     async importEarningsReleases() {
