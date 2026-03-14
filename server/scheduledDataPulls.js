@@ -21,7 +21,7 @@ Meteor.startup(function () {
         TZ,
     );
 
-    // 2:05am & 9:05am Eastern (nasdaq, today + 4 business days ahead)
+    // 2:05am & 9:05am Eastern (nasdaq, today + 10 business days ahead)
     cron.schedule(
         "5 2,9 * * *",
         () => {
