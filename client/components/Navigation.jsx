@@ -9,18 +9,21 @@ import AccountsUIWrapper from "./AccountsUIWrapper.jsx";
 function Navigation() {
     const [isPremium, setIsPremium] = useState(false);
 
-    const { showDataImportsTab } = useTracker(() => {
+    const { showDataImportsTab, userId, loggingIn } = useTracker(() => {
         const user = Meteor.user({ fields: { showDataImportsTab: 1 } });
         return {
             showDataImportsTab: user?.showDataImportsTab,
+            userId: Meteor.userId(),
+            loggingIn: Meteor.loggingIn(),
         };
     }, []);
 
     useEffect(() => {
+        if (loggingIn) return;
         Permissions.isPremium().then((result) => {
             setIsPremium(result);
         });
-    }, []);
+    }, [userId, loggingIn]);
 
     const activeStyle = ({ isActive }) => {
         if (isActive) return { fontWeight: "bold" };
@@ -45,6 +48,13 @@ function Navigation() {
             |{" "}
             {isPremium ? (
                 <span>
+                    <NavLink
+                        to="/earningsReleasesForSymbol"
+                        style={activeStyle}
+                    >
+                        Earnings by Symbol
+                    </NavLink>{" "}
+                    |{" "}
                     <NavLink to="/analysis" style={activeStyle}>
                         Analysis
                     </NavLink>{" "}

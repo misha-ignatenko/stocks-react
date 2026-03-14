@@ -203,6 +203,25 @@ Meteor.methods({
         return _.uniq(sorted, false, (e) => e.key);
     },
 
+    async getEarningsReleasesForSymbol({ symbol }) {
+        check(symbol, String);
+        await ServerUtils.runPremiumCheck(this);
+        symbol = symbol.toUpperCase();
+        const releases = await EarningsReleases.find(
+            {
+                symbol,
+                ...companyConfirmedFilter,
+            },
+            {
+                sort: { insertedDate: -1 },
+            },
+        ).fetchAsync();
+        releases.forEach((e) => {
+            e.timeOfDay = Utils.earningsTimeOfDayMap[e.reportTimeOfDayCode];
+        });
+        return releases;
+    },
+
     async compareEarningsReleasesByDate({ date }) {
         check(date, Number); // YYYYMMDD integer
 
