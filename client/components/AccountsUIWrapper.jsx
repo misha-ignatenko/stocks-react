@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import { Meteor } from 'meteor/meteor';
-import { Accounts } from 'meteor/accounts-base';
+import React, { useState } from "react";
+import { Meteor } from "meteor/meteor";
+import { Accounts } from "meteor/accounts-base";
 
 function AccountsUIWrapper() {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
     const [isLogin, setIsLogin] = useState(true);
-    const [error, setError] = useState('');
+    const [error, setError] = useState("");
 
     const currentUser = Meteor.user();
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        setError('');
+        setError("");
 
         if (isLogin) {
             Meteor.loginWithPassword(username, password, (err) => {
@@ -53,12 +53,12 @@ function AccountsUIWrapper() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                 />
-                <button type="submit">{isLogin ? 'Login' : 'Sign Up'}</button>
+                <button type="submit">{isLogin ? "Login" : "Sign Up"}</button>
                 <button type="button" onClick={() => setIsLogin(!isLogin)}>
-                    {isLogin ? 'Need an account?' : 'Have an account?'}
+                    {isLogin ? "Need an account?" : "Have an account?"}
                 </button>
             </form>
-            {error && <div style={{color: 'red'}}>{error}</div>}
+            {error && <div style={{ color: "red" }}>{error}</div>}
         </div>
     );
 }
