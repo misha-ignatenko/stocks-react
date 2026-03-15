@@ -656,6 +656,7 @@ Meteor.methods({
             emailResults: Match.Optional(Boolean),
             returnExpected: Match.Optional(Boolean),
             isHistory: Match.Optional(Boolean),
+            skipEstimateFilter: Match.Optional(Boolean),
         });
 
         await ServerUtils.runPremiumCheck(this);
@@ -683,6 +684,7 @@ Meteor.methods({
             emailResults = false,
             returnExpected = false,
             isHistory = false,
+            skipEstimateFilter = false,
         } = options;
 
         const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
@@ -746,7 +748,13 @@ Meteor.methods({
         const expectedReleasesQuery = {
             $and: [
                 {
-                    epsMeanEstimateNextFiscalQuarter: { $nin: [null] },
+                    ...(skipEstimateFilter
+                        ? {}
+                        : {
+                              epsMeanEstimateNextFiscalQuarter: {
+                                  $nin: [null],
+                              },
+                          }),
                     reportDateNextFiscalQuarter: {
                         $gte: Utils.convertToNumberDate(startDate),
                         $lte: Utils.convertToNumberDate(endDate),
