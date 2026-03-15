@@ -278,6 +278,11 @@ Meteor.methods({
         mainRatingStringExactMatchBool,
         alternativeRatingString,
     ) {
+        check(firmNameStr, String);
+        check(mainRatingString, String);
+        check(mainRatingStringExactMatchBool, Boolean);
+        check(alternativeRatingString, String);
+
         var _user = await Meteor.userAsync();
         if (!_user) {
             throw new Meteor.Error("Please log in.");
