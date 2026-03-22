@@ -222,56 +222,6 @@ Meteor.methods({
         return releases;
     },
 
-    async compareEarningsReleasesByDate({ date }) {
-        check(date, Number); // YYYYMMDD integer
-
-        const [mainReleases, nasdaqReleases] = await Promise.all([
-            EarningsReleases.find(
-                {
-                    reportDateNextFiscalQuarter: date,
-                    ...companyConfirmedFilter,
-                    source: { $ne: "nasdaq" },
-                    ...nonCanadaFilter,
-                },
-                { sort: { asOf: -1 } },
-            ).fetchAsync(),
-            EarningsReleases.find(
-                {
-                    reportDateNextFiscalQuarter: date,
-                    ...companyConfirmedFilter,
-                    source: "nasdaq",
-                },
-                { sort: { asOf: -1 } },
-            ).fetchAsync(),
-        ]);
-
-        // deduplicate by symbol, keeping most recent asOf
-        const mainBySymbol = _.indexBy(
-            _.uniq(mainReleases, false, (e) => e.symbol),
-            "symbol",
-        );
-        const nasdaqBySymbol = _.indexBy(
-            _.uniq(nasdaqReleases, false, (e) => e.symbol),
-            "symbol",
-        );
-
-        const mainSymbols = Object.keys(mainBySymbol);
-        const nasdaqSymbols = new Set(Object.keys(nasdaqBySymbol));
-
-        const overlapping = mainSymbols.filter((s) => nasdaqSymbols.has(s));
-        const onlyInMain = mainSymbols.filter((s) => !nasdaqSymbols.has(s));
-        const onlyInNasdaq = [...nasdaqSymbols].filter((s) => !mainBySymbol[s]);
-
-        const groupByTimeOfDay = (symbols, sourceMap) =>
-            _.groupBy(symbols, (s) => sourceMap[s]?.reportTimeOfDayCode ?? 4);
-
-        return {
-            overlapping: groupByTimeOfDay(overlapping, mainBySymbol),
-            onlyInMain: groupByTimeOfDay(onlyInMain, mainBySymbol),
-            onlyInNasdaq: groupByTimeOfDay(onlyInNasdaq, nasdaqBySymbol),
-        };
-    },
-
     insertAltRatingScale: async function (
         firmNameStr,
         mainRatingString,
