@@ -66,6 +66,7 @@ Meteor.methods({
         const asOf = Utils.todaysDate();
         const lastModified = new Date();
         const statsByDate = {};
+        const symbolsToInsert = new Set();
 
         for (const date of dates) {
             const dateStats = { numInserted: 0, numUpdated: 0, numSkipped: 0 };
@@ -168,6 +169,7 @@ Meteor.methods({
                                 });
                             }
                             dateStats.numUpdated++;
+                            symbolsToInsert.add(symbol);
                         } else {
                             await EarningsReleases.insertAsync({
                                 ...mainRecord,
@@ -175,6 +177,7 @@ Meteor.methods({
                                 insertedDateStr: asOf,
                             });
                             dateStats.numInserted++;
+                            symbolsToInsert.add(symbol);
                         }
                     } catch (error) {
                         console.log(
@@ -190,6 +193,11 @@ Meteor.methods({
             }
             statsByDate[date] = dateStats;
         }
+
+        await Meteor.callAsync(
+            "insertNewStockSymbols",
+            Array.from(symbolsToInsert),
+        );
 
         console.log("importEarningsReleasesFromNasdaq done", statsByDate);
         const lines = Object.entries(statsByDate)
