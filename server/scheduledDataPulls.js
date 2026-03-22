@@ -9,21 +9,9 @@ Meteor.startup(function () {
     // skip data pull if dev env
     if (Meteor.isDevelopment) return;
 
-    // 2am & 9am Eastern
+    // 2am & 9am Eastern (nasdaq, today + 10 business days ahead)
     cron.schedule(
         "0 2,9 * * *",
-        () => {
-            console.log("Running: earnings releases");
-            Meteor.callAsync("importEarningsReleases").catch((error) => {
-                console.error("Error in earnings releases cron:", error);
-            });
-        },
-        TZ,
-    );
-
-    // 2:05am & 9:05am Eastern (nasdaq, today + 10 business days ahead)
-    cron.schedule(
-        "5 2,9 * * *",
         () => {
             console.log("Running: earnings releases (nasdaq)");
             Meteor.callAsync("importEarningsReleasesFromNasdaq", {

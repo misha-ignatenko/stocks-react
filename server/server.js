@@ -1410,28 +1410,9 @@ Meteor.methods({
             const quote = await yahooFinance.quote(symbol);
             if (quote) return true;
         } catch (e) {
-            // symbol not found in Yahoo Finance, fall through to other checks
+            // symbol not found in Yahoo Finance
         }
 
-        async function checkDatatable(url) {
-            try {
-                const response = await fetch(url);
-                const json = await response.json();
-                return json.datatable.data.length > 0;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        const urls = [
-            await ServerUtils.earningsReleases.getEarningsReleasesUrl(symbol),
-        ];
-
-        for (const url of urls) {
-            if (await checkDatatable(url)) {
-                return true;
-            }
-        }
         return false;
     },
 
