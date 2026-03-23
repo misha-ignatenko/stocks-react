@@ -257,13 +257,6 @@ export const ServerUtils = {
         return validRatingScaleIDsMap;
     },
 
-    apiKey: async function () {
-        return await Utils.getCachedSetting(
-            "dataImports.earningsReleases.quandlZeaAuthToken",
-        );
-    },
-
-    earningsReleasesUrl: "https://data.nasdaq.com/api/v3/datatables/ZACKS/EA",
     prices: {
         cache: {}, // { prices, pricesMap, adjustments }
         async _fetch(symbol) {
@@ -542,15 +535,6 @@ export const ServerUtils = {
                 console.log("expected & actual _ids", expected._id, actual._id);
                 console.log("--------------------------------------");
             });
-        },
-        getAllEarningsReleasesUrl: async (cursorID) => {
-            const cursorPostfix = cursorID
-                ? `&qopts.cursor_id=${cursorID}`
-                : "";
-            return `${ServerUtils.earningsReleasesUrl}?api_key=${await ServerUtils.apiKey()}${cursorPostfix}`;
-        },
-        getEarningsReleasesUrl: async (symbol) => {
-            return `${ServerUtils.earningsReleasesUrl}?ticker=${symbol}&api_key=${await ServerUtils.apiKey()}`;
         },
         getAdjustedEps(rawData, adjustments, reportDate, fields) {
             // need to adjust old eps measurements, prior to adj date
