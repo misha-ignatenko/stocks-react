@@ -1,29 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useTracker } from 'meteor/react-meteor-data';
-import { NavLink } from 'react-router-dom';
-import { Meteor } from 'meteor/meteor';
-import { Permissions } from '../../lib/permissions';
+import React, { useState, useEffect } from "react";
+import { useTracker } from "meteor/react-meteor-data";
+import { NavLink } from "react-router-dom";
+import { Meteor } from "meteor/meteor";
+import { Permissions } from "../../lib/permissions";
 
-import AccountsUIWrapper from './AccountsUIWrapper.jsx';
+import AccountsUIWrapper from "./AccountsUIWrapper.jsx";
 
 function Navigation() {
     const [isPremium, setIsPremium] = useState(false);
 
-    const { showDataImportsTab } = useTracker(() => {
+    const { showDataImportsTab, userId, loggingIn } = useTracker(() => {
         const user = Meteor.user({ fields: { showDataImportsTab: 1 } });
         return {
-            showDataImportsTab: user?.showDataImportsTab
+            showDataImportsTab: user?.showDataImportsTab,
+            userId: Meteor.userId(),
+            loggingIn: Meteor.loggingIn(),
         };
     }, []);
 
     useEffect(() => {
-        Permissions.isPremium().then(result => {
+        if (loggingIn) return;
+        Permissions.isPremium().then((result) => {
             setIsPremium(result);
         });
-    }, []);
+    }, [userId, loggingIn]);
 
-    const activeStyle = ({isActive}) => {
-        if (isActive) return {fontWeight: 'bold'};
+    const activeStyle = ({ isActive }) => {
+        if (isActive) return { fontWeight: "bold" };
     };
 
     return (
@@ -31,15 +34,38 @@ function Navigation() {
             <header>
                 <AccountsUIWrapper />
             </header>
-
-            <NavLink to="/ratingChanges" style={activeStyle}>Rating Changes</NavLink> |{' '}
-            <NavLink to="/stock" style={activeStyle}>Individual Stocks</NavLink> |{' '}
-            <NavLink to="/upcomingEarningsReleases" style={activeStyle}>Upcoming Earnings Releases</NavLink> |{' '}
-            {isPremium ? <span>
-                <NavLink to="/analysis" style={activeStyle}>Analysis</NavLink> |{' '}
-            </span> : null}
-            <NavLink to="/contact" style={activeStyle}>Contact</NavLink> |{' '}
-            {showDataImportsTab ? <NavLink to="/dataImports" style={activeStyle}>Data Imports</NavLink> : null}
+            <NavLink to="/ratingChanges" style={activeStyle}>
+                Rating Changes
+            </NavLink>{" "}
+            |{" "}
+            <NavLink to="/stock" style={activeStyle}>
+                Individual Stocks
+            </NavLink>{" "}
+            |{" "}
+            <NavLink to="/upcomingEarningsReleases" style={activeStyle}>
+                Upcoming Earnings Releases
+            </NavLink>{" "}
+            |{" "}
+            {isPremium ? (
+                <span>
+                    <NavLink
+                        to="/earningsReleasesForSymbol"
+                        style={activeStyle}
+                    >
+                        Earnings by Symbol
+                    </NavLink>{" "}
+                    |{" "}
+                </span>
+            ) : null}
+            <NavLink to="/contact" style={activeStyle}>
+                Contact
+            </NavLink>{" "}
+            |{" "}
+            {showDataImportsTab ? (
+                <NavLink to="/dataImports" style={activeStyle}>
+                    Data Imports
+                </NavLink>
+            ) : null}
         </div>
     );
 }

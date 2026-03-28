@@ -1,30 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { useTracker } from 'meteor/react-meteor-data';
-import { Meteor } from 'meteor/meteor';
-import { Random } from 'meteor/random';
+import React, { useState, useEffect } from "react";
+import { useTracker } from "meteor/react-meteor-data";
+import { Meteor } from "meteor/meteor";
+import { Random } from "meteor/random";
 
-import AverageAndWeightedRatings from './Ratings/AverageAndWeightedRatings.jsx';
+import AverageAndWeightedRatings from "./Ratings/AverageAndWeightedRatings.jsx";
 
 function IndividualStock() {
-    const [individualStockStartDate, setIndividualStockStartDate] = useState(null);
+    const [individualStockStartDate, setIndividualStockStartDate] =
+        useState(null);
     const [individualStockEndDate, setIndividualStockEndDate] = useState(null);
     const [selectedStock, setSelectedStock] = useState(null);
     const [stocksToGraphObjects, setStocksToGraphObjects] = useState([]);
-    const [showRegisterNewAccountFields, setShowRegisterNewAccountFields] = useState(false);
+    const [showRegisterNewAccountFields, setShowRegisterNewAccountFields] =
+        useState(false);
     const [showRegisterAccountBtn, setShowRegisterAccountBtn] = useState(true);
     const [showAvgRatings, setShowAvgRatings] = useState(true);
     const [showWeightedRating, setShowWeightedRating] = useState(true);
-    const [searchValue, setSearchValue] = useState('');
-    const [newUsername, setNewUsername] = useState('');
+    const [searchValue, setSearchValue] = useState("");
+    const [newUsername, setNewUsername] = useState("");
     const [newPassword, setNewPassword] = useState(Random.id());
 
-    const { currentUser } = useTracker(() => ({
-        currentUser: Meteor.user()
-    }), []);
+    const { currentUser } = useTracker(
+        () => ({
+            currentUser: Meteor.user(),
+        }),
+        [],
+    );
 
     useEffect(() => {
         if (currentUser) {
-            setNewUsername(currentUser.username || '');
+            setNewUsername(currentUser.username || "");
         }
     }, [currentUser]);
 
@@ -34,7 +39,7 @@ function IndividualStock() {
 
     const clearSelectedStock = () => {
         setSelectedStock(null);
-        setSearchValue('');
+        setSearchValue("");
     };
 
     const resetDateRange = () => {
@@ -46,7 +51,9 @@ function IndividualStock() {
         if (event.keyCode === 13) {
             const symbol = searchValue;
             try {
-                const res = await Meteor.callAsync("insertNewStockSymbols", [symbol]);
+                const res = await Meteor.callAsync("insertNewStockSymbols", [
+                    symbol,
+                ]);
                 if (res[symbol]) {
                     setSelectedStock(symbol);
                 } else {
@@ -72,17 +79,25 @@ function IndividualStock() {
 
     const registerDummyUser = () => {
         if (newUsername && newPassword) {
-            Meteor.call("registerRealAccountFromDummy", newUsername, newPassword, (error, result) => {
-                if (!error && result) {
-                    Meteor.loginWithPassword(result.username, result.password);
-                }
-            });
+            Meteor.call(
+                "registerRealAccountFromDummy",
+                newUsername,
+                newPassword,
+                (error, result) => {
+                    if (!error && result) {
+                        Meteor.loginWithPassword(
+                            result.username,
+                            result.password,
+                        );
+                    }
+                },
+            );
         }
     };
 
     const selectTab = (tabId) => {
-        setShowAvgRatings(tabId !== 'wgt');
-        setShowWeightedRating(tabId !== 'avg');
+        setShowAvgRatings(tabId !== "wgt");
+        setShowWeightedRating(tabId !== "avg");
     };
 
     if (!currentUser) {
@@ -99,29 +114,29 @@ function IndividualStock() {
     return (
         <div className="container">
             {!currentUser.registered && showRegisterAccountBtn && (
-                <button onClick={showRegisterAccountFields}>Register account</button>
+                <button onClick={showRegisterAccountFields}>
+                    Register account
+                </button>
             )}
-
             {!currentUser.registered && showRegisterNewAccountFields && (
                 <div>
-                    username:{' '}
+                    username:{" "}
                     <input
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                     />
-                    password:{' '}
+                    password:{" "}
                     <input
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                     />
-                    <br/>
+                    <br />
                     <button onClick={registerDummyUser}>Register</button>
                     <button onClick={hideRegisterAccountFields}>Cancel</button>
                 </div>
             )}
-
-            <br/>
-            <br/>
+            <br />
+            <br />
             search for:
             <input
                 className="individualStockSearch"
@@ -130,59 +145,57 @@ function IndividualStock() {
                 onKeyDown={selectFirstSearchResult}
                 placeholder="Enter stock symbol"
             />
-            <br/>
-
+            <br />
             {selectedStock && (
                 <div>
                     selected stock: {selectedStock}
                     <button onClick={clearSelectedStock}>Clear</button>
                 </div>
             )}
-
             <div className="btn-group" role="group" aria-label="...">
                 <button
                     type="button"
                     className={showAvgRatings && !showWeightedRating ? _ab : _b}
-                    onClick={() => selectTab('avg')}
+                    onClick={() => selectTab("avg")}
                 >
                     avg only
                 </button>
                 <button
                     type="button"
                     className={showAvgRatings && showWeightedRating ? _ab : _b}
-                    onClick={() => selectTab('both')}
+                    onClick={() => selectTab("both")}
                 >
                     both
                 </button>
                 <button
                     type="button"
                     className={!showAvgRatings && showWeightedRating ? _ab : _b}
-                    onClick={() => selectTab('wgt')}
+                    onClick={() => selectTab("wgt")}
                 >
                     wgt only
                 </button>
             </div>
-
             {(individualStockStartDate || individualStockEndDate) && (
                 <div>
                     <button onClick={resetDateRange}>Reset date range</button>
                 </div>
             )}
-
             {individualStockStartDate}
             {individualStockEndDate}
-
-            {selectedStock && individualStockStartDate && individualStockEndDate && (
-                <div>
-                    <br/>
-                    <br/>
-                    <h1>Details for {selectedStock}</h1>
-                    <div className="col-md-12 individualStockGraph">
-                        <StocksGraph stocksToGraphObjects={stocksToGraphObjects} />
+            {selectedStock &&
+                individualStockStartDate &&
+                individualStockEndDate && (
+                    <div>
+                        <br />
+                        <br />
+                        <h1>Details for {selectedStock}</h1>
+                        <div className="col-md-12 individualStockGraph">
+                            <StocksGraph
+                                stocksToGraphObjects={stocksToGraphObjects}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
-
+                )}
             {selectedStock && (
                 <div className="container">
                     <AverageAndWeightedRatings
