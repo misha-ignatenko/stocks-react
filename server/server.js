@@ -20,7 +20,6 @@ import { ServerUtils, yahooFinance } from "./utils";
 
 const dateStringSortDesc = { dateString: -1 };
 const researchFirmIDsToExclude = ["vt29AuAATaAu7r3rS", "TMbx3pyYK8gSqH3W6"];
-const YYYYMMDD = Utils.dateFormatYYYYMMDD;
 const YYYY_MM_DD = Utils.dateFormat;
 const ADJ_CLOSE = "adjClose";
 const nonCanadaFilter = {
@@ -154,16 +153,11 @@ Meteor.methods({
             Utils.businessAdd(Utils.todaysDate(), daysToAdd),
         );
 
-        const closestWeekDay =
-            +(await Utils.getClosestPreviousWeekDayDateByCutoffTime(
-                undefined,
-                YYYYMMDD,
-            ));
         const query = {
             $and: [
                 {
                     reportDateNextFiscalQuarter: {
-                        $gte: Math.max(startDate, closestWeekDay),
+                        $gte: startDate,
                         $lte: endDate,
                     },
                 },
@@ -175,6 +169,7 @@ Meteor.methods({
                 },
             ],
         };
+        console.log("getUpcomingEarningsReleases", { startDate, endDate });
 
         const earningsReleases = await EarningsReleases.find(query, {
             sort: {
@@ -213,13 +208,17 @@ Meteor.methods({
                 ...companyConfirmedFilter,
             },
             {
-                sort: { insertedDate: -1 },
+                sort: {
+                    reportDateNextFiscalQuarter: -1,
+                    insertedDate: -1,
+                },
             },
         ).fetchAsync();
         releases.forEach((e) => {
             e.timeOfDay = Utils.earningsTimeOfDayMap[e.reportTimeOfDayCode];
+            e.key = `${e.reportDateNextFiscalQuarter}-${e.reportTimeOfDayCode}-${e.symbol}-${e.epsMeanEstimateNextFiscalQuarter}-${e.epsActualOneYearAgoFiscalQuarter}-${e.numEstimates}`;
         });
-        return releases;
+        return _.uniq(releases, false, (e) => e.key);
     },
 
     insertAltRatingScale: async function (
