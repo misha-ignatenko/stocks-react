@@ -16,7 +16,7 @@ var _totalMaxGradingValue = 120;
 Meteor.methods({
     async importEarningsReleasesFromNasdaq({
         startDate,
-        businessDaysAhead = 10,
+        businessDaysAhead = 15,
     }) {
         check(startDate, String); // YYYY-MM-DD
         check(businessDaysAhead, Match.Optional(Number));
