@@ -87,7 +87,6 @@ export const EarningsReleasesForSymbol = () => {
                                         <th>Prior Qtr End</th>
                                         <th>1Y Ago Qtr End</th>
                                         <th>Num Est.</th>
-                                        <th>Market Cap</th>
                                         <th>Next Next Rpt</th>
                                         <th>Next FY Rpt</th>
                                         <th>Next Next FY Rpt</th>
@@ -147,7 +146,6 @@ export const EarningsReleasesForSymbol = () => {
                                                     ""}
                                             </td>
                                             <td>{e.numEstimates ?? ""}</td>
-                                            <td>{e.marketCap ?? ""}</td>
                                             <td>
                                                 {e.reportDateNextNextFiscalQuarter ??
                                                     ""}

@@ -10,6 +10,7 @@ import {
     ResearchCompanies,
     RatingScales,
     RatingChanges,
+    MarketCaps,
 } from "../../lib/collections";
 var _totalMaxGradingValue = 120;
 
@@ -153,9 +154,6 @@ Meteor.methods({
                             numEstimates: isNaN(numEstimates)
                                 ? null
                                 : numEstimates,
-                            marketCap: isNaN(parsedMarketCap)
-                                ? null
-                                : parsedMarketCap,
                             lastYearRptDt: parsedLastYearRptDt,
                             reportSourceFlag: 1,
                             source: "nasdaq",
@@ -178,6 +176,28 @@ Meteor.methods({
                             });
                             dateStats.numInserted++;
                             symbolsToInsert.add(symbol);
+                        }
+
+                        const marketCapValue = isNaN(parsedMarketCap)
+                            ? null
+                            : parsedMarketCap;
+                        if (marketCapValue !== null) {
+                            await MarketCaps.upsertAsync(
+                                { symbol, asOf, marketCap: marketCapValue },
+                                {
+                                    $set: {
+                                        lastModified,
+                                    },
+                                    $setOnInsert: {
+                                        symbol,
+                                        marketCap: marketCapValue,
+                                        asOf,
+                                        insertedDate: lastModified,
+                                        insertedDateStr: asOf,
+                                        source: "nasdaq",
+                                    },
+                                },
+                            );
                         }
                     } catch (error) {
                         console.log(

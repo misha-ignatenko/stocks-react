@@ -1,4 +1,8 @@
-import { RatingChanges, EarningsReleases } from "../lib/collections";
+import {
+    RatingChanges,
+    EarningsReleases,
+    MarketCaps,
+} from "../lib/collections";
 
 RatingChanges.createIndex({ dateString: 1, researchFirmId: 1, symbol: 1 });
 RatingChanges.createIndex({ dateString: 1, symbol: 1 });
@@ -24,3 +28,5 @@ EarningsReleases.createIndex({
     asOf: -1,
 });
 EarningsReleases.createIndex({ asOf: -1 });
+
+MarketCaps.createIndex({ symbol: 1, asOf: -1 });
