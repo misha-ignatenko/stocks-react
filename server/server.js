@@ -935,11 +935,7 @@ Meteor.methods({
         const actualReleasesQuery = {
             $or: uniqueExpectedEarningsReleases.map((e) => {
                 const {
-                    /**
-                     * the endDateNextFiscalQuarter of the expected earnings release maps to the endDatePreviousFiscalQuarter
-                     * of the actual release
-                     */
-                    endDateNextFiscalQuarter: endDatePreviousFiscalQuarter,
+                    endDateNextFiscalQuarter,
                     symbol,
                     /**
                      * the asOf date of the actual release should be after the expected release date
@@ -949,7 +945,10 @@ Meteor.methods({
 
                 return {
                     symbol,
-                    endDatePreviousFiscalQuarter,
+                    endDateNextFiscalQuarter: Utils.dateRangeAround(
+                        Utils.addCalendarDays(endDateNextFiscalQuarter, 90),
+                        30,
+                    ),
                     asOf: { $gt: Utils.convertToStringDate(minAsOfDate) },
                 };
             }),
@@ -1011,6 +1010,7 @@ Meteor.methods({
                 await actualE.adjustForSplits();
             }
 
+            // todo: when have 1 year history of nasdaq, can use lastYearRptDt to look up the lastYearEPS
             const actualEps = actualE?.epsActualPreviousFiscalQuarter;
             const expectedEpsNextQt = actualE?.epsMeanEstimateNextFiscalQuarter;
 

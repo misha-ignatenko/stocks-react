@@ -488,53 +488,6 @@ export const ServerUtils = {
             if (returnOnlyReportDates) {
                 return relevantReportDates;
             }
-
-            const earningsReleases = relevantReportDates.map((reportDate) => {
-                const expectedQuery = _.extend(
-                    {
-                        reportDateNextFiscalQuarter: reportDate,
-                        asOf: { $lt: Utils.convertToStringDate(reportDate) },
-                    },
-                    validRecordsQuery,
-                    companyConfirmedQuery,
-                );
-                const expected = EarningsReleases.findOne(expectedQuery, {
-                    sort: { asOf: -1 },
-                });
-
-                const expectationCoversEarningsThru =
-                    expected.endDateNextFiscalQuarter;
-
-                const actualQuery = _.extend(
-                    {
-                        endDatePreviousFiscalQuarter:
-                            expectationCoversEarningsThru,
-                        asOf: { $gt: Utils.convertToStringDate(reportDate) },
-                    },
-                    validRecordsQuery,
-                );
-                const actual = EarningsReleases.findOne(actualQuery, {
-                    sort: { asOf: 1 },
-                });
-
-                const expectedEps = expected.epsMeanEstimateNextFiscalQuarter;
-                const actualEps = actual.epsActualPreviousFiscalQuarter;
-                const expectationAfterRelease =
-                    actual.epsMeanEstimateNextFiscalQuarter;
-
-                console.log("--------------------------------------");
-                console.log("earnings released on", reportDate);
-                console.log("quarter end date", expectationCoversEarningsThru);
-                console.log("expectation known on", expected.asOf);
-                console.log("actual known on", actual.asOf);
-                console.log("expected vs. actual eps", expectedEps, actualEps);
-                console.log(
-                    "expectation for the next quarter (after release)",
-                    expectationAfterRelease,
-                );
-                console.log("expected & actual _ids", expected._id, actual._id);
-                console.log("--------------------------------------");
-            });
         },
         getAdjustedEps(rawData, adjustments, reportDate, fields) {
             // need to adjust old eps measurements, prior to adj date

@@ -84,14 +84,11 @@ export const EarningsReleasesForSymbol = () => {
                                         <th>Street Est.</th>
                                         <th>Prior Yr EPS</th>
                                         <th>Prior Qtr EPS</th>
-                                        <th>Prior Qtr End</th>
                                         <th>1Y Ago Qtr End</th>
                                         <th>Num Est.</th>
                                         <th>Next Next Rpt</th>
                                         <th>Next FY Rpt</th>
                                         <th>Next Next FY Rpt</th>
-                                        <th>Late Flag</th>
-                                        <th>Late Desc</th>
                                         <th>Last Yr Rpt Dt</th>
                                         <th>Source</th>
                                     </tr>
@@ -138,10 +135,6 @@ export const EarningsReleasesForSymbol = () => {
                                                     ""}
                                             </td>
                                             <td>
-                                                {e.endDatePreviousFiscalQuarter ??
-                                                    ""}
-                                            </td>
-                                            <td>
                                                 {e.endDateOneYearAgoFiscalQuarter ??
                                                     ""}
                                             </td>
@@ -157,13 +150,6 @@ export const EarningsReleasesForSymbol = () => {
                                             <td>
                                                 {e.reportDateNextNextFiscalYear ??
                                                     ""}
-                                            </td>
-                                            <td>
-                                                {e.lateMostRecentReportFlag ??
-                                                    ""}
-                                            </td>
-                                            <td>
-                                                {e.lateLastDescription ?? ""}
                                             </td>
                                             <td>{e.lastYearRptDt ?? ""}</td>
                                             <td>{e.source ?? ""}</td>
