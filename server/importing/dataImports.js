@@ -76,6 +76,7 @@ Meteor.methods({
                 numUpdated: 0,
                 numSkipped: 0,
                 numActualsInserted: 0,
+                numActualsUpdated: 0,
             };
             try {
                 const url = `https://api.nasdaq.com/api/calendar/earnings?date=${date}`;
@@ -214,6 +215,7 @@ Meteor.methods({
                                         lastModified,
                                     },
                                 });
+                                dateStats.numActualsUpdated++;
                             } else {
                                 await ActualEarnings.insertAsync({
                                     earningsReleaseIDs: matchingIDs,
@@ -272,7 +274,7 @@ Meteor.methods({
         const lines = Object.entries(statsByDate)
             .map(
                 ([date, s]) =>
-                    `${date}: +${s.numInserted} ins, ${s.numUpdated} upd, ${s.numSkipped} skip, +${s.numActualsInserted} act${s.error ? `, ERROR: ${s.error}` : ""}`,
+                    `${date}: +${s.numInserted} ins, ${s.numUpdated} upd, ${s.numSkipped} skip, +${s.numActualsInserted} act ins, ${s.numActualsUpdated} act upd${s.error ? `, ERROR: ${s.error}` : ""}`,
             )
             .join("\n");
         await Email.send({
