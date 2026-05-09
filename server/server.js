@@ -947,7 +947,7 @@ Meteor.methods({
                     symbol,
                     endDateNextFiscalQuarter: Utils.dateRangeAround(
                         Utils.addCalendarDays(endDateNextFiscalQuarter, 90),
-                        30,
+                        45,
                     ),
                     asOf: { $gt: Utils.convertToStringDate(minAsOfDate) },
                 };
