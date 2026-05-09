@@ -1175,7 +1175,7 @@ Meteor.methods({
             let priorSalePriceSMA50;
             let priorSalePriceSMA200;
             const priorConfirmedRelease =
-                await expectedE.getPriorConfirmedRelease();
+                await expectedE.getQuarterlyReleaseAtOffset(-1);
             if (priorConfirmedRelease) {
                 const priorPurchaseDate =
                     priorConfirmedRelease.getPurchaseDate(advancePurchaseDays);
