@@ -11,6 +11,7 @@ import {
     RatingScales,
     RatingChanges,
     MarketCaps,
+    ActualEarnings,
 } from "../../lib/collections";
 var _totalMaxGradingValue = 120;
 
@@ -70,7 +71,12 @@ Meteor.methods({
         const symbolsToInsert = new Set();
 
         for (const date of dates) {
-            const dateStats = { numInserted: 0, numUpdated: 0, numSkipped: 0 };
+            const dateStats = {
+                numInserted: 0,
+                numUpdated: 0,
+                numSkipped: 0,
+                numActualsInserted: 0,
+            };
             try {
                 const url = `https://api.nasdaq.com/api/calendar/earnings?date=${date}`;
                 console.log("importEarningsReleasesFromNasdaq fetching", url);
@@ -169,13 +175,56 @@ Meteor.methods({
                             dateStats.numUpdated++;
                             symbolsToInsert.add(symbol);
                         } else {
-                            await EarningsReleases.insertAsync({
-                                ...mainRecord,
-                                insertedDate: lastModified,
-                                insertedDateStr: asOf,
-                            });
+                            const insertedId =
+                                await EarningsReleases.insertAsync({
+                                    ...mainRecord,
+                                    insertedDate: lastModified,
+                                    insertedDateStr: asOf,
+                                });
                             dateStats.numInserted++;
                             symbolsToInsert.add(symbol);
+                            matchingIDs.push(insertedId);
+                        }
+
+                        const parsedActualEps = parseEps(row.eps);
+                        const parsedSurprise =
+                            !row.surprise || row.surprise === "N/A"
+                                ? null
+                                : parseFloat(row.surprise);
+                        if (
+                            parsedActualEps !== null ||
+                            (parsedSurprise !== null && !isNaN(parsedSurprise))
+                        ) {
+                            const surpriseValue = isNaN(parsedSurprise)
+                                ? null
+                                : parsedSurprise;
+                            const existing = await ActualEarnings.findOneAsync({
+                                earningsReleaseIDs: { $in: matchingIDs },
+                            });
+                            if (existing) {
+                                await ActualEarnings.updateAsync(existing._id, {
+                                    $addToSet: {
+                                        earningsReleaseIDs: {
+                                            $each: matchingIDs,
+                                        },
+                                    },
+                                    $set: {
+                                        eps: parsedActualEps,
+                                        surprise: surpriseValue,
+                                        lastModified,
+                                    },
+                                });
+                            } else {
+                                await ActualEarnings.insertAsync({
+                                    earningsReleaseIDs: matchingIDs,
+                                    eps: parsedActualEps,
+                                    surprise: surpriseValue,
+                                    lastModified,
+                                    insertedDate: lastModified,
+                                    insertedDateStr: asOf,
+                                });
+                                dateStats.numActualsInserted++;
+                            }
                         }
 
                         const marketCapValue = isNaN(parsedMarketCap)
@@ -223,7 +272,7 @@ Meteor.methods({
         const lines = Object.entries(statsByDate)
             .map(
                 ([date, s]) =>
-                    `${date}: +${s.numInserted} ins, ${s.numUpdated} upd, ${s.numSkipped} skip${s.error ? `, ERROR: ${s.error}` : ""}`,
+                    `${date}: +${s.numInserted} ins, ${s.numUpdated} upd, ${s.numSkipped} skip, +${s.numActualsInserted} act${s.error ? `, ERROR: ${s.error}` : ""}`,
             )
             .join("\n");
         await Email.send({

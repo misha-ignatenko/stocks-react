@@ -493,11 +493,6 @@ function AverageAndWeightedRatings({
                         EPS a year ago:{" "}
                         {release.epsActualOneYearAgoFiscalQuarter}
                     </h3>
-                    <br />
-                    <h5>Next quarter</h5>
-                    <h5>
-                        Report date: {release.reportDateNextNextFiscalQuarter}
-                    </h5>
                 </div>
             );
         });

@@ -72,23 +72,15 @@ export const EarningsReleasesForSymbol = () => {
                                         <th>Report Date</th>
                                         <th>Time of Day</th>
                                         <th>Source Flag</th>
-                                        <th>Source Desc</th>
                                         <th>Company</th>
-                                        <th>Alt Company</th>
-                                        <th>Alt Symbol</th>
                                         <th>Exchange</th>
                                         <th>Currency</th>
                                         <th>FQ End</th>
                                         <th>FY End</th>
                                         <th>EPS Est.</th>
-                                        <th>Street Est.</th>
                                         <th>Prior Yr EPS</th>
                                         <th>Prior Qtr EPS</th>
-                                        <th>1Y Ago Qtr End</th>
                                         <th>Num Est.</th>
-                                        <th>Next Next Rpt</th>
-                                        <th>Next FY Rpt</th>
-                                        <th>Next Next FY Rpt</th>
                                         <th>Last Yr Rpt Dt</th>
                                         <th>Source</th>
                                     </tr>
@@ -104,10 +96,7 @@ export const EarningsReleasesForSymbol = () => {
                                             </td>
                                             <td>{e.timeOfDay ?? ""}</td>
                                             <td>{e.reportSourceFlag ?? ""}</td>
-                                            <td>{e.sourceDescription ?? ""}</td>
                                             <td>{e.companyName ?? ""}</td>
-                                            <td>{e.altCompanyName ?? ""}</td>
-                                            <td>{e.altSymbol ?? ""}</td>
                                             <td>{e.exchange ?? ""}</td>
                                             <td>{e.currencyCode ?? ""}</td>
                                             <td>
@@ -123,10 +112,6 @@ export const EarningsReleasesForSymbol = () => {
                                                     ""}
                                             </td>
                                             <td>
-                                                {e.streetMeanEstimateNextFiscalQuarter ??
-                                                    ""}
-                                            </td>
-                                            <td>
                                                 {e.epsActualOneYearAgoFiscalQuarter ??
                                                     ""}
                                             </td>
@@ -134,23 +119,7 @@ export const EarningsReleasesForSymbol = () => {
                                                 {e.epsActualPreviousFiscalQuarter ??
                                                     ""}
                                             </td>
-                                            <td>
-                                                {e.endDateOneYearAgoFiscalQuarter ??
-                                                    ""}
-                                            </td>
                                             <td>{e.numEstimates ?? ""}</td>
-                                            <td>
-                                                {e.reportDateNextNextFiscalQuarter ??
-                                                    ""}
-                                            </td>
-                                            <td>
-                                                {e.reportDateNextFiscalYear ??
-                                                    ""}
-                                            </td>
-                                            <td>
-                                                {e.reportDateNextNextFiscalYear ??
-                                                    ""}
-                                            </td>
                                             <td>{e.lastYearRptDt ?? ""}</td>
                                             <td>{e.source ?? ""}</td>
                                         </tr>

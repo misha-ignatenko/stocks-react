@@ -2,6 +2,7 @@ import {
     RatingChanges,
     EarningsReleases,
     MarketCaps,
+    ActualEarnings,
 } from "../lib/collections";
 
 RatingChanges.createIndex({ dateString: 1, researchFirmId: 1, symbol: 1 });
@@ -30,3 +31,5 @@ EarningsReleases.createIndex({
 EarningsReleases.createIndex({ asOf: -1 });
 
 MarketCaps.createIndex({ symbol: 1, asOf: -1 });
+
+ActualEarnings.createIndex({ earningsReleaseIDs: 1 });

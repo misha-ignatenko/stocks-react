@@ -26,6 +26,23 @@ Meteor.startup(function () {
         TZ,
     );
 
+    // 3am Eastern (nasdaq, scan past ~15 business days for actual EPS data)
+    cron.schedule(
+        "0 3 * * *",
+        () => {
+            console.log("Running: earnings releases backfill (nasdaq actuals)");
+            Meteor.callAsync("importEarningsReleasesFromNasdaq", {
+                startDate: Utils.businessAdd(Utils.todaysDate(), -15),
+            }).catch((error) => {
+                console.error(
+                    "Error in earnings releases actuals cron:",
+                    error,
+                );
+            });
+        },
+        TZ,
+    );
+
     const baseOptions = {
         advancePurchaseDays: 1,
         saleDelayInDays: 2,

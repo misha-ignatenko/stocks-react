@@ -1019,7 +1019,6 @@ Meteor.methods({
             const expectedAsOf = expectedE.asOf;
             const {
                 reportTimeOfDayCode,
-                timeOfDayDescription,
                 insertedDate,
                 epsMeanEstimateNextFiscalQuarter: expectedEps,
                 epsActualPreviousFiscalQuarter,
@@ -1233,7 +1232,6 @@ Meteor.methods({
                 expectedEpsNextQt,
                 reportDate,
                 expectedAsOf,
-                timeOfDayDescription,
                 endDateNextFiscalQuarter,
                 originalEpsExpectation,
                 pctExpEpsOverOriginalEpsExpectation: getRateOfChange(
