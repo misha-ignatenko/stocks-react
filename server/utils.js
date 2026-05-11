@@ -431,9 +431,6 @@ export const ServerUtils = {
                 currencyCode: { $nin: ["CND"] },
                 exchange: { $nin: ["NASDAQ Other OTC"] },
             };
-            const companyConfirmedQuery = {
-                reportSourceFlag: 1,
-            };
 
             const query = _.extend(
                 {
@@ -443,7 +440,7 @@ export const ServerUtils = {
                     },
                 },
                 validRecordsQuery,
-                companyConfirmedQuery,
+                Utils.companyConfirmedQuery,
             );
 
             if (returnObjects) {
