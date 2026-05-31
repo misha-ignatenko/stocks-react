@@ -24,14 +24,7 @@ Meteor.methods({
         check(businessDaysAhead, Match.Optional(Number));
         await ServerUtils.runPremiumCheck(this);
 
-        await Email.send({
-            subject: `BEGIN getting earnings releases (nasdaq, ${startDate}, +${businessDaysAhead}bd)`,
-            text: JSON.stringify({
-                timeNow: new Date(),
-                startDate,
-                businessDaysAhead,
-            }),
-        });
+        const startTime = Date.now();
 
         const dates = [];
         for (let i = 0; i <= businessDaysAhead; i++) {
@@ -270,7 +263,12 @@ Meteor.methods({
             Array.from(symbolsToInsert),
         );
 
-        console.log("importEarningsReleasesFromNasdaq done", statsByDate);
+        const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+        console.log(
+            "importEarningsReleasesFromNasdaq done",
+            statsByDate,
+            `${durationSeconds}s`,
+        );
         const lines = Object.entries(statsByDate)
             .map(
                 ([date, s]) =>
@@ -278,8 +276,8 @@ Meteor.methods({
             )
             .join("\n");
         await Email.send({
-            subject: "DONE getting earnings releases (nasdaq)",
-            text: `${new Date().toISOString()}\n\n${lines}`,
+            subject: `DONE getting earnings releases (nasdaq, ${startDate}, +${businessDaysAhead}bd)`,
+            text: `${new Date().toISOString()}\nDuration: ${durationSeconds}s\n\n${lines}`,
         });
         return statsByDate;
     },
