@@ -8,9 +8,9 @@ import { Utils } from "../../lib/utils";
 export const UpcomingEarningsReleases = () => {
     const [earningsReleases, setEarningsReleases] = useState(null);
 
-    const { user, loggingIn } = useTracker(
+    const { userId, loggingIn } = useTracker(
         () => ({
-            user: Meteor.user({ fields: { registered: 1 } }),
+            userId: Meteor.userId(),
             loggingIn: Meteor.loggingIn(),
         }),
         [],
@@ -22,7 +22,7 @@ export const UpcomingEarningsReleases = () => {
         Meteor.call("getUpcomingEarningsReleases", (err, res) => {
             if (!err) setEarningsReleases(res);
         });
-    }, [user, loggingIn]);
+    }, [userId, loggingIn]);
 
     return (
         <div>

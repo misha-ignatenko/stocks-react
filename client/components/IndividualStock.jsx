@@ -20,18 +20,20 @@ function IndividualStock() {
     const [newUsername, setNewUsername] = useState("");
     const [newPassword, setNewPassword] = useState(Random.id());
 
-    const { currentUser } = useTracker(
-        () => ({
-            currentUser: Meteor.user(),
-        }),
-        [],
-    );
+    const { userId, username, registered } = useTracker(() => {
+        const user = Meteor.user({ fields: { username: 1, registered: 1 } });
+        return {
+            userId: user?._id ?? null,
+            username: user?.username ?? null,
+            registered: user?.registered ?? false,
+        };
+    }, []);
 
     useEffect(() => {
-        if (currentUser) {
-            setNewUsername(currentUser.username || "");
+        if (userId) {
+            setNewUsername(username || "");
         }
-    }, [currentUser]);
+    }, [userId, username]);
 
     const searchingStock = (e) => {
         setSearchValue(e.target.value.toUpperCase());
@@ -100,7 +102,7 @@ function IndividualStock() {
         setShowWeightedRating(tabId !== "avg");
     };
 
-    if (!currentUser) {
+    if (!userId) {
         return (
             <div className="container">
                 You must be logged in to view this page.
@@ -113,12 +115,12 @@ function IndividualStock() {
 
     return (
         <div className="container">
-            {!currentUser.registered && showRegisterAccountBtn && (
+            {!registered && showRegisterAccountBtn && (
                 <button onClick={showRegisterAccountFields}>
                     Register account
                 </button>
             )}
-            {!currentUser.registered && showRegisterNewAccountFields && (
+            {!registered && showRegisterNewAccountFields && (
                 <div>
                     username:{" "}
                     <input
