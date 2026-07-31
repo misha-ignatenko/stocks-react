@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { Routes, Route, BrowserRouter } from "react-router-dom";
+import { Routes, Route, BrowserRouter } from "react-router";
 import { Meteor } from "meteor/meteor";
 
 import IndividualStock from "../client/components/IndividualStock.jsx";
@@ -13,12 +13,7 @@ import RatingChanges from "./components/Ratings/RatingChanges.jsx";
 
 Meteor.startup(() => {
     const AppRoutes = (
-        <BrowserRouter
-            future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true,
-            }}
-        >
+        <BrowserRouter>
             <div className="container">
                 <Navigation />
 

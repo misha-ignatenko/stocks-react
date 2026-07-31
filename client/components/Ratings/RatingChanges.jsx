@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import _ from "underscore";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { Table } from "reactstrap";
 import { Meteor } from "meteor/meteor";
 import { Utils } from "../../../lib/utils";

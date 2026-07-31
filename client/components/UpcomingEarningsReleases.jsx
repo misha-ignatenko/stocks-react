@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTracker } from "meteor/react-meteor-data";
 import { Meteor } from "meteor/meteor";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { Table } from "reactstrap";
 import { Utils } from "../../lib/utils";
 

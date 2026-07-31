@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTracker } from "meteor/react-meteor-data";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { Meteor } from "meteor/meteor";
 import { Permissions } from "../../lib/permissions";
 
