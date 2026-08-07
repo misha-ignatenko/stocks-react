@@ -62,6 +62,7 @@ Meteor.startup(function () {
             Meteor.callAsync("getEarningsAnalysis", {
                 startDate: Utils.businessAdd(Utils.todaysDate(), 1),
                 endDate: Utils.businessAdd(Utils.todaysDate(), 2),
+                emailPostfix: "pre",
                 ...baseOptions,
             }).catch((error) => {
                 console.error("Error in 1st job:", error);
@@ -78,6 +79,7 @@ Meteor.startup(function () {
             Meteor.callAsync("getEarningsAnalysis", {
                 startDate: Utils.businessAdd(Utils.todaysDate(), -1),
                 endDate: Utils.todaysDate(),
+                emailPostfix: "post",
                 ...baseOptions,
             }).catch((error) => {
                 console.error("Error in 2nd job:", error);

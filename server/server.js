@@ -603,6 +603,7 @@ Meteor.methods({
             includeHistory: Match.Optional(Boolean),
             bizDaysLookbackForHistory: Match.Optional(Number),
             emailResults: Match.Optional(Boolean),
+            emailPostfix: Match.Optional(String),
             returnExpected: Match.Optional(Boolean),
             isHistory: Match.Optional(Boolean),
         });
@@ -630,11 +631,12 @@ Meteor.methods({
             includeHistory = false,
             bizDaysLookbackForHistory = 500,
             emailResults = false,
+            emailPostfix = "",
             returnExpected = false,
             isHistory = false,
         } = options;
 
-        const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-.csv`;
+        const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-${emailPostfix}.csv`;
 
         console.log("getEarningsAnalysis", {
             startDate,
