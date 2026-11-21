@@ -5,7 +5,8 @@
   "scripts": {
     "postinstall": "node -e \"var f=require.resolve('react-router/package.json'),fs=require('fs'),p=JSON.parse(fs.readFileSync(f,'utf8'));if(p.module){delete p.module;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\\\\n');console.log('postinstall: removed top-level module field from react-router (Meteor workaround)')}\"",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
@@ -36,6 +37,10 @@
     "yahoo-finance2": "^4.0.6"
   },
   "devDependencies": {
+    "lint-staged": "^17.6.1",
     "prettier": "^3.10.1"
+  },
+  "lint-staged": {
+    "*.{js,jsx,json,md,yml,yaml,css,scss,html}": "prettier --write"
   }
 }

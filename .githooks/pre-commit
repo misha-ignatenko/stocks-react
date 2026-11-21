@@ -1,0 +1,31 @@
+#!/bin/sh
+# Format staged files with Prettier before each commit.
+#
+# Git hooks run in a non-interactive shell, which never sources ~/.zshrc and so
+# never loads nvm. Without the block below, PATH falls through to the stale
+# Node v12 at /usr/local/bin/node (a 2019 pkg install), and Prettier 3 refuses
+# to run on it -- every commit would fail with an engine error. This is also
+# why the hook can't just rely on `npx`.
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+nvm_dir="${NVM_DIR:-$HOME/.nvm}"
+
+# Prefer the major version pinned in .nvmrc, newest matching install wins.
+want=$(tr -d 'v[:space:]' < "$repo_root/.nvmrc" 2>/dev/null || echo 24)
+node_bin=$(ls -d "$nvm_dir"/versions/node/v"$want".* 2>/dev/null | sort -V | tail -1)
+
+if [ -n "$node_bin" ] && [ -x "$node_bin/bin/node" ]; then
+    PATH="$node_bin/bin:$PATH"
+    export PATH
+fi
+
+# Bail out with a useful message rather than a cryptic syntax error.
+major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
+if [ "$major" -lt 14 ]; then
+    echo "pre-commit: found Node v$major, but Prettier needs >= 14." >&2
+    echo "pre-commit: install Node $want via nvm, or set NVM_DIR." >&2
+    exit 1
+fi
+
+exec "$repo_root/node_modules/.bin/lint-staged"
