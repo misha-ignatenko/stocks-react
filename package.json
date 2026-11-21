@@ -8,7 +8,7 @@
     "bootstrap": "^5.2.2",
     "convert-array-to-csv": "^2.0.0",
     "ejson": "^2.2.3",
-    "highcharts": "^12.5.0",
+    "highcharts": "^12.6.2",
     "highcharts-react-official": "^3.2.3",
     "history": "^5.3.0",
     "jquery": "^3.7.1",
@@ -28,6 +28,6 @@
     "semver": "^7.5.4",
     "tar": "^7.5.22",
     "underscore": "^1.13.8",
-    "yahoo-finance2": "^4.0.5"
+    "yahoo-finance2": "^4.0.6"
   }
 }
