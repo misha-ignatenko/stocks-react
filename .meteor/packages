@@ -6,8 +6,8 @@
 
 
 
-mongo@2.5.1
-accounts-password@3.3.1
+mongo@2.5.2
+accounts-password@3.3.1_2
 shell-server@0.7.1
 ecmascript@0.19.1
 standard-minifier-js@3.2.0
