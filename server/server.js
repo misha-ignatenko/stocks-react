@@ -1190,12 +1190,7 @@ Meteor.methods({
 });
 
 Accounts.onCreateUser(function (options, user) {
-    var _createdUser;
-    if (options.registered === undefined) {
-        _createdUser = _.extend(user, { registered: false });
-    } else {
-        _createdUser = _.extend(user, { registered: options.registered });
-    }
+    var _createdUser = user;
 
     //set premium to false no matter what
     _createdUser.premium = false;
@@ -1206,20 +1201,6 @@ Accounts.onCreateUser(function (options, user) {
 });
 
 Meteor.methods({
-    registerRealAccountFromDummy: function (newUsername, newPassword) {
-        check(newUsername, String);
-        check(newPassword, String);
-
-        var dummyUserId = Meteor.userId();
-        Accounts.setUsername(dummyUserId, newUsername);
-        Accounts.setPassword(dummyUserId, newPassword);
-        Meteor.users.update(
-            { _id: dummyUserId },
-            { $set: { registered: true } },
-        );
-        return { username: newUsername, password: newPassword };
-    },
-
     async getSimilarSymbols(symbol) {
         check(symbol, String);
 

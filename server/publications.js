@@ -27,7 +27,6 @@ Meteor.publish(null, function () {
                   fields: {
                       _id: 1,
                       username: 1,
-                      registered: 1,
                       premium: 1,
                       lastModified: 1,
                       showDataImportsTab: 1,

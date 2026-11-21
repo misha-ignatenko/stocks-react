@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useTracker } from "meteor/react-meteor-data";
 import { Meteor } from "meteor/meteor";
-import { Random } from "meteor/random";
 
 import AverageAndWeightedRatings from "./Ratings/AverageAndWeightedRatings.jsx";
 
@@ -11,29 +10,11 @@ function IndividualStock() {
     const [individualStockEndDate, setIndividualStockEndDate] = useState(null);
     const [selectedStock, setSelectedStock] = useState(null);
     const [stocksToGraphObjects, setStocksToGraphObjects] = useState([]);
-    const [showRegisterNewAccountFields, setShowRegisterNewAccountFields] =
-        useState(false);
-    const [showRegisterAccountBtn, setShowRegisterAccountBtn] = useState(true);
     const [showAvgRatings, setShowAvgRatings] = useState(true);
     const [showWeightedRating, setShowWeightedRating] = useState(true);
     const [searchValue, setSearchValue] = useState("");
-    const [newUsername, setNewUsername] = useState("");
-    const [newPassword, setNewPassword] = useState(Random.id());
 
-    const { userId, username, registered } = useTracker(() => {
-        const user = Meteor.user({ fields: { username: 1, registered: 1 } });
-        return {
-            userId: user?._id ?? null,
-            username: user?.username ?? null,
-            registered: user?.registered ?? false,
-        };
-    }, []);
-
-    useEffect(() => {
-        if (userId) {
-            setNewUsername(username || "");
-        }
-    }, [userId, username]);
+    const userId = useTracker(() => Meteor.userId(), []);
 
     const searchingStock = (e) => {
         setSearchValue(e.target.value.toUpperCase());
@@ -69,34 +50,6 @@ function IndividualStock() {
         }
     };
 
-    const showRegisterAccountFields = () => {
-        setShowRegisterNewAccountFields(true);
-        setShowRegisterAccountBtn(false);
-    };
-
-    const hideRegisterAccountFields = () => {
-        setShowRegisterNewAccountFields(false);
-        setShowRegisterAccountBtn(true);
-    };
-
-    const registerDummyUser = () => {
-        if (newUsername && newPassword) {
-            Meteor.call(
-                "registerRealAccountFromDummy",
-                newUsername,
-                newPassword,
-                (error, result) => {
-                    if (!error && result) {
-                        Meteor.loginWithPassword(
-                            result.username,
-                            result.password,
-                        );
-                    }
-                },
-            );
-        }
-    };
-
     const selectTab = (tabId) => {
         setShowAvgRatings(tabId !== "wgt");
         setShowWeightedRating(tabId !== "avg");
@@ -115,28 +68,6 @@ function IndividualStock() {
 
     return (
         <div className="container">
-            {!registered && showRegisterAccountBtn && (
-                <button onClick={showRegisterAccountFields}>
-                    Register account
-                </button>
-            )}
-            {!registered && showRegisterNewAccountFields && (
-                <div>
-                    username:{" "}
-                    <input
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                    />
-                    password:{" "}
-                    <input
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                    <br />
-                    <button onClick={registerDummyUser}>Register</button>
-                    <button onClick={hideRegisterAccountFields}>Cancel</button>
-                </div>
-            )}
             <br />
             <br />
             search for:
