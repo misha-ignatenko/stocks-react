@@ -3,7 +3,6 @@ import moment from "moment-timezone";
 import _ from "underscore";
 import { check, Match } from "meteor/check";
 import { EJSON } from "meteor/ejson";
-const momentBiz = require("moment-business-days");
 const { performance } = require("perf_hooks");
 import {
     EarningsReleases,
@@ -604,7 +603,6 @@ Meteor.methods({
             bizDaysLookbackForHistory: Match.Optional(Number),
             emailResults: Match.Optional(Boolean),
             emailPostfix: Match.Optional(String),
-            returnExpected: Match.Optional(Boolean),
             isHistory: Match.Optional(Boolean),
         });
 
@@ -632,7 +630,6 @@ Meteor.methods({
             bizDaysLookbackForHistory = 500,
             emailResults = false,
             emailPostfix = "",
-            returnExpected = false,
             isHistory = false,
         } = options;
 
@@ -652,7 +649,6 @@ Meteor.methods({
             includeHistory,
             bizDaysLookbackForHistory,
             emailResults,
-            returnExpected,
             isHistory,
             fileName,
         });
@@ -702,7 +698,7 @@ Meteor.methods({
                         $lte: Utils.convertToNumberDate(endDate),
                     },
                     ...companyConfirmedFilter,
-                    ...((returnExpected && emailResults) || isHistory
+                    ...(isHistory
                         ? {}
                         : {
                               asOf: {
@@ -756,11 +752,6 @@ Meteor.methods({
                 },
             ];
         }
-        if (advancePurchaseDays) {
-            // expectedReleasesQuery.insertedDate = {
-            //     $lte: momentBiz(startDate).businessAdd(-advancePurchaseDays).toDate(),
-            // };
-        }
 
         // these are the expected earnings releases within the requested date range
         const expectedEarningsReleases = await EarningsReleases.find(
@@ -783,91 +774,6 @@ Meteor.methods({
             EJSON.stringify(expectedReleasesQuery),
         );
 
-        if (returnExpected && emailResults) {
-            const pricesSet = new Set();
-            const prices = [];
-            const lookback = 5 + 265;
-            const lookahead = 15;
-
-            // todo: check this logic
-            /*
-            expectedEarningsReleases = expectedEarningsReleases.filter(e => {
-                const {
-                    insertedDateStr,
-                    asOf,
-                } = e;
-                const dateAfter = e.getSaleDate(0);
-
-                if (insertedDateStr) {
-                    return insertedDateStr <= dateAfter;
-                } else {
-                    return asOf <= Utils.businessAdd(dateAfter, 2);
-                }
-            });
-            */
-
-            for (const expectedRelease of expectedEarningsReleases) {
-                const dateBefore =
-                    expectedRelease.getPurchaseDate(advancePurchaseDays);
-                const dateAfter = expectedRelease.getSaleDate(0);
-
-                _.extend(expectedRelease, {
-                    dateBefore,
-                    dateAfter,
-                });
-
-                const symbol = expectedRelease.symbol;
-                for (const daysToAdd of _.range(-lookback, lookahead + 1)) {
-                    const dateString = Utils.businessAdd(dateBefore, daysToAdd);
-                    const key = `${symbol}_${dateString}`;
-                    if (pricesSet.has(key)) {
-                        continue;
-                    }
-
-                    pricesSet.add(key);
-
-                    const price = await ServerUtils.prices.getPriceOnDayNew({
-                        symbol,
-                        dateString,
-                        isStrict: false,
-                    });
-                    const vooPrice = await ServerUtils.prices.getPriceOnDayNew({
-                        symbol: "VOO",
-                        dateString,
-                    });
-
-                    prices.push({
-                        symbol,
-                        dateString,
-                        price,
-                        vooPrice,
-                    });
-                }
-            }
-
-            const uniqueReleases = _.uniq(
-                expectedEarningsReleases,
-                false,
-                (e) => {
-                    return `${e.symbol}_${e.dateBefore}`;
-                },
-            );
-
-            await ServerUtils.emailCSV(
-                uniqueReleases,
-                fileName,
-                fileName,
-                getEmailText(),
-            );
-            await ServerUtils.emailCSV(
-                prices,
-                fileName,
-                fileName + " prices",
-                getEmailText(),
-            );
-            return uniqueReleases;
-        }
-
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, "symbol"));
             const historicalRows = [];
@@ -875,9 +781,10 @@ Meteor.methods({
                 const result = await Meteor.callAsync(
                     "getEarningsAnalysis",
                     _.extend({}, options, {
-                        startDate: momentBiz(startDate)
-                            .businessAdd(-bizDaysLookbackForHistory)
-                            .format(YYYY_MM_DD),
+                        startDate: Utils.businessAdd(
+                            startDate,
+                            -bizDaysLookbackForHistory,
+                        ),
                         isRecursive: true,
                         symbol,
                         includeHistory: false,
@@ -904,12 +811,7 @@ Meteor.methods({
         const expectedMap = new Map();
         const uniqueExpectedEarningsReleases = expectedEarningsReleases.filter(
             (e) => {
-                const {
-                    symbol,
-                    asOf,
-                    reportDateNextFiscalQuarter,
-                    insertedDateStr,
-                } = e;
+                const { symbol, asOf, reportDateNextFiscalQuarter } = e;
 
                 if (expectedMap.has(symbol)) {
                     return false;
@@ -1059,12 +961,11 @@ Meteor.methods({
             // const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays + (isForecast ? 1 : 0));
             const purchaseDate = expectedE.getPurchaseDate(advancePurchaseDays);
             const saleDate1 = expectedE.getSaleDate(0);
-            const saleDate2 = momentBiz(saleDate1)
-                .businessAdd(saleDelayInDays)
-                .format(YYYY_MM_DD);
-            const saleDate3 = momentBiz(saleDate1)
-                .businessAdd(saleDelayInDaysFinal)
-                .format(YYYY_MM_DD);
+            const saleDate2 = Utils.businessAdd(saleDate1, saleDelayInDays);
+            const saleDate3 = Utils.businessAdd(
+                saleDate1,
+                saleDelayInDaysFinal,
+            );
 
             const vooPrices = await ServerUtils.prices.getAllPrices("VOO");
             const vooOpenPriceOnPurchaseDate =
@@ -1073,18 +974,14 @@ Meteor.methods({
                     purchaseDate,
                     "open",
                 );
-            const vooSMA50Date = momentBiz(purchaseDate)
-                .businessAdd(-50)
-                .format(YYYY_MM_DD);
+            const vooSMA50Date = Utils.businessAdd(purchaseDate, -50);
             const vooSMA50DaysAgo = Utils.stockPrices.getSimpleRollingPx(
                 vooPrices,
                 vooSMA50Date,
                 10,
                 !isForecast,
             );
-            const vooSMA200Date = momentBiz(purchaseDate)
-                .businessAdd(-200)
-                .format(YYYY_MM_DD);
+            const vooSMA200Date = Utils.businessAdd(purchaseDate, -200);
             const vooSMA200DaysAgo = Utils.stockPrices.getSimpleRollingPx(
                 vooPrices,
                 vooSMA200Date,
@@ -1133,14 +1030,14 @@ Meteor.methods({
                 saleDate3,
             );
 
-            const ratingChangesCutoffDate = momentBiz(purchaseDate)
-                .businessAdd(-ratingChangesDelayInDays)
-                .format(YYYY_MM_DD);
-            const ratingChangesEarliestDate = momentBiz(purchaseDate)
-                .businessAdd(
-                    -ratingChangesDelayInDays - ratingChangesLookbackInDays,
-                )
-                .format(YYYY_MM_DD);
+            const ratingChangesCutoffDate = Utils.businessAdd(
+                purchaseDate,
+                -ratingChangesDelayInDays,
+            );
+            const ratingChangesEarliestDate = Utils.businessAdd(
+                purchaseDate,
+                -ratingChangesDelayInDays - ratingChangesLookbackInDays,
+            );
             const ratingChanges = await ServerUtils.getLatestRatings(
                 symbol,
                 ratingChangesEarliestDate,
@@ -1196,16 +1093,14 @@ Meteor.methods({
                     priorSaleDate,
                     200,
                 );
-                const priorCutoffDateForRatingChanges = momentBiz(
+                const priorCutoffDateForRatingChanges = Utils.businessAdd(
                     priorPurchaseDate,
-                )
-                    .businessAdd(-ratingChangesDelayInDays)
-                    .format(YYYY_MM_DD);
-                const newRatingChangesStartDate = momentBiz(
+                    -ratingChangesDelayInDays,
+                );
+                const newRatingChangesStartDate = Utils.businessAdd(
                     priorCutoffDateForRatingChanges,
-                )
-                    .businessAdd(1)
-                    .format(YYYY_MM_DD);
+                    1,
+                );
                 const ratingChangesSinceLastEarningsRelease =
                     await ServerUtils.getLatestRatings(
                         symbol,
@@ -1288,15 +1183,6 @@ Meteor.methods({
                 inc200SMA,
             };
             results.push(data);
-        }
-
-        if (emailResults && !includeHistory) {
-            await ServerUtils.emailCSV(
-                ServerUtils.earningsReleases.processRowsForCSV(results),
-                fileName,
-                fileName,
-                getEmailText(),
-            );
         }
 
         return results;
