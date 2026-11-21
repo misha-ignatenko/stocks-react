@@ -1,4 +1,7 @@
 {
+  "name": "stocks-react",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
     "postinstall": "node -e \"var f=require.resolve('react-router/package.json'),fs=require('fs'),p=JSON.parse(fs.readFileSync(f,'utf8'));if(p.module){delete p.module;fs.writeFileSync(f,JSON.stringify(p,null,2)+'\\\\n');console.log('postinstall: removed top-level module field from react-router (Meteor workaround)')}\"",
     "format": "prettier --write .",
