@@ -419,13 +419,7 @@ export const ServerUtils = {
         },
     },
     earningsReleases: {
-        async getHistory(
-            symbol,
-            startDateStr,
-            endDateStr,
-            returnOnlyReportDates = false,
-            returnObjects = false,
-        ) {
+        async getHistory(symbol, startDateStr, endDateStr) {
             const validRecordsQuery = {
                 symbol,
                 currencyCode: { $nin: ["CND"] },
@@ -443,48 +437,28 @@ export const ServerUtils = {
                 Utils.companyConfirmedQuery,
             );
 
-            if (returnObjects) {
-                const deduplicationSet = new Set();
+            const deduplicationSet = new Set();
 
-                return (
-                    await EarningsReleases.find(query, {
-                        fields: {
-                            reportDateNextFiscalQuarter: 1,
-                            endDateNextFiscalQuarter: 1,
-                        },
-                        sort: {
-                            reportDateNextFiscalQuarter: 1,
-                        },
-                    }).fetchAsync()
-                ).filter((e) => {
-                    const stringified = EJSON.stringify(
-                        _.pick(e, [
-                            "reportDateNextFiscalQuarter",
-                            "endDateNextFiscalQuarter",
-                        ]),
-                    );
+            return (
+                await EarningsReleases.find(query, {
+                    fields: {
+                        reportDateNextFiscalQuarter: 1,
+                        endDateNextFiscalQuarter: 1,
+                    },
+                    sort: {
+                        reportDateNextFiscalQuarter: 1,
+                    },
+                }).fetchAsync()
+            ).filter((e) => {
+                const key = `${e.reportDateNextFiscalQuarter}_${e.endDateNextFiscalQuarter}`;
 
-                    if (deduplicationSet.has(stringified)) {
-                        return false;
-                    }
+                if (deduplicationSet.has(key)) {
+                    return false;
+                }
 
-                    deduplicationSet.add(stringified);
-                    return true;
-                });
-            }
-
-            const relevantReportDates = _.sortBy(
-                await EarningsReleases.rawCollection().distinct(
-                    "reportDateNextFiscalQuarter",
-                    query,
-                ),
-                _.identity,
-            );
-
-            // may return incorrect dates
-            if (returnOnlyReportDates) {
-                return relevantReportDates;
-            }
+                deduplicationSet.add(key);
+                return true;
+            });
         },
         getAdjustedEps(rawData, adjustments, reportDate, fields) {
             // need to adjust old eps measurements, prior to adj date

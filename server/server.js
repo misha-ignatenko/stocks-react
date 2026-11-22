@@ -732,8 +732,6 @@ Meteor.methods({
                         s,
                         startDateForHistory,
                         endDate,
-                        false,
-                        true,
                     );
                 const lastQuarter = _.max(
                     _.pluck(reportDates, "endDateNextFiscalQuarter"),
