@@ -598,7 +598,6 @@ Meteor.methods({
             isForecast: Match.Maybe(Boolean),
             advancePurchaseDays: Match.Maybe(Number),
             symbol: Match.Optional(String),
-            isRecursive: Match.Optional(Boolean),
             includeHistory: Match.Optional(Boolean),
             bizDaysLookbackForHistory: Match.Optional(Number),
             emailResults: Match.Optional(Boolean),
@@ -624,7 +623,6 @@ Meteor.methods({
             isForecast = false,
             advancePurchaseDays = 0,
             symbol,
-            isRecursive = false,
             includeHistory = false,
             bizDaysLookbackForHistory = 500,
             emailResults = false,
@@ -643,45 +641,11 @@ Meteor.methods({
             isForecast,
             advancePurchaseDays,
             symbol,
-            isRecursive,
             includeHistory,
             bizDaysLookbackForHistory,
             emailResults,
             fileName,
         });
-
-        if (symbol && isRecursive) {
-            const reportDates = await ServerUtils.earningsReleases.getHistory(
-                symbol,
-                startDate,
-                endDate,
-                false,
-                true,
-            );
-            const lastQuarter = _.max(
-                _.pluck(reportDates, "endDateNextFiscalQuarter"),
-            );
-            const results = [];
-            for (const {
-                reportDateNextFiscalQuarter: reportDate,
-                endDateNextFiscalQuarter: quarter,
-            } of reportDates) {
-                const dateString = Utils.convertToStringDate(reportDate);
-                const isLastReportDate = quarter === lastQuarter;
-                const result = await Meteor.callAsync(
-                    "getEarningsAnalysis",
-                    _.extend({}, options, {
-                        isRecursive: false,
-                        startDate: dateString,
-                        endDate: dateString,
-                        isForecast: isForecast && isLastReportDate,
-                        emailResults: false,
-                    }),
-                );
-                results.push(...result);
-            }
-            return results;
-        }
 
         const validRatingScaleIDsMap =
             await ServerUtils.getNumericRatingScalesMap();
@@ -757,22 +721,43 @@ Meteor.methods({
 
         if (includeHistory) {
             const symbols = _.uniq(_.pluck(expectedEarningsReleases, "symbol"));
+            const startDateForHistory = Utils.businessAdd(
+                startDate,
+                -bizDaysLookbackForHistory,
+            );
             const historicalRows = [];
-            for (const symbol of symbols) {
-                const result = await Meteor.callAsync(
-                    "getEarningsAnalysis",
-                    _.extend({}, options, {
-                        startDate: Utils.businessAdd(
-                            startDate,
-                            -bizDaysLookbackForHistory,
-                        ),
-                        isRecursive: true,
-                        symbol,
-                        includeHistory: false,
-                        emailResults: false,
-                    }),
+            for (const s of symbols) {
+                const reportDates =
+                    await ServerUtils.earningsReleases.getHistory(
+                        s,
+                        startDateForHistory,
+                        endDate,
+                        false,
+                        true,
+                    );
+                const lastQuarter = _.max(
+                    _.pluck(reportDates, "endDateNextFiscalQuarter"),
                 );
-                historicalRows.push(...result);
+
+                for (const {
+                    reportDateNextFiscalQuarter: reportDate,
+                    endDateNextFiscalQuarter: quarter,
+                } of reportDates) {
+                    const dateString = Utils.convertToStringDate(reportDate);
+                    const isLastReportDate = quarter === lastQuarter;
+                    const result = await Meteor.callAsync(
+                        "getEarningsAnalysis",
+                        _.extend({}, options, {
+                            symbol: s,
+                            startDate: dateString,
+                            endDate: dateString,
+                            isForecast: isForecast && isLastReportDate,
+                            emailResults: false,
+                            includeHistory: false,
+                        }),
+                    );
+                    historicalRows.push(...result);
+                }
             }
 
             if (emailResults) {
