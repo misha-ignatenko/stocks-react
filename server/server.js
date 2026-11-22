@@ -734,23 +734,25 @@ Meteor.methods({
         }
 
         if (symbol) {
-            expectedReleasesQuery.symbol = symbol;
+            expectedReleasesQuery.$and.push({ symbol });
         }
         if (isForecast) {
-            expectedReleasesQuery.$or = [
-                {
-                    reportDateNextFiscalQuarter:
-                        Utils.convertToNumberDate(startDate),
-                    // after market close
-                    reportTimeOfDayCode: { $in: [1] },
-                },
-                {
-                    reportDateNextFiscalQuarter:
-                        Utils.convertToNumberDate(endDate),
-                    // before or during open
-                    reportTimeOfDayCode: { $in: [2, 3] },
-                },
-            ];
+            expectedReleasesQuery.$and.push({
+                $or: [
+                    {
+                        reportDateNextFiscalQuarter:
+                            Utils.convertToNumberDate(startDate),
+                        // after market close
+                        reportTimeOfDayCode: { $in: [1] },
+                    },
+                    {
+                        reportDateNextFiscalQuarter:
+                            Utils.convertToNumberDate(endDate),
+                        // before or during open
+                        reportTimeOfDayCode: { $in: [2, 3] },
+                    },
+                ],
+            });
         }
 
         // these are the expected earnings releases within the requested date range
