@@ -603,7 +603,6 @@ Meteor.methods({
             bizDaysLookbackForHistory: Match.Optional(Number),
             emailResults: Match.Optional(Boolean),
             emailPostfix: Match.Optional(String),
-            isHistory: Match.Optional(Boolean),
         });
 
         await ServerUtils.runPremiumCheck(this);
@@ -630,7 +629,6 @@ Meteor.methods({
             bizDaysLookbackForHistory = 500,
             emailResults = false,
             emailPostfix = "",
-            isHistory = false,
         } = options;
 
         const fileName = `${startDate}_${endDate}_${advancePurchaseDays + saleDelayInDays}_${saleDelayInDaysFinal}-${emailPostfix}.csv`;
@@ -649,7 +647,6 @@ Meteor.methods({
             includeHistory,
             bizDaysLookbackForHistory,
             emailResults,
-            isHistory,
             fileName,
         });
 
@@ -679,7 +676,6 @@ Meteor.methods({
                         endDate: dateString,
                         isForecast: isForecast && isLastReportDate,
                         emailResults: false,
-                        isHistory: true,
                     }),
                 );
                 results.push(...result);
@@ -698,40 +694,23 @@ Meteor.methods({
                         $lte: Utils.convertToNumberDate(endDate),
                     },
                     ...companyConfirmedFilter,
-                    ...(isHistory
-                        ? {}
-                        : {
-                              asOf: {
-                                  // allow 1 more day, because legacy earnings releases do not have
-                                  // `insertedDate` and their `asOf` gets moved to the next
-                                  // day right after release if latest release isn't in the API yet
-                                  $lte: Utils.businessAdd(endDate, 2),
-                              },
-                          }),
-
                     ...nonCanadaFilter,
+                },
+                {
+                    // point-in-time: snapshots first seen by endDate. legacy releases lack
+                    // `insertedDateStr`, so fall back to `asOf`, allowing 2 extra days because
+                    // their `asOf` moves to the next day right after release if the latest
+                    // release isn't in the API yet
+                    $or: [
+                        { insertedDateStr: { $lte: endDate } },
+                        {
+                            insertedDateStr: { $exists: false },
+                            asOf: { $lte: Utils.businessAdd(endDate, 2) },
+                        },
+                    ],
                 },
             ],
         };
-
-        if (isHistory) {
-            /**
-             * legacy earnings releases do not have `insertedDate` or `insertedDateStr`, so i need a proxy
-             * based on the `asOf` date.
-             */
-            const insertedBeforeEndDateOrLegacyQuery = {
-                $or: [
-                    {
-                        insertedDateStr: { $lte: endDate },
-                    },
-                    {
-                        insertedDateStr: { $exists: false },
-                        asOf: { $lte: Utils.businessAdd(endDate, 2) },
-                    },
-                ],
-            };
-            expectedReleasesQuery.$and.push(insertedBeforeEndDateOrLegacyQuery);
-        }
 
         if (symbol) {
             expectedReleasesQuery.$and.push({ symbol });
